@@ -6,7 +6,7 @@ import rw from './locale/rw.json';
 
 export const resources ={
     en:{translation:en},
-    rw:{translation: rw},
+    rw:{translation:rw},
 } as const;
 
 export const supportedLanguages = ['en','rw'] as const;

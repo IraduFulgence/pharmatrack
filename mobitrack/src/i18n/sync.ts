@@ -14,4 +14,11 @@ export function syncLanguageWithI18n(){
             i18n.changeLanguage(state.language);
         }
     });
+
+    const unsubscribe = useLanguageStore.subscribe((state) => {
+    if (i18n.language !== state.language) {
+      i18n.changeLanguage(state.language);
+    }
+  });
+  return unsubscribe;
 }

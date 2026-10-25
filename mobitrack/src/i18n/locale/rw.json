@@ -1,1 +1,11 @@
-{}
+{
+    "welcome":{
+        "skipText":"Simbuka",
+        "nearYou":"Hafi Yawe",
+        "heading":"Ubuvuzi  hafi yawe",
+        "paragraph":"Shaka farumasi zikwegereye, zifite imiti ushaka, izikiri gukora ndetse ubone icyerekezo",
+        "button":"Komeza",
+        "Open":"Irafunguye",
+        "Close":"Ifunga"
+    }
+}

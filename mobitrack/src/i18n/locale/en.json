@@ -1,1 +1,11 @@
-{}
+{
+    "welcome":{
+        "skipText":"Skip",
+        "nearYou":"Near You",
+        "heading":"Care is closer near you",
+        "paragraph":"Find trusted pharmacies nearby, see opening hours, search medicines and get directions",
+        "button":"Continue",
+        "Open":"Open now",
+        "Close":"Closes"
+    }
+}

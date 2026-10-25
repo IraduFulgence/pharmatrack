@@ -1,7 +1,7 @@
 import {create} from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import {getLocales} from 'expo-localization';
-
+import i18next from 'i18next';
 const LANGUAGE_KEY = 'pharmatrack_language';
 
 export type Language ='en'| 'rw';
@@ -37,7 +37,7 @@ export const useLanguageStore = create<LanguageState>((set)=>({
     hydrate: async () => {
         try {
            const stored = await SecureStore.getItemAsync(LANGUAGE_KEY);
-           if (stored === 'en' || stored ==='rw') {
+           if (stored === 'en' || stored === 'rw' ) {
             set({language:stored, isHydrating:false});
            } else {
              set({language: detectDefaultLanguage(),isHydrating:false});
