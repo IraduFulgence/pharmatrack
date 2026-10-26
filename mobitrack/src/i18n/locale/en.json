@@ -7,5 +7,38 @@
         "button":"Continue",
         "Open":"Open now",
         "Close":"Closes"
+    },
+    "auth":{
+        "login":{
+            "header":"Welcome back",
+            "subheader":"Search and get your treatment",
+            "signIn":"Sign in",
+            "createAccount":"Create account",
+            "Or":"or continue with phone number",
+            "phone":"Phone number",
+            "password":"Password",
+            "Remember":"Remember me",
+            "Forgot":"Forgot password?",
+            "Passwordplaceholder":"Enter your password"
+        },
+        "signup":{
+            "header":"Join Pharmatrack",
+            "subheader":"Better care starts nearby",
+            "Fullname":"Full name",
+            "Age":"Your age",
+            "Gender":"Gender",
+            "NId":"National ID",
+            "Email":"Email address",
+            "Phone":"Phone number",
+            "password":"Password",
+            "fullnamePlaceholder":"Your full name",
+            "AgePlaceholder":"Your age",
+            "NidPlaceholder":"Your national ID number",
+            "emailPlaceholder":"you@example.com",
+            "passwordPlaceholder":"At least 6 characters",
+            "terms":"By continuing, you agree to our terms and conditions",
+            "button":"Create my account"
+        }
     }
+    
 }

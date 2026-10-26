@@ -4,10 +4,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { LanguageSwitcher } from "@/components/language/languageswitche";
 import { useTranslation } from "react-i18next";
 
+import { useOnboardingStore } from "@/hooks/onBoarding";
 const {width, height} = Dimensions.get('window');
+
+
+
 export default function FirstScreen(){
 const rwanda = require('../../assets/images/rwanda.webp');
+const completeOnboarding = useOnboardingStore((state) =>state.completeOnboarding);
 
+const handleContinue = async () =>{
+  await completeOnboarding();
+}
 const {t} = useTranslation();
     return (
         <SafeAreaView style={styles.container}>
@@ -83,15 +91,8 @@ const {t} = useTranslation();
           {t('welcome.paragraph')}
         </Text>
 
-        {/* Pagination Dots */}
-        <View style={styles.pagination}>
-          <View style={[styles.dot, styles.activeDot]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-        </View>
-
         {/* Bottom Button */}
-        <TouchableOpacity style={styles.button}>
+        <TouchableOpacity onPress={handleContinue} style={styles.button}>
           <Text style={styles.buttonText}>{t('welcome.button')}</Text>
           <Ionicons name="arrow-forward" size={18} color="white" style={styles.buttonIcon} />
         </TouchableOpacity>

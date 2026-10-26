@@ -7,5 +7,37 @@
         "button":"Komeza",
         "Open":"Irafunguye",
         "Close":"Ifunga"
+    },
+    "auth":{
+        "login":{
+            "header":"Ikaze",
+            "subheader":"Shaka ndetse ubone imiti",
+            "signIn":"Injira",
+            "createAccount":"Fungura konti",
+            "Or":"cyangwa ukoreshe nimero",
+            "phone":"Nimero ya telefoni",
+            "password":"Ijambo banga",
+            "Remember":"Nyibuka",
+            "Forgot":"wibagiwe ijambo banga?",
+            "Passwordplaceholder":"shyiramo ijambo banga"
+        },
+        "signup":{
+            "header":"Ikaze kuri Pharmatrack",
+            "subheader":"Ubuvuzi bwiza, hafi yawe",
+            "Fullname":"Amazina yombi",
+            "Age":"Imyaka yawe",
+            "Gender":"Igitsina",
+            "NId":"Irangamuntu",
+            "Email":"Emeyili",
+            "Phone":"Nimero ya telefoni",
+            "password":"Password",
+            "fullnamePlaceholder":"Amazina yawe yombi",
+            "AgePlaceholder":"Imyaka yawe",
+            "NidPlaceholder":"Irangamuntu yawe",
+            "emailPlaceholder":"you@example.com",
+            "passwordPlaceholder":"byibuze inyuguti 6",
+            "terms":"Mugukomeza, wemeye amategeko n'amabwiriza",
+            "button":"Fungura konti yange"
+        }
     }
 }
