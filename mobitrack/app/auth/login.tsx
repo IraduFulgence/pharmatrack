@@ -8,7 +8,7 @@ import { StyleSheet,Platform,
     TouchableOpacity
 
  } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/language/languageswitche";
@@ -18,11 +18,16 @@ export default function LoginScreen(){
     const router = useRouter();
     const {t} = useTranslation();
     const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin')
-    const [email, setEmail] = useState('');
+    
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [phone, setPhone] = useState('');
+
+    const handleSwitch = () =>{
+
+        router.replace('/auth/register');
+    }
 
 
 
@@ -81,7 +86,7 @@ return(
                     </TouchableOpacity>
                                   <TouchableOpacity 
                 style={[styles.tab, activeTab === 'signup' && styles.activeTab]}
-                onPress={() => setActiveTab('signup')}
+                onPress={handleSwitch}
               >
                 <Text style={[styles.tabText, activeTab === 'signup' && styles.activeTabText]}>
                   {t('auth.login.createAccount')}

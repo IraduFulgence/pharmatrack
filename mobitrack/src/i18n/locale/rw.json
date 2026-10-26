@@ -37,7 +37,9 @@
             "emailPlaceholder":"you@example.com",
             "passwordPlaceholder":"byibuze inyuguti 6",
             "terms":"Mugukomeza, wemeye amategeko n'amabwiriza",
-            "button":"Fungura konti yange"
+            "button":"Fungura konti yange",
+            "genderlabelMale":"Gabo",
+            "genderlabelFeMale":"Gore"
         }
     }
 }

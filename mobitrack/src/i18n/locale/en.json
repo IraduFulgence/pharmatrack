@@ -37,7 +37,9 @@
             "emailPlaceholder":"you@example.com",
             "passwordPlaceholder":"At least 6 characters",
             "terms":"By continuing, you agree to our terms and conditions",
-            "button":"Create my account"
+            "button":"Create my account",
+            "genderlabelMale":"Male",
+            "genderlabelFeMale":"Female"
         }
     }
     
