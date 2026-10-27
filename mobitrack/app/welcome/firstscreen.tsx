@@ -1,9 +1,8 @@
 import { View, Text, StyleSheet, Image,TouchableOpacity, SafeAreaView,Dimensions,Platform } from "react-native";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { LanguageSwitcher } from "@/components/language/languageswitche";
 import { useTranslation } from "react-i18next";
-
+import { router, useRouter } from "expo-router";
 import { useOnboardingStore } from "@/hooks/onBoarding";
 const {width, height} = Dimensions.get('window');
 
@@ -14,7 +13,7 @@ const rwanda = require('../../assets/images/rwanda.webp');
 const completeOnboarding = useOnboardingStore((state) =>state.completeOnboarding);
 
 const handleContinue = async () =>{
-  await completeOnboarding();
+  router.replace('/welcome/secondscreen');
 }
 const {t} = useTranslation();
     return (
