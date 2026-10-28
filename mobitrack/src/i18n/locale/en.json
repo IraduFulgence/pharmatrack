@@ -48,10 +48,13 @@
             "NidPlaceholder":"Your national ID number",
             "emailPlaceholder":"you@example.com",
             "passwordPlaceholder":"At least 6 characters",
-            "terms":"By continuing, you agree to our terms and conditions",
+            "terms":"By continuing, you agree to our",
             "button":"Create my account",
             "genderlabelMale":"Male",
-            "genderlabelFeMale":"Female"
+            "genderlabelFeMale":"Female",
+            "termsLabel":"terms",
+            "condition":"privacy policy",
+            "And":"and"
         }
     }
     

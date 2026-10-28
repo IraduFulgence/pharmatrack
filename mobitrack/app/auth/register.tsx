@@ -1,20 +1,19 @@
 import { StyleSheet,Platform,
     ScrollView,
-    SafeAreaView,
     View,
     Text,
     TextInput,
     KeyboardAvoidingView,
-    TouchableOpacity
+    TouchableOpacity,
+    
 
  } from "react-native";
 
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitcher } from "@/components/language/languageswitche";
 import { FontAwesome5,AntDesign,Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-
+import AuthHeader from "@/components/topheader/auth_header";
 
 
 export default function RegisterScreen(){
@@ -34,6 +33,9 @@ export default function RegisterScreen(){
 
     const handleSwitch = () =>{
         router.replace('/auth/login');
+    }
+    const handleSubmit = async () =>{
+      router.replace('/auth/aftersignup');
     }
 
 const renderRadioOption = (label: string, value: 'male' | 'female') => {
@@ -59,33 +61,7 @@ return(
         <View style={styles.container}>
 
             {/* header */}
-            <View style={styles.header}>
-             <SafeAreaView>
-                <View style ={styles.logoContainer}>
-                    <View style={styles.logoIcon}>
-                    <FontAwesome5 name='plus' size={14} color='#206B5F' />
-                    </View>
-                    <Text style={styles.logoText}>
-                        Pharmatrack
-                    </Text>
-                    
-                    <View style={styles.language}>
-                        <LanguageSwitcher compact />
-                    </View>
-                     
-                   
-                </View>
-                <View style={styles.headerTextContainer}>
-                    <Text style={styles.overline}>
-                        {t('auth.signup.header')}
-                    </Text>
-                    <Text style={styles.title}>
-                        {t('auth.signup.subheader')}
-                    </Text>
-
-                </View>
-             </SafeAreaView>
-            </View>
+            <AuthHeader />
             {/* end of header  */}
 
             <KeyboardAvoidingView
@@ -152,19 +128,7 @@ return(
                 />
               </View>
             </View>
-             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('auth.signup.NId')}</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="people" size={20} color="#98A2B3" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder={t('auth.signup.NidPlaceholder')}
-                  placeholderTextColor="#98A2B3"
-                  value={Nid}
-                  onChangeText={setNid}
-                />
-              </View>
-            </View>
+             
 
              <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('auth.signup.Age')}</Text>
@@ -241,13 +205,16 @@ return(
             <View style={styles.optionsRow}>
               
               
-              <TouchableOpacity>
-                <Text style={styles.forgotText}>{t('auth.signup.terms')}</Text>
+              <TouchableOpacity style={{flexDirection:'row',}}>
+                <Text style={styles.forgotText}>{t('auth.signup.terms')} {' '}</Text>
+                <Text style={styles.TermsText}>{t('auth.signup.termsLabel')} {' '}</Text>
+                <Text style={styles.forgotText}>{t('auth.signup.And')} {' '}</Text>
+                <Text style={styles.TermsText}>{t('auth.signup.condition')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Submit Button */}
-            <TouchableOpacity style={styles.submitButton} >
+            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} >
               <Text style={styles.submitButtonText}>{t('auth.signup.button')}</Text>
               <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
             </TouchableOpacity>
@@ -265,54 +232,7 @@ const styles = StyleSheet.create({
         flex:1,
         backgroundColor:'#F8F9F9',
     },
-    // header styles
-    header:{
-        backgroundColor:'#2A4E44',
-        height:'30%',
-        paddingHorizontal:20,
-        position:'relative',
-        overflow:'hidden',
-     },
-
-     language:{
-        paddingLeft: Platform.OS ==='android' ? 100 :80,
-     },
     
-  logoContainer:{
-    flexDirection: 'row',
-    alignItems:'center',
-    marginTop: Platform.OS === 'android' ? 40 :40,
-  },
-  logoIcon:{
-    backgroundColor:'A8D5C8',
-   width: 24,
-    height: 24,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  logoText:{
-    fontSize:18,
-    fontWeight:'700',
-    color: 'white',
-  },
-  headerTextContainer: {
-    marginTop: 40,
-  },
-  overline: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: 'white',
-    lineHeight: 42,
-  },
 formWrapper: {
     flex: 1,
     marginTop: -30, 
@@ -470,10 +390,15 @@ formWrapper: {
   },
   forgotText: {
     fontSize: 13,
+    fontWeight: '400',
+    color: '#000000',
+  },
+   TermsText: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#2A7B6F',
+    textTransform:'capitalize'
   },
-
   
   submitButton: {
     backgroundColor: '#206B5F',

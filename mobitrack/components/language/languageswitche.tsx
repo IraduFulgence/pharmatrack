@@ -45,7 +45,7 @@ export function LanguageSwitcher({compact = false}: Props){
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    
     borderRadius: 10,
     padding: 4,
     alignSelf: 'center',
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#FFF',
   },
   labelActive: {
     color: '#FFFFFF',

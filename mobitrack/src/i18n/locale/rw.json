@@ -48,10 +48,13 @@
             "NidPlaceholder":"Irangamuntu yawe",
             "emailPlaceholder":"you@example.com",
             "passwordPlaceholder":"byibuze inyuguti 6",
-            "terms":"Mugukomeza, wemeye amategeko n'amabwiriza",
+            "terms":"Mugukomeza, wemeye ",
             "button":"Fungura konti yange",
             "genderlabelMale":"Gabo",
-            "genderlabelFeMale":"Gore"
+            "genderlabelFeMale":"Gore",
+             "termsLabel":"Amategeko",
+            "condition":"Amabwiriza",
+            "And":"n'"
         }
     }
 }
