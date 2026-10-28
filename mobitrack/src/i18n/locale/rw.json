@@ -6,7 +6,19 @@
         "paragraph":"Shaka farumasi zikwegereye, zifite imiti ushaka, izikiri gukora ndetse ubone icyerekezo",
         "button":"Komeza",
         "Open":"Irafunguye",
-        "Close":"Ifunga"
+        "Close":"Ifunga",
+        "secondScreen":{
+            "quick":"Byihuse",
+            "reliable":"Byizewe",
+            "track":"Shakisha",
+            "medicineMessage":"Shakisha imiti yawe munsi y'iminota 3",
+            "create":"Fungura konti",
+            "ready":"Witeguye gufungura konti?",
+            "createMessage":"Fungura konti ubashe kubona farumasi zikwegereye.",
+            "button":"Fungura konti",
+            "buttomMessage":"Ufite konti?",
+            "signinMessage":"Injira"
+        }
     },
     "auth":{
         "login":{

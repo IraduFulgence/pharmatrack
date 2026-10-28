@@ -6,7 +6,19 @@
         "paragraph":"Find trusted pharmacies nearby, see opening hours, search medicines and get directions",
         "button":"Continue",
         "Open":"Open now",
-        "Close":"Closes"
+        "Close":"Closes",
+        "secondScreen":{
+            "quick":"Quick",
+            "reliable":"Reliable",
+            "track":"Track",
+            "medicineMessage":"Search for medicines in less than 3min",
+            "create":"Create Account",
+            "ready":"Ready to create account?",
+            "createMessage":"First create an account to access the nearby pharmacies.",
+            "button":"Create account",
+            "buttomMessage":"Already have an account?",
+            "signinMessage":"Sign In"
+        }
     },
     "auth":{
         "login":{

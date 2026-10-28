@@ -22,7 +22,7 @@ export default function RootLayout() {
     //Load saved language from SecureStore
     hydrate(); 
     // check if user has seen welcome secreen
-    //checkOnboardingStatus();
+    checkOnboardingStatus();
     //Start listening for language changes
     const unsubscribe = syncLanguageWithI18n();
 
@@ -34,27 +34,27 @@ export default function RootLayout() {
   // we check and route accordingly
     
 
-    // useEffect(() =>{
-    //   if(isLoading) return;
+    useEffect(() =>{
+      if(isLoading) return;
 
-    //      const current = segments[0];
+         const current = segments[0];
 
-    //   const inWelcomeScreen = current === 'welcome';
-    //   const inLoginScreen = current ==='auth'
-    //   if (!hasSeenWelcome && !inWelcomeScreen) {
-    //      router.replace('/welcome/firstscreen');
-    //   } else if(hasSeenWelcome && inWelcomeScreen) {
-    //     router.replace('/auth/login');
-    //   }
-    // },[hasSeenWelcome, isLoading, segments]);
+      const inWelcomeScreen = current === 'welcome';
+      const inLoginScreen = current ==='auth'
+      if (!hasSeenWelcome && !inWelcomeScreen) {
+         router.replace('/welcome/firstscreen');
+      } else if(hasSeenWelcome && inWelcomeScreen) {
+        router.replace('/auth/login');
+      }
+    },[hasSeenWelcome, isLoading, segments]);
 
-    // if(isLoading){
-    //   return (
-    //     <View style={styles.loading}> 
-    //       <ActivityIndicator size='large' color='#2A7B6F' />
-    //     </View>
-    //   )
-    // }
+    if(isLoading){
+      return (
+        <View style={styles.loading}> 
+          <ActivityIndicator size='large' color='#2A7B6F' />
+        </View>
+      )
+    }
   return (
     <Stack screenOptions={{headerShown:false}}>
        <Stack.Screen name="welcome" />

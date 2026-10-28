@@ -4,6 +4,7 @@ import { LanguageSwitcher } from "@/components/language/languageswitche";
 import { useTranslation } from "react-i18next";
 import { router, useRouter } from "expo-router";
 import { useOnboardingStore } from "@/hooks/onBoarding";
+import GuestHeader from "@/components/topheader/header";
 const {width, height} = Dimensions.get('window');
 
 
@@ -19,20 +20,7 @@ const {t} = useTranslation();
     return (
         <SafeAreaView style={styles.container}>
       {/* --- header --- */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <FontAwesome5 name="plus" size={14} color="white" />
-          </View>
-          <Text style={styles.logoText}>Pharmatrack</Text>
-        </View>
-        <View style={styles.headerRight}>
-            <TouchableOpacity>
-          <Text style={styles.skipText}>{t('welcome.skipText')}</Text>
-        </TouchableOpacity>
-        <LanguageSwitcher compact />
-        </View>
-      </View>
+        <GuestHeader />
       {/* end of header section */}
 
       {/* --- map section --- */}
@@ -105,41 +93,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9F9', 
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 40: 10,
-    paddingBottom: 20,
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoIcon: {
-    backgroundColor: '#2A7B6F',
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F2926',
-  },
-  skipText: {
-    color: '#667085',
-    fontSize: 15,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
+  
   mapSection:{
     flex:1.2,
     paddingHorizontal:20,

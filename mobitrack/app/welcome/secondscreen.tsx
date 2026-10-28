@@ -1,35 +1,33 @@
+import { FontAwesome5 } from "@expo/vector-icons";
 
-import { LanguageSwitcher } from "@/components/language/languageswitche";
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-
-import { View, StyleSheet, Text, Platform, SafeAreaView, Image
+import { View, StyleSheet, Text, Platform, SafeAreaView, ScrollView, TouchableOpacity
 
 } from "react-native";
-
+ import GuestHeader from "@/components/topheader/header";
 import { useTranslation } from "react-i18next";
-const logo = require('../../assets/images/logo.png');
+import { useOnboardingStore } from "@/hooks/onBoarding";
+
 export default function SecondScreen(){
 
     const {t} = useTranslation();
+    const completeonBoarding = useOnboardingStore((state)=> state.completeOnboarding);
+    const handleContinue = async () =>{
+        await completeonBoarding();
+    }
 
+    const handleSignIn = async ()=>{
+        await completeonBoarding();
+    }
     return(
         <SafeAreaView style={styles.container}>
            {/* start of header section */}
-            <View style={styles.header}>
-                <View style={styles.logoContainer}>
-                    <View>
-                    <Image source={logo} style={styles.logoImage} />
-                    </View>
-                    <Text style={styles.logoText}>
-                        Pharmatrack
-                    </Text>
-                </View>
-                <View style={styles.headerRight}>
-                    <Text style={styles.skipText}>{t('welcome.skipText')}</Text>
-                    <LanguageSwitcher compact />
-                </View>
-            </View>
+            <GuestHeader />
            {/* end of header section */}
+        <ScrollView style={styles.scrollView}
+         contentContainerStyle={styles.scrollcontent}
+         showsVerticalScrollIndicator={false}
+         bounces={false}
+        >
 
             {/* start of hero card */}
             <View style={styles.herocontainer}>
@@ -44,25 +42,60 @@ export default function SecondScreen(){
                     <View style={styles.statsCard}>
                         <View style={styles.statItems}>
                             <View style={styles.bullet} />
-                            <Text style={styles.statText}>Quick</Text>
+                            <Text style={styles.statText}>{t('welcome.secondScreen.track')}</Text>
                         </View>
                         <View style={styles.statItems}>
                             <View style={styles.bullet} />
-                            <Text style={styles.statText}>Reliable</Text>
+                            <Text style={styles.statText}>{t('welcome.secondScreen.quick')}</Text>
                         </View>
                         <View style={styles.statItems}>
                             <View style={styles.bullet} />
-                            <Text style={styles.statText}>Track</Text>
+                            <Text style={styles.statText}>{t('welcome.secondScreen.reliable')}</Text>
                         </View>
                     </View>
                {/* end of stats card */}
                <View style={styles.searchDiv}>
                     <FontAwesome5 name="clock" size={18} />
-                    <Text style={styles.searchBadgeText}>Search for  medicines in less than 3min </Text>
+                    <Text style={styles.searchBadgeText}>{t('welcome.secondScreen.medicineMessage')} </Text>
                </View>
             </View>
             {/* end of hero card */}
+            {/* start of content area */}
+                <View style={styles.contentContainer}>
+                    <Text style={styles.headTitle}>{t('welcome.secondScreen.create')}</Text>
+                    <Text style={styles.headerTitle}>{t('welcome.secondScreen.ready')}</Text>
 
+                    <Text style={styles.description}>
+                        {t('welcome.secondScreen.createMessage')}
+            </Text>
+                </View>
+            {/* end of content area */}
+            {/* start of bottom area */}
+                <View style={styles.bottomSection}>
+                    <TouchableOpacity style={styles.createButton}
+                    onPress={handleContinue}
+                    >
+                        <Text style={styles.createButtonText}> {t('welcome.secondScreen.button')}</Text>
+
+                        <FontAwesome5 name="arrow-right" color="white" size={21} />
+                    </TouchableOpacity>
+
+                    <View style={styles.signInRow}>
+            <Text style={styles.signInText}>
+              {t('welcome.secondScreen.buttomMessage')}{t(' ')}
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleSignIn}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={styles.signInLink}>{t('welcome.secondScreen.signinMessage')}</Text>
+            </TouchableOpacity>
+          </View>
+                </View>
+            {/* end of bottom area */}
+        </ScrollView>
 
         </SafeAreaView>
     );
@@ -76,45 +109,13 @@ const styles = StyleSheet.create({
         backgroundColor:'#FFFFFF'
 
     },
-    header:{
-        flexDirection:'row',
-        justifyContent:'space-between',
-        paddingTop: Platform.OS === 'android' ? 40 :undefined,
-        paddingHorizontal:24,
-        alignItems:'center',
-        paddingBottom:24
+    scrollView:{
+        flex:1
     },
-    logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoIcon: {
-    backgroundColor: '#2A7B6F',
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F2926',
-  },
-  skipText: {
-    color: '#667085',
-    fontSize: 15,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  logoImage:{
-        height:40,
-        width:50
-  },
+    scrollcontent:{
+        flexGrow:1,
+        paddingBottom:10
+    },
 
   herocontainer:{
     backgroundColor:'#2A4E44',
@@ -123,8 +124,8 @@ const styles = StyleSheet.create({
     paddingHorizontal:24,
     position:'relative',
     borderRadius:30,
-    marginRight:20,
-    marginLeft:20,
+    marginRight:10,
+    marginLeft:10,
    
   },
    featureCard: {
@@ -197,5 +198,79 @@ searchDiv:{
     color: '#176B57',
     flexShrink: 1,
   },
+contentContainer:{
+    marginTop:Platform.OS ==='android' ? 40 : undefined
+},
+headTitle:{
+    fontSize:13,
+    color:'#176B57',
+    fontWeight:'600',
+    textTransform:'uppercase',
+    marginLeft:17,
+    marginBottom:17
+
+},
+headerTitle:{
+    fontSize:27,
+    color:'#000000',
+    fontWeight:'700',
+    lineHeight:42,
+    letterSpacing: -0.6,
+    marginBottom: 12,
+    paddingHorizontal:20
+    
+},
+ description: {
+    fontSize: 18,
+    lineHeight: 30,
+    fontWeight: '500',
+    paddingHorizontal: 14,
+    letterSpacing: 0.5,
+  },
+
+   bottomSection: {
+    paddingTop: 90,
+    paddingBottom: 6,
+  },
+
+  createButton: {
+    minHeight: 57,
+    backgroundColor: '#176B57',
+    borderRadius: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginLeft:40,
+    marginRight:40
+
+  },
+
+  createButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  signInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 15,
+    marginBottom: 3,
+  },
+
+  signInText: {
+    fontSize: 14,
+    color: '#555555',
+  },
+
+  signInLink: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#176B57',
+  },
+
 
 })
