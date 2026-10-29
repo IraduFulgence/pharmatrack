@@ -1,15 +1,42 @@
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, SafeAreaView, Image, Platform, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, SafeAreaView, Image, Platform, TouchableOpacity, Alert } from "react-native";
 import { FontAwesome5 } from "@expo/vector-icons";
-import * as Location from 'expo-location';
+import { useLocation } from "@/hooks/useLocation";
+import { useRouter } from "expo-router";
+import { useEffect } from "react";
 const logo = require('../../assets/images/logo.png');
 export default function AfterSignupScreen(){
 
-    type coordinates ={
-        latitude:number,
-        longitude:number
-    }
-
+    const router = useRouter();
+    const {
+        location,
+        hasPermission,
+        errorMessage,
+        isLoading,
+        requestlocation,
+        openSetting
+    } = useLocation();
+   
+    // check if location is set
+    useEffect(()=>{
+        if(errorMessage){
+            Alert.alert('Location required', errorMessage,
+                [
+                    {text:"Cancel", style:'cancel'},
+                    {text:"Open Settings", onPress:openSetting}
+                ]
+            );
+        }
+    },[errorMessage]);
+//    get coordinates from granted location
+        useEffect(() =>{
+            if(location){
+                console.log("User Location found:", location.coords);
+            }
+        },[location]);
+        const handlerequest = async () =>{
+            await requestlocation();
+        }
     return(
         <SafeAreaView style={styles.container}>
             {/* logo section */}
@@ -37,7 +64,7 @@ export default function AfterSignupScreen(){
 
             
                   <TouchableOpacity style={styles.LocationButton}>
-                <Text style={styles.LocationButtonText}>
+                <Text style={styles.LocationButtonText} onPress={handlerequest}>
                     Enable Current Location
                 </Text>
                 <FontAwesome5 name="arrow-right" size={22} color="white" />
