@@ -37,6 +37,7 @@ export default function AfterSignupScreen(){
         },[location]);
         const handlerequest = async () =>{
             await requestlocation();
+            router.replace('/(tabs)/home');
         }
     return(
         <SafeAreaView style={styles.container}>
