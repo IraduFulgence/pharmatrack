@@ -7,6 +7,7 @@ function App() {
     <div className='min-h-screen w-full bg-white dark:bg-gray-950 transition-colors' >
       <Navbar />
       <Hero />
+      <WhyChooseUs />
     </div>
   )
 }
