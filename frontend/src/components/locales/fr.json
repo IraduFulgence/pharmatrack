@@ -1,0 +1,31 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "about": "À propos",
+    "howItWorks": "Comment ça marche",
+    "features": "Fonctionnalités",
+    "contact": "Contact",
+    "login": "Connexion",
+    "signUp": "S'inscrire"
+  },
+  "hero": {
+    "title1": "Trouver la disponibilité",
+    "title2": "des médicaments",
+    "title3": "Près de chez vous",
+    "desc": "Pharmatrack vous aide à trouver rapidement les pharmacies à proximité où vos médicaments prescrits sont disponibles. Gagnez du temps, évitez les déplacements inutiles et obtenez ce dont vous avez besoin plus rapidement.",
+    "feat1": "Trouver une pharmacie",
+    "feat2": "Vérifier la disponibilité",
+    "feat3": "Gagnez du temps et de l'argent",
+    "floating": "Pharmacies proches"
+  },
+  "why": {
+    "title": "Pourquoi choisir Pharmatrack ?",
+    "subtitle": "Conçu pour les patients, les pharmacies et des communautés en meilleure santé",
+    "card1_title": "Disponibilité en temps réel",
+    "card1_desc": "Voyez quelle pharmacie a le médicament en stock.",
+    "card2_title": "Recherche par localisation",
+    "card2_desc": "Trouvez une pharmacie près de chez vous avec la distance et la direction.",
+    "card3_title": "Gagnez du temps et de l'argent",
+    "card3_desc": "Évitez les déplacements inutiles et obtenez ce dont vous avez besoin plus rapidement."
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "nav": {
+    "home": "Ahabanza",
+    "about": "Ibyerekeye",
+    "howItWorks": "Uko bikora",
+    "features": "Ibiranga",
+    "contact": "Twandikire",
+    "login": "Injira",
+    "signUp": "Iyandikishe"
+  },
+  "hero": {
+    "title1": "Shakisha imiti",
+    "title2": "iboneka",
+    "title3": "Hafi yawe",
+    "desc": "Pharmatrack igufasha kubona vuba amafarumasi hafi aho imiti wandikiwe iboneka. Izigame igihe, wirinde ingendo zidakenewe, kandi ubone imiti ukeneye vuba.",
+    "feat1": "Shakisha farumasi",
+    "feat2": "Reba iboneka ako kanya",
+    "feat3": "Izigame igihe n'amafaranga",
+    "floating": "Amafarumasi hafi"
+  },
+  "why": {
+    "title": "Kuki wahitamo Pharmatrack?",
+    "subtitle": "Yakorewe abarwayi, amafarumasi n'abaturage b'ubuzima bwiza",
+    "card1_title": "Ibintu biboneka ako kanya",
+    "card1_desc": "Reba farumasi ifite imiti mu bubiko.",
+    "card2_title": "Gushakisha hashingiwe ku karere",
+    "card2_desc": "Shakisha farumasi hafi yawe hamwe n' intera n' icyerekezo.",
+    "card3_title": "Izigama igihe n'amafaranga",
+    "card3_desc": "Irinda ingendo zidakenewe kandi ubone ibyo ukeneye vuba."
+  }
+}

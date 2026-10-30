@@ -1,18 +1,12 @@
-import { useState } from 'react'
-
-import './App.css'
-
+import Navbar from './components/navbar';
+import Hero from './components/hero';
+import WhyChooseUs from './components/whyus';
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
-    <>
-      <section className=''>
-       
-      </section>
-
-     
-    </>
+    <div className='min-h-screen w-full bg-white dark:bg-gray-950 transition-colors' >
+      <Navbar />
+    </div>
   )
 }
 

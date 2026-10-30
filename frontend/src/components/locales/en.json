@@ -1,0 +1,31 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "howItWorks": "How it Works",
+    "features": "Features",
+    "contact": "Contact",
+    "login": "Login",
+    "signUp": "Sign Up"
+  },
+  "hero": {
+    "title1": "Find Medicine",
+    "title2": "Availability",
+    "title3": "Near you",
+    "desc": "Pharmatrack helps you quickly find nearby pharmacies where your prescribed medicine is available. Save time, avoid unnecessary travel, and get the medicine you need — faster.",
+    "feat1": "Find nearby pharmacy",
+    "feat2": "Check real-time availability",
+    "feat3": "Save Time and Money",
+    "floating": "Nearby Pharmacies"
+  },
+  "why": {
+    "title": "Why Choosing Pharmatrack ?",
+    "subtitle": "Built for patients, pharmacies and healthier communities",
+    "card1_title": "Real Time Availability",
+    "card1_desc": "See which pharmacy have the medicine in the stock.",
+    "card2_title": "Location Based Search",
+    "card2_desc": "Find pharmacy near you with distance and direction.",
+    "card3_title": "Save Time and Money",
+    "card3_desc": "Avoid unnecessary travel and get what you need faster."
+  }
+}
