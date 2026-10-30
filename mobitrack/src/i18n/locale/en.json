@@ -55,6 +55,15 @@
             "termsLabel":"terms",
             "condition":"privacy policy",
             "And":"and"
+        },
+        "after":{
+            "header":"You're all set",
+            "subheader":"Let's find your nearest pharmacies",
+            "paragraph":"Turn on location services to see trusted pharmacies, live availability around you.",
+            "button":"Enable current location",
+            "locationRequired":"Location required",
+            "cancel":"Cancel",
+            "openSetting":"Open Settings"
         }
     }
     

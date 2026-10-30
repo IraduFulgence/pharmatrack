@@ -55,6 +55,15 @@
              "termsLabel":"Amategeko",
             "condition":"Amabwiriza",
             "And":"n'"
+        },
+        "after":{
+            "header":"Byose byujujwe",
+            "subheader":"Reka dushake farumasi ziri hafi yawe",
+            "paragraph":"Fungura serivisi zigaragaza aho uherereye kugira ngo ubone za farumasi zizewe n’imiti ihari ako kanya hafi yawe.",
+            "button":"Garagaza aho uherereye",
+            "locationRequired":"Aho uherereye ni ngombwa",
+            "cancel":"Hagarika",
+            "openSetting":"Fungura igenamiterere"
         }
     }
 }

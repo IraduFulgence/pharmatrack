@@ -8,6 +8,7 @@ const logo = require('../../assets/images/logo.png');
 export default function AfterSignupScreen(){
 
     const router = useRouter();
+    const {t} = useTranslation();
     const {
         location,
         hasPermission,
@@ -20,10 +21,10 @@ export default function AfterSignupScreen(){
     // check if location is set
     useEffect(()=>{
         if(errorMessage){
-            Alert.alert('Location required', errorMessage,
+            Alert.alert(t('auth.after.locationRequired'), errorMessage,
                 [
-                    {text:"Cancel", style:'cancel'},
-                    {text:"Open Settings", onPress:openSetting}
+                    {text:t('auth.after.cancel'), style:'cancel'},
+                    {text:t('auth.after.openSetting'), onPress:openSetting}
                 ]
             );
         }
@@ -52,20 +53,20 @@ export default function AfterSignupScreen(){
                     <FontAwesome5 name="check" size={30} style={{color:'#05743cff'}}/>
                                    
                     </View>
-                   <Text style={styles.nameTitle}>You're All set</Text>
+                   <Text style={styles.nameTitle}>{t('auth.after.header')}</Text>
              </View>
             {/* end of checkbox container */}
             {/* start of content section */}
             <View style={styles.contentContainer}>
-                <Text style={styles.contentTitle}>Let's find your nearest pharmacies</Text>
-                <Text style={styles.contentParagraph}>Turn on location services to see trusted pharmacies, live availability around you. </Text>
+                <Text style={styles.contentTitle}>{t('auth.after.subheader')}</Text>
+                <Text style={styles.contentParagraph}>{t('auth.after.paragraph')} </Text>
             </View>
             {/* end of content section */}
 
             
                   <TouchableOpacity style={styles.LocationButton}>
                 <Text style={styles.LocationButtonText} onPress={handlerequest}>
-                    Enable Current Location
+                    {t('auth.after.button')}
                 </Text>
                 <FontAwesome5 name="arrow-right" size={22} color="white" />
             </TouchableOpacity>

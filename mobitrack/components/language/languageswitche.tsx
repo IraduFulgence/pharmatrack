@@ -64,9 +64,9 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFF',
+    color: '#100f0fff',
   },
   labelActive: {
-    color: '#FFFFFF',
+    color: '#f9f6f6ff',
   },
 });
