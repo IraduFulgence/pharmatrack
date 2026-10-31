@@ -1,6 +1,8 @@
 import Navbar from './components/navbar';
 import Hero from './components/hero';
 import WhyChooseUs from './components/whyus';
+import HowItWorks from './components/how';
+import Footer from './components/footer';
 function App() {
 
   return (
@@ -8,6 +10,8 @@ function App() {
       <Navbar />
       <Hero />
       <WhyChooseUs />
+      <HowItWorks />
+      <Footer />
     </div>
   )
 }

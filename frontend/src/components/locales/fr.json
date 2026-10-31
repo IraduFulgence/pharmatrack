@@ -27,5 +27,36 @@
     "card2_desc": "Trouvez une pharmacie près de chez vous avec la distance et la direction.",
     "card3_title": "Gagnez du temps et de l'argent",
     "card3_desc": "Évitez les déplacements inutiles et obtenez ce dont vous avez besoin plus rapidement."
+  },
+   "how": {
+    "title": "COMMENT CA FONCTIONNE",
+    "subtitle": "Vérifiez la disponibilité des médicaments en quelques étapes simples",
+    "step1_title": "Recherche",
+    "step1_desc": "Saisissez le nom du médicament dont vous avez besoin.",
+    "step2_title": "Trouver",
+    "step2_desc": "Localisez les pharmacies à proximité qui l'ont en stock.",
+    "step3_title": "Vérifier",
+    "step3_desc": "Vérifiez la disponibilité et les tarifs en temps réel.",
+    "step4_title": "Visiter",
+    "step4_desc": "Va à la pharmacie et prends tes médicaments."
+  },
+  "footer1": {
+    "title": "Votre santé compte. Trouvez votre médicament dès aujourd’hui.",
+    "desc": "Rejoignez le millier de pharmacies qui utilisent le système Pharmatrack.",
+    "getStarted": "Commencer",
+    "login": "Se connecter"
+  },
+    "footer": {
+    "desc": "Pharmatrack est une plateforme de coordination de la santé. Les médicaments sont fournis et délivrés uniquement par des pharmacies partenaires agréées.",
+    "explore": "Explorer",
+    "about": "À propos de nous",
+    "articles": "Articles de santé",
+    "help": "Centre d'aide",
+    "partner": "Vous êtes une pharmacie ? Devenez partenaire",
+    "legal": "Mentions légales",
+    "terms": "Conditions d'utilisation",
+    "privacy": "Politique de confidentialité",
+    "cookie": "Politique relative aux cookies",
+    "rights": "© 2026 Pharmatrack. Tous droits réservés."
   }
 }

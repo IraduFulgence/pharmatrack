@@ -27,5 +27,36 @@
     "card2_desc": "Shakisha farumasi hafi yawe hamwe n' intera n' icyerekezo.",
     "card3_title": "Izigama igihe n'amafaranga",
     "card3_desc": "Irinda ingendo zidakenewe kandi ubone ibyo ukeneye vuba."
+  },
+   "how": {
+    "title": "UKO BIKORA",
+    "subtitle": "Menya niba imiti ihari binyuze mu ntambwe zoroshye",
+    "step1_title": "Shakisha",
+    "step1_desc": "Shyiramo izina ry'umuti ushaka.",
+    "step2_title": "Reba",
+    "step2_desc": "Reba farumasi ziri hafi zifite uwo muti.",
+    "step3_title": "Genzura",
+    "step3_desc": "Reba niba umuti uhari n’ibiciro  muri ako kanya.",
+    "step4_title": "Sura",
+    "step4_desc": "Jya muri farumasi ufate imiti yawe."
+  },
+  "footer1": {
+    "title": "Ubuzima bwawe ni ingenzi. Shaka imiti yawe uyu munsi.",
+    "desc": "Iyunge ku ma farumasi arenga igihumbi akoresha sisitemu ya Pharmatrack.",
+    "getStarted": "Tangira",
+    "login": "Injira"
+  },
+    "footer": {
+    "desc": "Pharmatrack ni urubuga rufasha abarwayi kubona imiti.dukorana gusa n'amafarumasi y'abafatanyabikorwa bafite ibyangombwa.",
+    "explore": "Shakisha",
+    "about": "Ibitwerekeyeho",
+    "articles": "Inkuru z'ubuzima",
+    "help": "Ikigo cy'ubufasha",
+    "partner": "Uri farumasi? Fatanya natwe",
+    "legal": "Amategeko",
+    "terms": "Amabwiriza yo gukoresha",
+    "privacy": "Politiki y'ibanga",
+    "cookie": "Politiki y'ama-cookies",
+    "rights": "© 2026 Pharmatrack. Uburenganzira bwose burafitwe."
   }
 }

@@ -27,5 +27,30 @@
     "card2_desc": "Find pharmacy near you with distance and direction.",
     "card3_title": "Save Time and Money",
     "card3_desc": "Avoid unnecessary travel and get what you need faster."
+  },
+  "how": {
+    "title": "How It Works",
+    "subtitle": "Get medicine availability in just a few simple steps",
+    "step1_title": "Search",
+    "step1_desc": "Enter the name of the medicine you need.",
+    "step2_title": "Find",
+    "step2_desc": "Locate nearby pharmacies that have it in stock.",
+    "step3_title": "Check",
+    "step3_desc": "Verify real-time availability and prices.",
+    "step4_title": "Visit",
+    "step4_desc": "Go to the pharmacy and get your medicine."
+  },
+    "footer": {
+    "desc": "Pharmatrack is a health coordination platform. Medicines are supplied and dispensed only by licensed partner pharmacies.",
+    "explore": "Explore",
+    "about": "About us",
+    "articles": "Health articles",
+    "help": "Help centre",
+    "partner": "Are you a pharmacy? Partner with us",
+    "legal": "Legal",
+    "terms": "Terms of service",
+    "privacy": "Privacy policy",
+    "cookie": "Cookie policy",
+    "rights": "© 2026 Pharmatrack. All rights reserved."
   }
 }
