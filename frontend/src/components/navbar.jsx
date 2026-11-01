@@ -4,14 +4,15 @@ import ThemeToggle from './themetoggle';
 import logo from '../assets/logo.png';
 import { useTranslation } from 'react-i18next'; 
 import LanguageSwitcher from './LanguageSwitcher';
+import { Link } from 'react-router-dom';
 const Navbar = () => {
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const {t} = useTranslation();
   const navLinks = [
-    { name: t('nav.home'), href: '#' },
+    { name: t('nav.home'), href: '/' },
     { name: t('nav.about'), href: '#' },
-    { name: t('nav.howItWorks'), href: '#' },
+    { name: t('nav.howItWorks'), href: '#howitworks' },
     { name: t('nav.features'), href: '#' },
     { name: t('nav.contact'), href: '#' },
   ];
@@ -39,12 +40,12 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-4">
          <LanguageSwitcher />
           <ThemeToggle />
-          <button className="px-5 py-2 text-sm font-medium text-brand-dark border border-gray-300 rounded-lg hover:bg-gray-50 transition dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800">
+          <Link to="/login" className="px-5 py-2 text-sm font-medium text-brand-dark border border-gray-300 rounded-lg hover:bg-gray-50 transition dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800">
             {t('nav.login')}
-          </button>
-          <button className="px-5 py-2 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-green-700 transition shadow-md">
+          </Link>
+          <Link to="/register" className="px-5 py-2 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-green-700 transition shadow-md">
             {t('nav.signUp')}
-          </button>
+          </Link>
         </div>
 
         {/* Mobile Menu Toggle Button (Visible only on small screens) */}
@@ -74,12 +75,12 @@ const Navbar = () => {
             </a>
           ))}
           <div className="flex flex-col gap-3 mt-4">
-            <button className="w-full px-5 py-2.5 text-sm font-medium text-brand-dark border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800 transition">
-              {t('nav.login')}
-            </button>
-            <button className="w-full px-5 py-2.5 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-green-700 transition shadow-md">
-             {t('nav.signUp')}
-            </button>
+            <Link to="/login" className="px-5 py-2 text-sm font-medium text-brand-dark border border-gray-300 rounded-lg hover:bg-gray-50 transition dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800">
+            {t('nav.login')}
+          </Link>
+          <Link to="/register" className="px-5 py-2 text-sm font-medium text-white bg-brand-primary rounded-lg hover:bg-green-700 transition shadow-md">
+            {t('nav.signUp')}
+          </Link>
           </div>
         </div>
       )}
