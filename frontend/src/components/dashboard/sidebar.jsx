@@ -1,18 +1,19 @@
 import React from 'react';
 import { 
   LayoutGrid, FileText, ShoppingBag, Package, Users, 
-  MessageSquare, Settings, HelpCircle, Plus, X 
+  MessageSquare, Settings, HelpCircle, X 
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
+import logo from "../../assets/logo.png";
 
 const DashboardSidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
-    { icon: <LayoutGrid size={20} />, label: 'Overview', active: true },
-    { icon: <FileText size={20} />, label: 'Prescriptions', badge: '8' },
-    { icon: <ShoppingBag size={20} />, label: 'Orders', badge: '12' },
-    { icon: <Package size={20} />, label: 'Inventory' },
-    { icon: <Users size={20} />, label: 'Customers' },
-    { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3' },
+    { icon: <LayoutGrid size={20} />, label: 'Overview', path: '/dashboard' },
+    { icon: <FileText size={20} />, label: 'Prescriptions', badge: '8', path: '/dashboard/prescriptions' },
+    { icon: <ShoppingBag size={20} />, label: 'Orders', badge: '12', path: '/dashboard/orders' },
+    { icon: <Package size={20} />, label: 'Inventory', path: '/dashboard/inventory' },
+    { icon: <Users size={20} />, label: 'Customers', path: '/dashboard/customers' },
+    { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3', path: '/dashboard/messages' },
   ];
 
   const bottomItems = [
@@ -30,7 +31,7 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 
         transform transition-transform duration-300 ease-in-out flex flex-col
@@ -40,10 +41,9 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
         <div className="h-20 flex items-center px-6 border-b border-gray-100 dark:border-gray-800">
           <Link to="/" className="flex items-center gap-2">
             <div className="bg-[#007a55] p-1.5 rounded-lg">
-              <Plus className="text-white w-5 h-5 rotate-45" />
+              <img src={logo} height={40} alt="logo" className="h-6 w-auto" />
             </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">pharmafind</span>
-            <span className="text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Partner</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Pharmatrack</span>
           </Link>
           <button onClick={() => setIsOpen(false)} className="ml-auto lg:hidden text-gray-500">
             <X size={24} />
@@ -57,10 +57,9 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
               +
             </div>
             <div className="flex-grow">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">WellCare Pharmacy</h3>
-              <p className="text-xs text-gray-500">Green Street · #2048</p>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Ineza Pharmacy</h3>
+              <p className="text-xs text-gray-500">Kigali</p>
             </div>
-            <span className="text-gray-400">›</span>
           </div>
         </div>
 
@@ -70,24 +69,34 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
             <p className="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Workspace</p>
             <nav className="space-y-1">
               {navItems.map((item, idx) => (
-                <a 
+                <NavLink 
                   key={idx} 
-                  href="#" 
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                    ${item.active 
+                  to={item.path}
+                  onClick={() => setIsOpen(false)} 
+                  end={item.path === '/dashboard'}
+                  className={({ isActive }) => `
+                    flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                    ${isActive 
                       ? 'bg-[#e6f4ef] text-[#007a55] dark:bg-[#007a55]/10 dark:text-[#34d399]' 
-                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}
+                  `}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={item.active ? 'text-[#007a55] dark:text-[#34d399]' : 'text-gray-400'}>{item.icon}</span>
-                    {item.label}
-                  </div>
-                  {item.badge && (
-                    <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-bold px-2 py-0.5 rounded-full">
-                      {item.badge}
-                    </span>
+                  {({ isActive }) => (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className={isActive ? 'text-[#007a55] dark:text-[#34d399]' : 'text-gray-400'}>
+                          {item.icon}
+                        </span>
+                        {item.label}
+                      </div>
+                      {item.badge && (
+                        <span className="bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-bold px-2 py-0.5 rounded-full">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
                   )}
-                </a>
+                </NavLink>
               ))}
             </nav>
           </div>
@@ -101,18 +110,6 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
               {item.label}
             </a>
           ))}
-
-          {/* Help Widget */}
-          <div className="mt-4 bg-[#0c3b2e] rounded-xl p-4 text-white relative overflow-hidden">
-             <div className="relative z-10">
-               <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center mb-3">
-                 <MessageSquare size={16} />
-               </div>
-               <h4 className="font-bold text-sm mb-1">Need a hand?</h4>
-               <p className="text-xs text-gray-300 mb-3">Our partner team is here to help.</p>
-               <a href="#" className="text-xs font-semibold underline decoration-white/30 hover:decoration-white">Contact support</a>
-             </div>
-          </div>
         </div>
       </aside>
     </>

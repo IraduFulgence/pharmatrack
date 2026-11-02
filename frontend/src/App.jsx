@@ -8,7 +8,9 @@ import Footer from './components/footer';
 import Login from './pages/login';
 import Register from './pages/register';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import DashboardOverView from './pages/dashboard/dashboardoverview';
 import Dashboard from './pages/dashboard/dashboard';
+import Inventory from './pages/dashboard/inventory';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -33,7 +35,13 @@ function App() {
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/login" element={<Layout><Login /></Layout>} />
         <Route path="/register" element={<Layout><Register /></Layout>} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        
+        <Route path="/dashboard" element={<Dashboard />}>
+        <Route index element={<DashboardOverView />} />
+        <Route path="inventory" element={<Inventory/>} />
+        </Route>
+        
+      
       </Routes>
     </Router>
     </GoogleOAuthProvider>
