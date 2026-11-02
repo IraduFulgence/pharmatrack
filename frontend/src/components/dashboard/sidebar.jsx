@@ -16,9 +16,10 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
     { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3', path: '/dashboard/messages' },
   ];
 
+ 
   const bottomItems = [
-    { icon: <Settings size={20} />, label: 'Settings' },
-    { icon: <HelpCircle size={20} />, label: 'Help center' },
+    { icon: <Settings size={20} />, label: 'Settings & Profile', path: '/dashboard/profile' },
+    { icon: <HelpCircle size={20} />, label: 'Help center', path: '/dashboard/help' },
   ];
 
   return (
@@ -52,15 +53,15 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
 
         {/* Pharmacy Profile Card */}
         <div className="p-4">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors">
-            <div className="bg-[#007a55] text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg">
+           <Link to="/dashboard/profile" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors block">
+           <div className="bg-[#007a55] text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg">
               +
             </div>
             <div className="flex-grow">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white">Ineza Pharmacy</h3>
               <p className="text-xs text-gray-500">Kigali</p>
             </div>
-          </div>
+           </Link>
         </div>
 
         {/* Main Navigation */}
@@ -102,13 +103,29 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
           </div>
         </div>
 
-        {/* Bottom Section */}
+        {/* Bottom Section Navigation */}
         <div className="p-4 border-t border-gray-100 dark:border-gray-800 space-y-1">
           {bottomItems.map((item, idx) => (
-            <a key={idx} href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors">
-              <span className="text-gray-400">{item.icon}</span>
-              {item.label}
-            </a>
+            <NavLink 
+              key={idx} 
+              to={item.path}
+              onClick={() => setIsOpen(false)}
+              className={({ isActive }) => `
+                flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                ${isActive 
+                  ? 'bg-[#e6f4ef] text-[#007a55] dark:bg-[#007a55]/10 dark:text-[#34d399]' 
+                  : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}
+              `}
+            >
+              {({ isActive }) => (
+                <>
+                  <span className={isActive ? 'text-[#007a55] dark:text-[#34d399]' : 'text-gray-400'}>
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </>
+              )}
+            </NavLink>
           ))}
         </div>
       </aside>
