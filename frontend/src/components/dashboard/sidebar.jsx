@@ -9,7 +9,7 @@ import logo from "../../assets/logo.png";
 const DashboardSidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
     { icon: <LayoutGrid size={20} />, label: 'Overview', path: '/dashboard' },
-    { icon: <FileText size={20} />, label: 'Prescriptions', badge: '8', path: '/dashboard/prescriptions' },
+    { icon: <FileText size={20} />, label: 'Prescriptions', path: '/dashboard/prescriptions' },
     { icon: <ShoppingBag size={20} />, label: 'Orders', badge: '12', path: '/dashboard/orders' },
     { icon: <Package size={20} />, label: 'Inventory', path: '/dashboard/inventory' },
     { icon: <Users size={20} />, label: 'Customers', path: '/dashboard/customers' },

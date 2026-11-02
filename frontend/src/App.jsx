@@ -13,6 +13,7 @@ import Dashboard from './pages/dashboard/dashboard';
 import Inventory from './pages/dashboard/inventory';
 import PharmacyProfile from './pages/dashboard/profile';
 import CreatePharmacyProfile from './pages/dashboard/create-profile';
+import Prescriptions from './pages/dashboard/prescription';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -43,6 +44,7 @@ function App() {
         <Route path="inventory" element={<Inventory/>} />
         <Route path="profile" element={<PharmacyProfile />} />
         <Route path="createprofile" element={<CreatePharmacyProfile/>}/>
+        <Route path="prescriptions" element={<Prescriptions/>}/>
         </Route>
         
       
