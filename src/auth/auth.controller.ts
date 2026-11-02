@@ -28,7 +28,7 @@ import type { ApiResponse } from '../common/interfaces/api-response.interface.js
 @ApiTags('Authentication')
 @Controller('api/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register/patient')
   @HttpCode(HttpStatus.CREATED)
