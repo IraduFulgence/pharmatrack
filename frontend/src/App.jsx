@@ -12,7 +12,7 @@ import DashboardOverView from './pages/dashboard/dashboardoverview';
 import Dashboard from './pages/dashboard/dashboard';
 import Inventory from './pages/dashboard/inventory';
 import PharmacyProfile from './pages/dashboard/profile';
-
+import CreatePharmacyProfile from './pages/dashboard/create-profile';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -42,6 +42,7 @@ function App() {
         <Route index element={<DashboardOverView />} />
         <Route path="inventory" element={<Inventory/>} />
         <Route path="profile" element={<PharmacyProfile />} />
+        <Route path="createprofile" element={<CreatePharmacyProfile/>}/>
         </Route>
         
       

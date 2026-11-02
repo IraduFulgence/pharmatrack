@@ -6,8 +6,6 @@ import {
   CheckCircle2, FileText, Trash2 
 } from 'lucide-react';
 import L from 'leaflet';
-
-// Fix for default Leaflet marker icon not showing in React
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({
@@ -19,12 +17,12 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const PharmacyProfile = () => {
-  // Mock state for the profile data
+  // Mock data for the profile data
   const [profile, setProfile] = useState({
     name: 'Ineza Pharmacy',
     regNumber: 'RDB-1029-4492',
     physicalAddress: 'Remera, KG 536 St',
-    coordinates: { lat: -1.9565, lng: 30.1119 }, // Default to Kigali (Remera area)
+    coordinates: { lat: -1.9565, lng: 30.1119 }, 
     certificates: [
       { id: 1, name: 'Pharmacy_License_2024.pdf', size: '2.4 MB' },
       { id: 2, name: 'Pharmacist_Registration.pdf', size: '1.1 MB' },
@@ -42,7 +40,7 @@ const PharmacyProfile = () => {
   const handleSave = () => {
     setProfile(formData);
     setIsEditing(false);
-    // In a real app, you would send formData to your backend here
+    
   };
 
   // Mock file upload handler
@@ -52,7 +50,7 @@ const PharmacyProfile = () => {
       const newCert = {
         id: Date.now(),
         name: file.name,
-        size: (file.size / (1024 * 1024)).toFixed(1) + ' MB' // Convert to MB
+        size: (file.size / (1024 * 1024)).toFixed(1) + ' MB' 
       };
       setFormData({ ...formData, certificates: [...formData.certificates, newCert] });
     }
@@ -67,7 +65,7 @@ const PharmacyProfile = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Page Header */}
+    
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Pharmacy Profile</h1>
@@ -83,10 +81,10 @@ const PharmacyProfile = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column: Form & Details */}
+       
         <div className="lg:col-span-1 space-y-6">
           
-          {/* Identity Card */}
+      
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <Building2 size={20} className="text-[#007a55]" /> Identity
@@ -160,12 +158,12 @@ const PharmacyProfile = () => {
           </div>
         </div>
 
-        {/* Right Column: Map & Documents */}
+        {/* Map & Documents */}
         <div className="lg:col-span-2 space-y-6">
           
           {/* Map Container */}
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-2 shadow-sm h-[350px] relative z-0">
-             {/* Note: z-0 is important so the map doesn't overlap modals/navbars */}
+            
              <MapContainer 
                 center={[profile.coordinates.lat, profile.coordinates.lng]} 
                 zoom={15} 
