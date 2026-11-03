@@ -36,7 +36,7 @@ const HowItWorks = () => {
   ];
 
   return (
-    <section className="py-16 md:py-24 bg-white dark:bg-gray-950 transition-colors duration-300">
+    <section className="py-16 md:py-24 bg-white dark:bg-gray-950 transition-colors duration-300" id="howitworks">
       <div className="container mx-auto px-6 md:px-12">
 
         <div className="text-center mb-16 md:mb-20">

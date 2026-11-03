@@ -18,9 +18,9 @@ const LanguageSwitcher = () => {
         onChange={changeLanguage}
         className="bg-transparent text-sm font-medium focus:outline-none cursor-pointer dark:bg-gray-900"
       >
-        <option value="en" className="dark:bg-gray-900">EN</option>
-        <option value="fr" className="dark:bg-gray-900">FR</option>
-        <option value="rw" className="dark:bg-gray-900">RW</option>
+        <option value="en" className="dark:bg-gray-900">English</option>
+        <option value="fr" className="dark:bg-gray-900">Francais</option>
+        <option value="rw" className="dark:bg-gray-900">Kinyarwanda</option>
       </select>
     </div>
   );
