@@ -29,8 +29,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       user: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
       database: process.env.DB_DATABASE || 'pharmatrack_db',
-      ssl: isSsl ? { rejectUnauthorized: false } : false,
-      max: Number(process.env.DB_POOL_MAX) || 20,
+      max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: Number(process.env.DB_TIMEOUT) || 15000,
     });
