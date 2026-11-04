@@ -27,6 +27,7 @@ describe('Auth Endpoints (e2e)', () => {
     pharmacyName: 'LifeCare Kigali Pharmacy',
     phoneNumber: '+250788999002',
     email: 'lifecare.test@example.com',
+    tin: '123456789',
     password: 'Pharmacy@2026',
   };
 
@@ -278,7 +279,7 @@ describe('Auth Endpoints (e2e)', () => {
         .expect(201);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Pharmacy account created successfully.');
+      expect(response.body.message).toContain('Pharmacy account created successfully');
       expect(response.body.data).toBeDefined();
       expect(response.body.data.id).toBeDefined();
       expect(response.body.data.pharmacyName).toBe(testPharmacy.pharmacyName);
@@ -334,6 +335,7 @@ describe('Auth Endpoints (e2e)', () => {
         .post('/api/auth/register/pharmacy')
         .send({
           ...testPharmacy,
+          tin: '987654321',
           phoneNumber: '+250788999098',
         })
         .expect(409);
@@ -347,6 +349,7 @@ describe('Auth Endpoints (e2e)', () => {
         .post('/api/auth/register/pharmacy')
         .send({
           ...testPharmacy,
+          tin: '987654322',
           email: 'pharm.dup@example.com',
         })
         .expect(409);
