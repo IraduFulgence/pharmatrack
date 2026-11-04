@@ -53,11 +53,15 @@ export class AuthService {
   ) {}
 
   /**
-   * Register a new patient account with dateOfBirth and calculated updated age
+   * Register a new patient account with dateOfBirth and calculated updated age.
+   * Email and National ID are optional.
    */
   async registerPatient(dto: RegisterPatientDto): Promise<ApiResponse> {
-    const { nationalId, fullName, dateOfBirth, phoneNumber, email, gender, password } = dto;
-    const cleanEmail = email.trim().toLowerCase();
+    const { fullName, dateOfBirth, phoneNumber, gender, password } = dto;
+
+    // Normalize optional fields — empty strings become null
+    const cleanEmail = dto.email?.trim().toLowerCase() || null;
+    const cleanNationalId = dto.nationalId?.trim() || null;
     const cleanPhone = phoneNumber.trim();
 
     // 1. Validate dateOfBirth logic (must be in the past, reasonable age between 0 and 130)
@@ -87,26 +91,30 @@ export class AuthService {
       });
     }
 
-    // 2. Check for duplicate National ID
-    const existingNid = await this.db.query(
-      'SELECT patient_id FROM public.patients WHERE national_id = $1 LIMIT 1',
-      [nationalId],
-    );
-    if (existingNid.rows.length > 0) {
-      throw new ConflictException('A patient with this National ID already exists.');
+    // 2. Check for duplicate National ID (only if provided)
+    if (cleanNationalId) {
+      const existingNid = await this.db.query(
+        'SELECT patient_id FROM public.patients WHERE national_id = $1 LIMIT 1',
+        [cleanNationalId],
+      );
+      if (existingNid.rows.length > 0) {
+        throw new ConflictException('A patient with this National ID already exists.');
+      }
     }
 
-    // 3. Check for duplicate Email (across patients and pharmacies)
-    const existingEmailPatient = await this.db.query(
-      'SELECT patient_id FROM public.patients WHERE LOWER(email) = $1 LIMIT 1',
-      [cleanEmail],
-    );
-    const existingEmailPharmacy = await this.db.query(
-      'SELECT pharmacy_id FROM public.pharmacies WHERE LOWER(email) = $1 LIMIT 1',
-      [cleanEmail],
-    );
-    if (existingEmailPatient.rows.length > 0 || existingEmailPharmacy.rows.length > 0) {
-      throw new ConflictException('An account with this email already exists.');
+    // 3. Check for duplicate Email (only if provided — across patients and pharmacies)
+    if (cleanEmail) {
+      const existingEmailPatient = await this.db.query(
+        'SELECT patient_id FROM public.patients WHERE LOWER(email) = $1 LIMIT 1',
+        [cleanEmail],
+      );
+      const existingEmailPharmacy = await this.db.query(
+        'SELECT pharmacy_id FROM public.pharmacies WHERE LOWER(email) = $1 LIMIT 1',
+        [cleanEmail],
+      );
+      if (existingEmailPatient.rows.length > 0 || existingEmailPharmacy.rows.length > 0) {
+        throw new ConflictException('An account with this email already exists.');
+      }
     }
 
     // 4. Check for duplicate Phone Number (across patients and pharmacies)
@@ -131,7 +139,7 @@ export class AuthService {
           (national_id, full_name, age, date_of_birth, phone_number, email, gender, password_hash, is_active)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
          RETURNING patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender`,
-        [nationalId, fullName.trim(), calculatedAge, dateOfBirth, cleanPhone, cleanEmail, gender, passwordHash],
+        [cleanNationalId, fullName.trim(), calculatedAge, dateOfBirth, cleanPhone, cleanEmail, gender, passwordHash],
       );
 
       const patient = result.rows[0];
@@ -141,12 +149,12 @@ export class AuthService {
         message: 'Patient account created successfully.',
         data: {
           id: Number(patient.patient_id),
-          nationalId: patient.national_id,
+          nationalId: patient.national_id || null,
           fullName: patient.full_name,
           dateOfBirth: patient.date_of_birth ? formatDate(patient.date_of_birth) : dateOfBirth,
           age: calculatedAge,
           phoneNumber: patient.phone_number,
-          email: patient.email,
+          email: patient.email || null,
           gender: patient.gender,
           role: 'PATIENT',
         },
@@ -170,12 +178,17 @@ export class AuthService {
   }
 
   /**
-   * Register a new pharmacy account
+   * Register a new pharmacy account with TIN and optional document uploads
    */
-  async registerPharmacy(dto: RegisterPharmacyDto): Promise<ApiResponse> {
-    const { pharmacyName, phoneNumber, email, password } = dto;
+  async registerPharmacy(
+    dto: RegisterPharmacyDto,
+    pharmacyCertificatePath?: string | null,
+    rdbCertificatePath?: string | null,
+  ): Promise<ApiResponse> {
+    const { pharmacyName, phoneNumber, email, tin, password } = dto;
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phoneNumber.trim();
+    const cleanTin = tin.trim();
 
     // 1. Check for duplicate Email (across pharmacies and patients)
     const existingEmailPharmacy = await this.db.query(
@@ -203,18 +216,27 @@ export class AuthService {
       throw new ConflictException('An account with this phone number already exists.');
     }
 
-    // 3. Hash password
+    // 3. Check for duplicate TIN
+    const existingTin = await this.db.query(
+      'SELECT pharmacy_id FROM public.pharmacies WHERE tin = $1 LIMIT 1',
+      [cleanTin],
+    );
+    if (existingTin.rows.length > 0) {
+      throw new ConflictException('A pharmacy with this TIN already exists.');
+    }
+
+    // 4. Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
     try {
-      // 4. Use transaction to insert into both pharmacies and pharmacy_users
+      // 5. Use transaction to insert into both pharmacies and pharmacy_users
       const pharmacy = await this.db.transaction(async (client) => {
         const pharmResult = await client.query(
           `INSERT INTO public.pharmacies 
-            (pharmacy_name, phone_number, email, password_hash, is_active)
-           VALUES ($1, $2, $3, $4, true)
-           RETURNING pharmacy_id, pharmacy_name, phone_number, email`,
-          [pharmacyName.trim(), cleanPhone, cleanEmail, passwordHash],
+            (pharmacy_name, phone_number, email, tin, pharmacy_certificate_path, rdb_certificate_path, verification_status, password_hash, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, true)
+           RETURNING pharmacy_id, pharmacy_name, phone_number, email, tin, verification_status`,
+          [pharmacyName.trim(), cleanPhone, cleanEmail, cleanTin, pharmacyCertificatePath || null, rdbCertificatePath || null, passwordHash],
         );
 
         const newPharmacy = pharmResult.rows[0];
@@ -232,12 +254,14 @@ export class AuthService {
 
       return {
         success: true,
-        message: 'Pharmacy account created successfully.',
+        message: 'Pharmacy account created successfully. Your account is pending verification.',
         data: {
           id: Number(pharmacy.pharmacy_id),
           pharmacyName: pharmacy.pharmacy_name,
           phoneNumber: pharmacy.phone_number,
           email: pharmacy.email,
+          tin: pharmacy.tin,
+          verificationStatus: pharmacy.verification_status,
           role: 'PHARMACY',
         },
       };
@@ -249,6 +273,9 @@ export class AuthService {
         if (error.constraint?.includes('phone_number')) {
           throw new ConflictException('An account with this phone number already exists.');
         }
+        if (error.constraint?.includes('tin')) {
+          throw new ConflictException('A pharmacy with this TIN already exists.');
+        }
         throw new ConflictException('An account with these details already exists.');
       }
       this.logger.error(`Error registering pharmacy: ${error.message}`);
@@ -257,7 +284,7 @@ export class AuthService {
   }
 
   /**
-   * Unified Login for Patients and Pharmacies (Email or Phone Number)
+   * Unified Login for Patients, Pharmacies, and Admins (Email or Phone Number)
    */
   async login(dto: LoginDto): Promise<ApiResponse> {
     const identifier = dto.identifier.trim();
@@ -310,7 +337,7 @@ export class AuthService {
 
     // 2. Check pharmacy account
     const pharmacyResult = await this.db.query(
-      `SELECT pharmacy_id, pharmacy_name, email, phone_number, password_hash, is_active 
+      `SELECT pharmacy_id, pharmacy_name, email, phone_number, password_hash, is_active, verification_status 
        FROM public.pharmacies 
        WHERE LOWER(email) = $1 OR phone_number = $2 
        LIMIT 1`,
@@ -345,6 +372,7 @@ export class AuthService {
                 email: pharmacy.email,
                 phoneNumber: pharmacy.phone_number,
                 role: 'PHARMACY',
+                verificationStatus: pharmacy.verification_status || 'PENDING',
               },
               redirectTo: '/pharmacy/dashboard',
             },
@@ -353,7 +381,54 @@ export class AuthService {
       }
     }
 
-    // 3. Fallback: Generic error message to prevent account enumeration
+    // 3. Check admin account
+    const adminResult = await this.db.query(
+      `SELECT admin_id, full_name, email, phone_number, password_hash, is_active, must_change_password 
+       FROM public.admins 
+       WHERE LOWER(email) = $1 OR phone_number = $2 
+       LIMIT 1`,
+      [cleanEmail, identifier],
+    );
+
+    if (adminResult.rows.length > 0) {
+      const admin = adminResult.rows[0];
+
+      if (admin.password_hash) {
+        const isMatch = await bcrypt.compare(dto.password, admin.password_hash);
+        if (isMatch) {
+          if (!admin.is_active) {
+            throw new ForbiddenException('Account not authorized, suspended, or awaiting approval.');
+          }
+
+          const token = this.jwtService.sign({
+            sub: Number(admin.admin_id),
+            email: admin.email,
+            phoneNumber: admin.phone_number,
+            role: 'ADMIN',
+            mustChangePassword: admin.must_change_password,
+          });
+
+          return {
+            success: true,
+            message: 'Login successful.',
+            data: {
+              token,
+              user: {
+                id: Number(admin.admin_id),
+                fullName: admin.full_name,
+                email: admin.email,
+                phoneNumber: admin.phone_number,
+                role: 'ADMIN',
+                mustChangePassword: admin.must_change_password,
+              },
+              redirectTo: '/admin/dashboard',
+            },
+          };
+        }
+      }
+    }
+
+    // 4. Fallback: Generic error message to prevent account enumeration
     throw new UnauthorizedException('Invalid credentials.');
   }
 
@@ -375,7 +450,7 @@ export class AuthService {
       [cleanEmail],
     );
 
-    let userType: 'PATIENT' | 'PHARMACY' | null = null;
+    let userType: 'PATIENT' | 'PHARMACY' | 'ADMIN' | null = null;
     let userId: number | null = null;
     let recipientName = '';
 
@@ -387,6 +462,17 @@ export class AuthService {
       userType = 'PHARMACY';
       userId = Number(pharmacyResult.rows[0].pharmacy_id);
       recipientName = pharmacyResult.rows[0].pharmacy_name;
+    } else {
+      // 3. Search in admins
+      const adminResult = await this.db.query(
+        'SELECT admin_id, full_name, email FROM public.admins WHERE LOWER(email) = $1 LIMIT 1',
+        [cleanEmail],
+      );
+      if (adminResult.rows.length > 0) {
+        userType = 'ADMIN';
+        userId = Number(adminResult.rows[0].admin_id);
+        recipientName = adminResult.rows[0].full_name;
+      }
     }
 
     if (userType && userId) {
@@ -466,6 +552,11 @@ export class AuthService {
           [newPasswordHash, resetRecord.user_id],
         );
       });
+    } else if (resetRecord.user_type === 'ADMIN') {
+      await this.db.query(
+        'UPDATE public.admins SET password_hash = $1, must_change_password = false, updated_at = CURRENT_TIMESTAMP WHERE admin_id = $2',
+        [newPasswordHash, resetRecord.user_id],
+      );
     }
 
     // Mark the reset token as used
@@ -483,7 +574,7 @@ export class AuthService {
   /**
    * Helper to retrieve user profile for token verification with updated age
    */
-  async getProfile(userId: number, role: 'PATIENT' | 'PHARMACY'): Promise<ApiResponse> {
+  async getProfile(userId: number, role: 'PATIENT' | 'PHARMACY' | 'ADMIN'): Promise<ApiResponse> {
     if (role === 'PATIENT') {
       const result = await this.db.query(
         `SELECT patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender, is_active, created_at 
@@ -503,19 +594,42 @@ export class AuthService {
         message: 'Profile retrieved successfully.',
         data: {
           id: Number(p.patient_id),
-          nationalId: p.national_id,
+          nationalId: p.national_id || null,
           fullName: p.full_name,
           dateOfBirth: dobFormatted,
           age: dynamicAge,
           phoneNumber: p.phone_number,
-          email: p.email,
+          email: p.email || null,
           gender: p.gender,
           role: 'PATIENT',
         },
       };
+    } else if (role === 'ADMIN') {
+      const result = await this.db.query(
+        `SELECT admin_id, full_name, phone_number, email, is_active, must_change_password, role, created_at 
+         FROM public.admins 
+         WHERE admin_id = $1`,
+        [userId],
+      );
+      if (result.rows.length === 0) {
+        throw new UnauthorizedException('Admin account no longer exists.');
+      }
+      const a = result.rows[0];
+      return {
+        success: true,
+        message: 'Profile retrieved successfully.',
+        data: {
+          id: Number(a.admin_id),
+          fullName: a.full_name,
+          phoneNumber: a.phone_number,
+          email: a.email,
+          mustChangePassword: a.must_change_password,
+          role: 'ADMIN',
+        },
+      };
     } else {
       const result = await this.db.query(
-        `SELECT pharmacy_id, pharmacy_name, phone_number, email, location_address, is_active, created_at 
+        `SELECT pharmacy_id, pharmacy_name, phone_number, email, location_address, tin, verification_status, is_active, created_at 
          FROM public.pharmacies 
          WHERE pharmacy_id = $1`,
         [userId],
@@ -532,6 +646,8 @@ export class AuthService {
           pharmacyName: ph.pharmacy_name,
           phoneNumber: ph.phone_number,
           email: ph.email,
+          tin: ph.tin || null,
+          verificationStatus: ph.verification_status || 'PENDING',
           role: 'PHARMACY',
         },
       };

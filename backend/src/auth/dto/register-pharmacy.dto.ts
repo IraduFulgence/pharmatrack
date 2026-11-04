@@ -29,6 +29,16 @@ export class RegisterPharmacyDto {
   email: string;
 
   @ApiProperty({
+    example: '123456789',
+    description: 'Tax Identification Number (TIN) — exactly 9 digits',
+  })
+  @IsNotEmpty({ message: 'TIN is required.' })
+  @Matches(/^\d{9}$/, {
+    message: 'TIN must contain exactly 9 digits.',
+  })
+  tin: string;
+
+  @ApiProperty({
     example: 'Pharmacy@123',
     description:
       'Password (min 8 chars, at least 1 uppercase, 1 lowercase, 1 digit, 1 special character)',
@@ -43,4 +53,3 @@ export class RegisterPharmacyDto {
   )
   password: string;
 }
-
