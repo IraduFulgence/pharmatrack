@@ -99,6 +99,51 @@ describe('AuthService', () => {
       expect((result.data as any).password_hash).toBeUndefined();
     });
 
+    it('should successfully register a patient without optional email and nationalId', async () => {
+      const minimalPatientDto = {
+        fullName: 'Jane Doe',
+        dateOfBirth: '2000-01-01',
+        phoneNumber: '+250788999888',
+        gender: 'Female' as const,
+        password: 'Password@123',
+      };
+      const expectedAge = calculateAge(minimalPatientDto.dateOfBirth);
+
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [] }) // phone patient check
+        .mockResolvedValueOnce({ rows: [] }) // phone pharmacy check
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              patient_id: '5',
+              national_id: null,
+              full_name: minimalPatientDto.fullName,
+              age: expectedAge,
+              date_of_birth: minimalPatientDto.dateOfBirth,
+              phone_number: minimalPatientDto.phoneNumber,
+              email: null,
+              gender: minimalPatientDto.gender,
+            },
+          ],
+        }); // insert query
+
+      const result = await authService.registerPatient(minimalPatientDto);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Patient account created successfully.');
+      expect(result.data).toEqual({
+        id: 5,
+        nationalId: null,
+        fullName: 'Jane Doe',
+        dateOfBirth: '2000-01-01',
+        age: expectedAge,
+        phoneNumber: '+250788999888',
+        email: null,
+        gender: 'Female',
+        role: 'PATIENT',
+      });
+    });
+
     it('should reject a future dateOfBirth', async () => {
       const futureYear = new Date().getFullYear() + 2;
       await expect(
@@ -154,6 +199,7 @@ describe('AuthService', () => {
       pharmacyName: 'Kigali Central Pharmacy',
       phoneNumber: '+250788123456',
       email: 'kigalipharmacy@example.com',
+      tin: '123456789',
       password: 'Pharmacy@123',
     };
 
@@ -162,7 +208,8 @@ describe('AuthService', () => {
         .mockResolvedValueOnce({ rows: [] }) // email pharmacy check
         .mockResolvedValueOnce({ rows: [] }) // email patient check
         .mockResolvedValueOnce({ rows: [] }) // phone pharmacy check
-        .mockResolvedValueOnce({ rows: [] }); // phone patient check
+        .mockResolvedValueOnce({ rows: [] }) // phone patient check
+        .mockResolvedValueOnce({ rows: [] }); // tin check
 
       mockDb.transaction.mockImplementation(async (callback: any) => {
         const client = {
@@ -175,6 +222,8 @@ describe('AuthService', () => {
                     pharmacy_name: validPharmacyDto.pharmacyName,
                     phone_number: validPharmacyDto.phoneNumber,
                     email: validPharmacyDto.email,
+                    tin: validPharmacyDto.tin,
+                    verification_status: 'PENDING',
                   },
                 ],
               });
@@ -188,12 +237,14 @@ describe('AuthService', () => {
       const result = await authService.registerPharmacy(validPharmacyDto);
 
       expect(result.success).toBe(true);
-      expect(result.message).toBe('Pharmacy account created successfully.');
+      expect(result.message).toContain('Pharmacy account created successfully');
       expect(result.data).toEqual({
         id: 2,
         pharmacyName: 'Kigali Central Pharmacy',
         phoneNumber: '+250788123456',
         email: 'kigalipharmacy@example.com',
+        tin: '123456789',
+        verificationStatus: 'PENDING',
         role: 'PHARMACY',
       });
       expect((result.data as any).password).toBeUndefined();
@@ -213,6 +264,19 @@ describe('AuthService', () => {
         .mockResolvedValueOnce({ rows: [] }) // email pharmacy
         .mockResolvedValueOnce({ rows: [] }) // email patient
         .mockResolvedValueOnce({ rows: [{ pharmacy_id: '1' }] }); // phone pharmacy exists
+
+      await expect(authService.registerPharmacy(validPharmacyDto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should throw ConflictException if pharmacy TIN already exists', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [] }) // email pharmacy
+        .mockResolvedValueOnce({ rows: [] }) // email patient
+        .mockResolvedValueOnce({ rows: [] }) // phone pharmacy
+        .mockResolvedValueOnce({ rows: [] }) // phone patient
+        .mockResolvedValueOnce({ rows: [{ pharmacy_id: '1' }] }); // TIN exists
 
       await expect(authService.registerPharmacy(validPharmacyDto)).rejects.toThrow(
         ConflictException,
@@ -294,6 +358,7 @@ describe('AuthService', () => {
               email: 'kigalipharmacy@example.com',
               phone_number: '+250788123456',
               password_hash: hashedPassword,
+              verification_status: 'PENDING',
               is_active: true,
             },
           ],
@@ -311,37 +376,48 @@ describe('AuthService', () => {
         pharmacyName: 'Kigali Central Pharmacy',
         email: 'kigalipharmacy@example.com',
         phoneNumber: '+250788123456',
+        verificationStatus: 'PENDING',
         role: 'PHARMACY',
       });
       expect(result.data.redirectTo).toBe('/pharmacy/dashboard');
     });
 
-    it('should login a pharmacy using phone number', async () => {
-      const hashedPassword = await bcrypt.hash('Pharmacy@123', 10);
+    it('should login an admin using email', async () => {
+      const hashedPassword = await bcrypt.hash('Admin@12345', 10);
 
       mockDb.query
         .mockResolvedValueOnce({ rows: [] }) // not patient
+        .mockResolvedValueOnce({ rows: [] }) // not pharmacy
         .mockResolvedValueOnce({
           rows: [
             {
-              pharmacy_id: '2',
-              pharmacy_name: 'Kigali Central Pharmacy',
-              email: 'kigalipharmacy@example.com',
-              phone_number: '+250788123456',
+              admin_id: '1',
+              full_name: 'System Administrator',
+              email: 'admin@pharmatrack.com',
+              phone_number: '+250000000000',
               password_hash: hashedPassword,
+              must_change_password: true,
               is_active: true,
             },
           ],
         });
 
       const result = await authService.login({
-        identifier: '+250788123456',
-        password: 'Pharmacy@123',
+        identifier: 'admin@pharmatrack.com',
+        password: 'Admin@12345',
       });
 
       expect(result.success).toBe(true);
-      expect(result.data.user.role).toBe('PHARMACY');
-      expect(result.data.redirectTo).toBe('/pharmacy/dashboard');
+      expect(result.data.token).toBe('mock_jwt_token_123');
+      expect(result.data.user).toEqual({
+        id: 1,
+        fullName: 'System Administrator',
+        email: 'admin@pharmatrack.com',
+        phoneNumber: '+250000000000',
+        mustChangePassword: true,
+        role: 'ADMIN',
+      });
+      expect(result.data.redirectTo).toBe('/admin/dashboard');
     });
 
     it('should throw UnauthorizedException on incorrect password', async () => {
@@ -357,6 +433,7 @@ describe('AuthService', () => {
             },
           ],
         })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] });
 
       await expect(
@@ -369,8 +446,9 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException on nonexistent account', async () => {
       mockDb.query
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] });
+        .mockResolvedValueOnce({ rows: [] }) // patient
+        .mockResolvedValueOnce({ rows: [] }) // pharmacy
+        .mockResolvedValueOnce({ rows: [] }); // admin
 
       await expect(
         authService.login({
@@ -451,7 +529,8 @@ describe('AuthService', () => {
     it('should return generic success message even if email does not exist', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [] }) // patient check
-        .mockResolvedValueOnce({ rows: [] }); // pharmacy check
+        .mockResolvedValueOnce({ rows: [] }) // pharmacy check
+        .mockResolvedValueOnce({ rows: [] }); // admin check
 
       const result = await authService.forgotPassword({ email: 'unknown@example.com' });
 
@@ -540,6 +619,8 @@ describe('AuthService', () => {
             pharmacy_name: 'Kigali Pharmacy',
             phone_number: '+250788123456',
             email: 'kigali@example.com',
+            tin: '123456789',
+            verification_status: 'PENDING',
             is_active: true,
           },
         ],
@@ -549,6 +630,27 @@ describe('AuthService', () => {
       expect(res.success).toBe(true);
       expect(res.data.pharmacyName).toBe('Kigali Pharmacy');
       expect(res.data.role).toBe('PHARMACY');
+    });
+
+    it('should return admin profile', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            admin_id: '1',
+            full_name: 'System Admin',
+            phone_number: '+250000000000',
+            email: 'admin@pharmatrack.com',
+            must_change_password: false,
+            is_active: true,
+            role: 'ADMIN',
+          },
+        ],
+      });
+
+      const res = await authService.getProfile(1, 'ADMIN');
+      expect(res.success).toBe(true);
+      expect(res.data.fullName).toBe('System Admin');
+      expect(res.data.role).toBe('ADMIN');
     });
   });
 });
