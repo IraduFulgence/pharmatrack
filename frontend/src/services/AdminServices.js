@@ -14,4 +14,25 @@ export const adminService ={
             body: JSON.stringify(adminData)
         });
     },
+    // get all pharmacies
+    getAllPharmacies: async () =>{
+    return ApiRequest('/admin/pharmacies',{method:'GET'});      
+    },
+    // get single pharmacy
+    getPharmacyById: async (id) => {
+    return ApiRequest(`/admin/pharmacies/${id}`, { method: 'GET' });
+  },
+  // Approve a pharmacy
+  approvePharmacy: async (id) => {
+    return ApiRequest(`/admin/pharmacies/${id}/approve`, { method: 'PATCH' });
+  },
+
+  // Reject a pharmacy (requires reason)
+  rejectPharmacy: async (id, reason) => {
+    return ApiRequest(`/admin/pharmacies/${id}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
 };
