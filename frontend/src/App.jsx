@@ -17,6 +17,12 @@ import Prescriptions from './pages/dashboard/prescription';
 import Orders from './pages/dashboard/orders';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingVerification from './pages/PendingVerification';
+
+// admin pages
+import AdminDashboardOverView from './pages/admin/dashboardoverview';
+import AdminDashboard from './pages/admin/dashboard';
+import ManagePatients from './pages/admin/ManagePatients';
+import ManagePharmacies from './pages/admin/ManagePharmacies';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -59,6 +65,13 @@ function App() {
         <Route path="prescriptions" element={<Prescriptions/>}/>
         <Route path="orders" element={<Orders/>}/>
         </Route>
+        </Route>
+
+        {/* admin route */}
+        <Route path='/admin/dashboard' element={<AdminDashboard />}>
+          <Route index element={<AdminDashboardOverView />}/>
+          <Route path="pharmacies" element={<ManagePharmacies />} />
+          <Route path="patients" element={<ManagePatients />} />
         </Route>
       
       </Routes>
