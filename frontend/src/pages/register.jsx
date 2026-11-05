@@ -1,24 +1,33 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, Building2, Phone, Mail, Lock, Eye, EyeOff, 
-  Check, FileText, UploadCloud, X, AlertCircle 
+  Check, FileText, UploadCloud, X, AlertCircle, Loader2 
 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useTranslation } from 'react-i18next';
+import {authService} from '../services/authentication';
 
 const Register = () => {
+
+  const navigate = useNavigate();
+
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [apierror, setApiError] = useState(null);
   
   // State to hold form data
   const [formData, setFormData] = useState({
-    accountType: 'patient', // 'patient' or 'pharmacy'
+    accountType: 'patient',
     fullName: '',
+    gender: 'Male',
+    dateOfBirth:'',
     phone: '',
     email: '',
     password: '',
+    PharmacyName:'',
     tinNumber: '',
     licenseFile: null,
     licensePreview: null,
@@ -115,16 +124,54 @@ const Register = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateStep()) return;
 
     if (step < maxStep) {
       handleNext();
-    } else {
-      console.log("Form Submitted:", formData);
-     
+      return;
+    } 
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      // we check now if the user is patient
+      if(formData.accountType === 'patient'){
+        await authService.registerPatient({
+          fullName: formData.fullName,
+          dateOfBirth: formData.dateOfBirth,
+          phoneNumber: formData.phone,
+          email: formData.email,
+          gender: formData.gender,
+          password: formData.password
+        });
+        alert("Patient account created");
+        navigate('/login');      
+      }
+      else{
+
+        const data = new FormData();
+        data.append('pharmacyName', formData.pharmacyName);
+        data.append('phoneNumber', formData.phone);
+        data.append('email', formData.email);
+        data.append('tin', formData.tinNumber);
+        data.append('password', formData.password);
+        
+        // Append files
+        if (formData.licenseFile) data.append('pharmacyCertificate', formData.licenseFile);
+        if (formData.rdbFile) data.append('rdbCertificate', formData.rdbFile);
+
+        await authService.registerPharmacy(data);
+        
+        alert("Pharmacy registered! Your account is pending verification. Please log in.");
+        navigate('/login')
+      }
+    } catch (error) {
+      setApiError(error.message);
+    }
+    finally{
+      setIsLoading(false);
     }
   };
 
@@ -237,7 +284,37 @@ const Register = () => {
                 </div>
                 {errors.fullName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12}/> {errors.fullName}</p>}
               </div>
-
+              {formData.accountType === 'patient' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('auth.dateOfBirth', 'Date of Birth')}
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => updateData('dateOfBirth', e.target.value)}
+                      className={`block w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-900 dark:text-white ${errors.dateOfBirth ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
+                    />
+                    {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12}/> {errors.dateOfBirth}</p>}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('auth.gender', 'Gender')}
+                    </label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => updateData('gender', e.target.value)}
+                      className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-900 dark:text-white"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      
+                    </select>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('auth.phone', 'Phone Number')}
@@ -416,12 +493,14 @@ const Register = () => {
               </button>
             )}
             
-            <button
-              type="submit"
-              className={`flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors ${step > 1 ? 'w-2/3' : 'w-full'}`}
-            >
-              {step === maxStep ? t('auth.createAccountBtn', 'Create Account') : t('auth.continue', 'Continue')}
-            </button>
+             <button
+      type="submit"
+      disabled={isLoading}
+      className={`flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 transition-colors disabled:opacity-70 ${step > 1 ? 'w-2/3' : 'w-full'}`}
+    >
+      {isLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
+      {isLoading ? 'Processing...' : (step === maxStep ? t('auth.createAccountBtn', 'Create Account') : t('auth.continue', 'Continue'))}
+    </button>
           </div>
 
         </form>

@@ -25,6 +25,7 @@ export const ApiRequest = async (endpoint, options = {}) =>{
     const data = await response.json();
       if (!response.ok) {
     // NestJS usually returns errors in data.message or data.errors
+    console.error("Backend Error Details:", data); 
     const errorMessage = data.message || 'Something went wrong';
     
     // If it's a validation error array
