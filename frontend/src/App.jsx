@@ -23,6 +23,7 @@ import AdminDashboardOverView from './pages/admin/dashboardoverview';
 import AdminDashboard from './pages/admin/dashboard';
 import ManagePatients from './pages/admin/ManagePatients';
 import ManagePharmacies from './pages/admin/ManagePharmacies';
+import ManageAdmins from './pages/admin/ManageAdmins';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -78,6 +79,7 @@ function App() {
           <Route index element={<AdminDashboardOverView />}/>
           <Route path="pharmacies" element={<ManagePharmacies />} />
           <Route path="patients" element={<ManagePatients />} />
+          <Route path="admins" element={<ManageAdmins />} />      
         </Route>
        </Route>
       

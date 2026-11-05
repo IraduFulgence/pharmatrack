@@ -12,7 +12,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
     { icon: <LayoutDashboard size={20} />, label: 'System Overview', path: '/admin/dashboard' },
     { icon: <Building2 size={20} />, label: 'Pharmacies', path: '/admin/dashboard/pharmacies' },
     { icon: <Users size={20} />, label: 'Patients', path: '/admin/dashboard/patients' },
-    { icon: <ShieldAlert size={20} />, label: 'System Users', path: '/admin/users' },
+    { icon: <ShieldAlert size={20} />, label: 'System Users', path: '/admin/dashboard/admins' },
     { icon: <Activity size={20} />, label: 'System Logs', path: '/admin/logs' },
   ];
 
