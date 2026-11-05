@@ -32,6 +32,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: Number(process.env.DB_TIMEOUT) || 15000,
+      // Added the SSL configuration here:
+      ssl: isSsl ? { rejectUnauthorized: false } : false,
     });
 
     this.pool.on('error', (err) => {
