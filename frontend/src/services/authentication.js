@@ -1,6 +1,7 @@
 import { ApiRequest } from "./auth";
 
 export const authService = {
+
   // Standard Login
   login: async (identifier, password) => {
     return ApiRequest('/auth/login', {
@@ -8,7 +9,9 @@ export const authService = {
       body: JSON.stringify({ identifier, password }),
     });
   },
-
+ getProfile: async () => {
+    return ApiRequest('/auth/profile', { method: 'GET' });
+  },
   //  Register Patient
   registerPatient: async (patientData) => {
     return ApiRequest('/auth/register/patient', {

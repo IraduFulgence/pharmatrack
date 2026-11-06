@@ -113,7 +113,7 @@ return (
               {/* Links */}
               <div className="p-2 space-y-1">
                 <Link 
-                  to="/dashboard/profile" 
+                  to="/admin/dashboard/profile" 
                   onClick={() => setIsDropdownOpen(false)}
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
                 >
