@@ -25,8 +25,14 @@ export const ApiRequest = async (endpoint, options = {}) =>{
     const data = await response.json();
       if (!response.ok) {
     // NestJS usually returns errors in data.message or data.errors
+    console.error("Backend Error Details:", data); 
     const errorMessage = data.message || 'Something went wrong';
-    
+     if (response.status === 401 || response.status === 403) {
+       // Token expired or account suspended
+       localStorage.removeItem('token');
+       localStorage.removeItem('user');
+       window.location.href = '/login'; 
+    }
     // If it's a validation error array
     if (data.message && Array.isArray(data.message)) {
       throw new Error(data.message[0]);

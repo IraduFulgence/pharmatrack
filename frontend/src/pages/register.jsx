@@ -1,24 +1,34 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, Building2, Phone, Mail, Lock, Eye, EyeOff, 
-  Check, FileText, UploadCloud, X, AlertCircle 
+  Check, FileText, UploadCloud, X, AlertCircle, Loader2 
 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useTranslation } from 'react-i18next';
-
+import { authService } from '../services/authentication'; 
 const Register = () => {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
-  const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [apierror, setApiError] = useState(null);
   
   // State to hold form data
   const [formData, setFormData] = useState({
-    accountType: 'patient', // 'patient' or 'pharmacy'
+    accountType: 'patient',
+    // Patient fields
     fullName: '',
+    gender: 'Male',
+    dateOfBirth: '',
+    // Shared fields
     phone: '',
     email: '',
     password: '',
+    // Pharmacy fields
+    pharmacyName: '',
     tinNumber: '',
     licenseFile: null,
     licensePreview: null,
@@ -36,15 +46,15 @@ const Register = () => {
 
   // Update form data state
   const updateData = (field, value) => {
-    setFormData({ ...formData, [field]: value });
+    setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user types
     if (errors[field]) {
-      setErrors({ ...errors, [field]: null });
+      setErrors((prev) => ({ ...prev, [field]: null }));
     }
   };
 
   // Handle File Uploads
-    const handleFileUpload = (e, type) => {
+  const handleFileUpload = (e, type) => {
     const file = e.target.files[0];
     if (file) {
       // Create a preview URL for images
@@ -52,8 +62,7 @@ const Register = () => {
         ? URL.createObjectURL(file) 
         : null;
 
-      
-      setFormData(prev => {
+      setFormData((prev) => {
         if (type === 'license') {
           return { ...prev, licenseFile: file, licensePreview: previewUrl };
         } else if (type === 'rdb') {
@@ -62,19 +71,18 @@ const Register = () => {
         return prev;
       });
 
-      
       if (type === 'license' && errors.licenseFile) {
-        setErrors({ ...errors, licenseFile: null });
+        setErrors((prev) => ({ ...prev, licenseFile: null }));
       }
       if (type === 'rdb' && errors.rdbFile) {
-        setErrors({ ...errors, rdbFile: null });
+        setErrors((prev) => ({ ...prev, rdbFile: null }));
       }
     }
   };
 
   // Remove file
   const removeFile = (type) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       if (type === 'license') {
         return { ...prev, licenseFile: null, licensePreview: null };
       } else if (type === 'rdb') {
@@ -89,17 +97,33 @@ const Register = () => {
     const newErrors = {};
 
     if (step === 2) {
-      if (!formData.fullName.trim()) newErrors.fullName = "Name is required";
-      if (!formData.phone.trim()) newErrors.phone = "Phone is required";
+      if (formData.accountType === 'pharmacy') {
+        if (!formData.pharmacyName.trim()) newErrors.pharmacyName = "Pharmacy Name is required";
+      } else {
+        if (!formData.fullName.trim()) newErrors.fullName = "Full Name is required";
+      }
+      
+      // Phone must be international format
+      if (!/^\+[1-9]\d{1,14}$/.test(formData.phone)) {
+        newErrors.phone = "Phone must be in international format (e.g., +250788123456)";
+      }
+
+      if (formData.accountType === 'patient' && !formData.dateOfBirth) {
+        newErrors.dateOfBirth = "Date of birth is required";
+      }
     }
 
     if (step === 3) {
       if (!formData.email.trim()) newErrors.email = "Email is required";
-      if (formData.password.length < 6) newErrors.password = "Password must be at least 6 characters";
+      
+      // Strict password validation
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+=\-\[\]{}|;:'",.<>\/`~])[A-Za-z\d@$!%*?&#^()_+=\-\[\]{}|;:'",.<>\/`~]{8,}$/;
+      if (!passwordRegex.test(formData.password)) {
+        newErrors.password = "Must be 8+ chars with uppercase, lowercase, number, and special char.";
+      }
     }
 
     if (step === 4 && formData.accountType === 'pharmacy') {
-      // Validate TIN is exactly 9 digits
       const tinRegex = /^\d{9}$/;
       if (!tinRegex.test(formData.tinNumber)) {
         newErrors.tinNumber = "TIN must be exactly 9 digits";
@@ -115,16 +139,62 @@ const Register = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateStep()) return;
 
     if (step < maxStep) {
       handleNext();
-    } else {
-      console.log("Form Submitted:", formData);
-     
+      return;
+    } 
+
+    setIsLoading(true);
+    setApiError(null);
+
+    try {
+      if (formData.accountType === 'patient') {
+        //  register patient
+        await authService.registerPatient({
+          fullName: formData.fullName,
+          dateOfBirth: formData.dateOfBirth,
+          phoneNumber: formData.phone,
+          email: formData.email,
+          gender: formData.gender,
+          password: formData.password
+        });
+        alert("Patient account created successfully!");
+        navigate('/login');      
+      } else {
+        // register pharmacy
+        const data = new FormData();
+        
+        // Text fields
+        data.append('pharmacyName', formData.pharmacyName);
+        data.append('phoneNumber', formData.phone);
+        data.append('email', formData.email);
+        data.append('tin', formData.tinNumber);
+        data.append('password', formData.password);
+        
+        // Append files         
+        if (formData.licenseFile) data.append('pharmacyCertificate', formData.licenseFile);
+        if (formData.rdbFile) data.append('rdbCertificate', formData.rdbFile);
+
+        // Debug: Log to make sure files and data are attached
+        console.log("--- SUBMITTING PHARMACY DATA ---");
+        for (let pair of data.entries()) {
+          console.log(pair[0], pair[1]); 
+        }
+
+        await authService.registerPharmacy(data);
+        
+        alert("Pharmacy registered! Your account is pending verification. Please log in.");
+        navigate('/login');
+      }
+    } catch (error) {
+      setApiError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -137,7 +207,7 @@ const Register = () => {
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900 transition-colors">
-      <div className="max-w-200 w-full space-y-8 bg-white dark:bg-gray-950 p-8 rounded-1xl shadow-xl border border-gray-100 dark:border-gray-800">
+      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-950 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
         
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -180,13 +250,7 @@ const Register = () => {
               </label>
               
               <div 
-                onClick={() => {
-                  updateData('accountType', 'patient');
-                  // Reset pharmacy fields if switching back to patient
-                  if (step === 1) {
-                    setFormData(prev => ({ ...prev, accountType: 'patient', tinNumber: '', licenseFile: null, rdbFile: null }));
-                  }
-                }}
+                onClick={() => updateData('accountType', 'patient')}
                 className={`cursor-pointer border-2 rounded-xl p-4 flex items-center gap-4 transition-all ${formData.accountType === 'patient' ? 'border-brand-primary bg-brand-light dark:bg-brand-primary/10' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}
               >
                 <div className={`p-3 rounded-full ${formData.accountType === 'patient' ? 'bg-brand-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
@@ -200,7 +264,7 @@ const Register = () => {
               </div>
 
               <div 
-                onClick={() => setFormData(prev => ({ ...prev, accountType: 'pharmacy' }))}
+                onClick={() => updateData('accountType', 'pharmacy')}
                 className={`cursor-pointer border-2 rounded-xl p-4 flex items-center gap-4 transition-all ${formData.accountType === 'pharmacy' ? 'border-brand-primary bg-brand-light dark:bg-brand-primary/10' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}
               >
                 <div className={`p-3 rounded-full ${formData.accountType === 'pharmacy' ? 'bg-brand-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
@@ -215,7 +279,7 @@ const Register = () => {
             </div>
           )}
 
-          {/* Name and Phone */}
+          {/* Name and Phone  */}
           {step === 2 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
               
@@ -229,14 +293,51 @@ const Register = () => {
                   </div>
                   <input
                     type="text"
-                    value={formData.fullName}
-                    onChange={(e) => updateData('fullName', e.target.value)}
-                    className={`block w-full pl-10 pr-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-900 dark:text-white ${errors.fullName ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
+                    
+                    value={formData.accountType === 'pharmacy' ? formData.pharmacyName : formData.fullName}
+                    onChange={(e) => updateData(
+                      formData.accountType === 'pharmacy' ? 'pharmacyName' : 'fullName', 
+                      e.target.value
+                    )}
+                    className={`block w-full pl-10 pr-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-900 dark:text-white ${(errors.fullName || errors.pharmacyName) ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                     placeholder={formData.accountType === 'pharmacy' ? 'e.g. Kigali Care Pharmacy' : 'e.g. John Doe'}
                   />
                 </div>
                 {errors.fullName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12}/> {errors.fullName}</p>}
+                {errors.pharmacyName && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12}/> {errors.pharmacyName}</p>}
               </div>
+
+              {formData.accountType === 'patient' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('auth.dateOfBirth', 'Date of Birth')}
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => updateData('dateOfBirth', e.target.value)}
+                      className={`block w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-900 dark:text-white ${errors.dateOfBirth ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
+                    />
+                    {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12}/> {errors.dateOfBirth}</p>}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('auth.gender', 'Gender')}
+                    </label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => updateData('gender', e.target.value)}
+                      className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-900 dark:text-white"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -251,7 +352,7 @@ const Register = () => {
                     value={formData.phone}
                     onChange={(e) => updateData('phone', e.target.value)}
                     className={`block w-full pl-10 pr-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-900 dark:text-white ${errors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
-                    placeholder="+250 78..."
+                    placeholder="+250788123456"
                   />
                 </div>
                 {errors.phone && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12}/> {errors.phone}</p>}
@@ -259,7 +360,7 @@ const Register = () => {
             </div>
           )}
 
-          {/* Email and Password */}
+          {/*  Email and Password */}
           {step === 3 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
               
@@ -310,7 +411,7 @@ const Register = () => {
             </div>
           )}
 
-          {/* Pharmacy Details (TIN) - Only for Pharmacy */}
+          {/* Pharmacy Details */}
           {step === 4 && formData.accountType === 'pharmacy' && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
               <div>
@@ -326,7 +427,6 @@ const Register = () => {
                     maxLength="9"
                     value={formData.tinNumber}
                     onChange={(e) => {
-                      // Only allow numbers
                       const val = e.target.value.replace(/\D/g, '');
                       updateData('tinNumber', val);
                     }}
@@ -339,7 +439,7 @@ const Register = () => {
             </div>
           )}
 
-          {/* Pharmacy Documents - Only for Pharmacy */}
+          {/* Pharmacy Documents */}
           {step === 5 && formData.accountType === 'pharmacy' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               
@@ -404,13 +504,21 @@ const Register = () => {
             </div>
           )}
 
+          {/* API Error Display */}
+          {apierror && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-center gap-2 text-sm">
+              <AlertCircle size={16} /> {apierror}
+            </div>
+          )}
+
           {/* Navigation Buttons */}
           <div className="flex gap-4 pt-4">
             {step > 1 && (
               <button
                 type="button"
                 onClick={handlePrev}
-                className="w-1/3 flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                disabled={isLoading}
+                className="w-1/3 flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
                 {t('auth.back', 'Back')}
               </button>
@@ -418,9 +526,11 @@ const Register = () => {
             
             <button
               type="submit"
-              className={`flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors ${step > 1 ? 'w-2/3' : 'w-full'}`}
+              disabled={isLoading}
+              className={`flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 transition-colors disabled:opacity-70 ${step > 1 ? 'w-2/3' : 'w-full'}`}
             >
-              {step === maxStep ? t('auth.createAccountBtn', 'Create Account') : t('auth.continue', 'Continue')}
+              {isLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
+              {isLoading ? 'Processing...' : (step === maxStep ? t('auth.createAccountBtn', 'Create Account') : t('auth.continue', 'Continue'))}
             </button>
           </div>
 
