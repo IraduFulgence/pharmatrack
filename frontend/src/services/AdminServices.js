@@ -27,12 +27,28 @@ export const adminService ={
     return ApiRequest(`/admin/pharmacies/${id}/approve`, { method: 'PATCH' });
   },
 
-  // Reject a pharmacy (requires reason)
+  // Reject a pharmacy with a reason
   rejectPharmacy: async (id, reason) => {
     return ApiRequest(`/admin/pharmacies/${id}/reject`, {
       method: 'PATCH',
       body: JSON.stringify({ reason }),
     });
   },
+  getPharmacyDocument: async (id, type) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/admin/pharmacies/${id}/certificate/${type}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to load document. It may not exist or you are unauthorized.');
+    }
+
+    // Return the raw binary data as a Blob
+    return response.blob();
+  }
 
 };
