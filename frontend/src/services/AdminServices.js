@@ -49,6 +49,27 @@ export const adminService ={
 
     // Return the raw binary data as a Blob
     return response.blob();
-  }
+  },
+  // patients end points
+  getAllPatients: async () =>{
+  return ApiRequest('/admin/patients',{method:'GET'});  
+  },
+  getPatientById: async (id) => {
+    return ApiRequest(`/admin/patients/${id}`, { method: 'GET' });
+  },
+    updatePatient: async (id, patientData) => {
+    return ApiRequest(`/admin/patients/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patientData),
+    });
+  },
+
+  // Toggle patient active/inactive status
+  togglePatientStatus: async (id) => {
+    return ApiRequest(`/admin/patients/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  },
+
 
 };
