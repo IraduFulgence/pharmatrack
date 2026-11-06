@@ -4,6 +4,7 @@ import {
   Download, Loader2, AlertCircle 
 } from 'lucide-react';
 import { adminService } from '../../services/AdminServices';
+import DocumentViewer from '../../components/admin/DocumentViewer';
 const ManagePharmacies = () => {
   const [pharmacies, setPharmacies] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,6 +20,9 @@ const ManagePharmacies = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectError, setRejectError] = useState(null);
 
+  // Document Viewer State
+  const [viewingDoc, setViewingDoc] = useState(null); 
+
   // Fetch Pharmacies
   useEffect(() => {
     fetchPharmacies();
@@ -28,7 +32,7 @@ const ManagePharmacies = () => {
     try {
       setIsLoading(true);
       const response = await adminService.getAllPharmacies();
-      console.log(response);
+      
       let list = [];
       if (response?.data?.pharmacies) list = response.data.pharmacies;
       else if (Array.isArray(response?.data)) list = response.data;
@@ -55,7 +59,6 @@ const ManagePharmacies = () => {
     setApiError(null);
     try {
       await adminService.approvePharmacy(id);
-      // Update local state without re-fetching
       setPharmacies(pharmacies.map(p => 
         (p.id === id || p.pharmacyId === id) ? { ...p, verificationStatus: 'APPROVED' } : p
       ));
@@ -79,7 +82,6 @@ const ManagePharmacies = () => {
     
     try {
       await adminService.rejectPharmacy(id, rejectReason);
-      // Update local state
       setPharmacies(pharmacies.map(p => 
         (p.id === id || p.pharmacyId === id) ? { ...p, verificationStatus: 'REJECTED' } : p
       ));
@@ -88,6 +90,23 @@ const ManagePharmacies = () => {
       setApiError(err.message || "Failed to reject pharmacy.");
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  // Download Document
+  const handleDownload = async (id, type, filename) => {
+    try {
+      const blob = await adminService.getPharmacyDocument(id, type);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || "Failed to download document.");
     }
   };
 
@@ -185,7 +204,7 @@ const ManagePharmacies = () => {
         </div>
       </div>
 
-      {/* Review Modal */}
+      {/* --- REVIEW MODAL --- */}
       {selectedPharmacy && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
@@ -214,15 +233,53 @@ const ManagePharmacies = () => {
               <div className="border-t border-gray-100 dark:border-gray-800 pt-4 mt-4">
                 <p className="text-sm font-bold text-gray-900 dark:text-white mb-3">Verification Documents</p>
                 <div className="space-y-2">
+                  
+                  {/* Pharmacy License Row */}
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                    <span className="text-sm flex items-center gap-2 font-medium"><FileText size={18} className="text-blue-500"/> Pharmacy License</span>
-                    {/* Note: Real download requires a special fetch call to handle binary files. For now, it's a placeholder */}
-                    <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Download size={18}/></button>
+                    <span className="text-sm flex items-center gap-2 font-medium">
+                      <FileText size={18} className="text-blue-500"/> Pharmacy License
+                    </span>
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={() => setViewingDoc({ type: 'pharmacy', title: 'Pharmacy License' })}
+                        className="p-2 text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        title="View Document"
+                      >
+                        <Eye size={18}/>
+                      </button>
+                      <button 
+                        onClick={() => handleDownload(selectedPharmacy.id || selectedPharmacy.pharmacyId, 'pharmacy', 'Pharmacy_License.pdf')}
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        title="Download"
+                      >
+                        <Download size={18}/>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* RDB Certificate Row */}
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                    <span className="text-sm flex items-center gap-2 font-medium"><FileText size={18} className="text-blue-500"/> RDB Certificate</span>
-                    <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Download size={18}/></button>
+                    <span className="text-sm flex items-center gap-2 font-medium">
+                      <FileText size={18} className="text-blue-500"/> RDB Certificate
+                    </span>
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={() => setViewingDoc({ type: 'rdb', title: 'RDB Certificate' })}
+                        className="p-2 text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        title="View Document"
+                      >
+                        <Eye size={18}/>
+                      </button>
+                      <button 
+                        onClick={() => handleDownload(selectedPharmacy.id || selectedPharmacy.pharmacyId, 'rdb', 'RDB_Certificate.pdf')}
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        title="Download"
+                      >
+                        <Download size={18}/>
+                      </button>
+                    </div>
                   </div>
+                  
                 </div>
               </div>
 
@@ -237,7 +294,7 @@ const ManagePharmacies = () => {
                       if (rejectError) setRejectError(null);
                     }}
                     rows="3"
-                    className={`w-full bg-white dark:bg-gray-900 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 dark:text-white ${rejectError ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
+                    className={`w-full bg-white dark:bg-gray-900 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 dark:text-white ${rejectError ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                     placeholder="e.g., RDB certificate is expired or unreadable..."
                   />
                   {rejectError && <p className="text-red-500 text-xs mt-1">{rejectError}</p>}
@@ -301,6 +358,18 @@ const ManagePharmacies = () => {
           </div>
         </div>
       )}
+
+      {/*  document viewer modal */}
+      
+      {viewingDoc && selectedPharmacy && (
+        <DocumentViewer 
+          pharmacyId={selectedPharmacy.id || selectedPharmacy.pharmacyId}
+          docType={viewingDoc.type}
+          title={viewingDoc.title}
+          onClose={() => setViewingDoc(null)}
+        />
+      )}
+
     </div>
   );
 };

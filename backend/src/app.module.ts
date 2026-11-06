@@ -8,6 +8,10 @@ import { PatientsModule } from './patients/patients.module.js';
 
 @Module({
   imports: [DatabaseModule, AuthModule, AdminModule, PatientsModule],
+import { InventoryModule } from './inventory/inventory.module.js';
+
+@Module({
+  imports: [DatabaseModule, AuthModule, AdminModule, InventoryModule],
   controllers: [AppController],
   providers: [AppService],
 })
