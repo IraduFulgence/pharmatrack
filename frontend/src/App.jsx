@@ -24,6 +24,7 @@ import AdminDashboard from './pages/admin/dashboard';
 import ManagePatients from './pages/admin/ManagePatients';
 import ManagePharmacies from './pages/admin/ManagePharmacies';
 import ManageAdmins from './pages/admin/ManageAdmins';
+import AdminProfile from './pages/admin/AdminProfileTab';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -80,6 +81,7 @@ function App() {
           <Route path="pharmacies" element={<ManagePharmacies />} />
           <Route path="patients" element={<ManagePatients />} />
           <Route path="admins" element={<ManageAdmins />} />      
+          <Route path="profile" element={<AdminProfile />} />
         </Route>
        </Route>
       
