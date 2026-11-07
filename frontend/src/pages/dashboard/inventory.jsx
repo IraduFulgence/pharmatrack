@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Package, AlertTriangle, Clock, Bell, 
-  Loader2, RefreshCw, CheckCircle2, ChevronRight 
+  Loader2, RefreshCw, CheckCircle2, ChevronRight, List 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { inventoryService } from '../../services/inventoryService';
@@ -17,20 +17,43 @@ const Inventory = () => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
-
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
+      
       const [dashRes, alertsRes, notifRes] = await Promise.all([
         inventoryService.getDashboard(),
         inventoryService.getAlerts(),
         inventoryService.getNotifications()
       ]);
 
+      console.log("Alerts API Response:", alertsRes); 
+      console.log("Notifications API Response:", notifRes);
+
+      // Safely extract alerts array
+      let alertsList = [];
+      if (Array.isArray(alertsRes?.data)) {
+        alertsList = alertsRes.data;
+      } else if (Array.isArray(alertsRes?.data?.alerts)) {
+        alertsList = alertsRes.data.alerts;
+      } else if (Array.isArray(alertsRes)) {
+        alertsList = alertsRes;
+      }
+
+      // Safely extract notifications array
+      let notificationsList = [];
+      if (Array.isArray(notifRes?.data)) {
+        notificationsList = notifRes.data;
+      } else if (Array.isArray(notifRes?.data?.notifications)) {
+        notificationsList = notifRes.data.notifications;
+      } else if (Array.isArray(notifRes)) {
+        notificationsList = notifRes;
+      }
+
       setData({
         stats: dashRes.data || {},
-        alerts: alertsRes.data?.alerts || alertsRes.data || [],
-        notifications: notifRes.data?.notifications || notifRes.data || []
+        alerts: alertsList,
+        notifications: notificationsList
       });
     } catch (err) {
       console.error("Failed to load inventory data", err);
@@ -78,7 +101,13 @@ const Inventory = () => {
             {isScanning ? 'Scanning...' : 'Scan for Alerts'}
           </button>
           <Link 
-            to="/dashboard/inventory/stock-in" 
+           to="/pharmacy/dashboard/inventory/list" 
+           className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+           >
+            <List size={16} /> Full Inventory
+          </Link>
+          <Link 
+            to="/pharmacy/dashboard/inventory/stock-in" 
             className="flex items-center gap-2 px-4 py-2 bg-[#007a55] text-white rounded-lg hover:bg-[#006645] transition-colors text-sm font-semibold"
           >
             <Package size={16} /> Receive Stock

@@ -25,6 +25,8 @@ import ManagePatients from './pages/admin/ManagePatients';
 import ManagePharmacies from './pages/admin/ManagePharmacies';
 import ManageAdmins from './pages/admin/ManageAdmins';
 import AdminProfile from './pages/admin/AdminProfileTab';
+import InventoryList from './pages/dashboard/InventoryList';
+
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -66,6 +68,7 @@ function App() {
         <Route path="createprofile" element={<CreatePharmacyProfile/>}/>
         <Route path="prescriptions" element={<Prescriptions/>}/>
         <Route path="orders" element={<Orders/>}/>
+        <Route path="inventory/list" element={<InventoryList />} /> 
         </Route>
         </Route>
 
