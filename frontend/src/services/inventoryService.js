@@ -1,0 +1,68 @@
+import { ApiRequest } from "./auth";
+
+export const inventoryService = {
+  getDashboard: async () => {
+    return ApiRequest('/inventory/dashboard', { method: 'GET' });
+  },
+  getAlerts: async () => {
+    return ApiRequest('/inventory/alerts', { method: 'GET' });
+  },
+  getNotifications: async () => {
+    return ApiRequest('/inventory/notifications', { method: 'GET' });
+  },
+  markNotificationRead: async (id) => {
+    return ApiRequest(`/inventory/notifications/${id}/read`, { method: 'PATCH' });
+  },
+  scanAlerts: async () => {
+    return ApiRequest('/inventory/notifications/scan-alerts', { method: 'POST' });
+  },
+
+  getPharmacyMedicines: async () => {
+    return ApiRequest('/inventory/medicines', { method: 'GET' });
+  },
+  getMedicineDetails: async (id) => {
+    return ApiRequest(`/inventory/medicines/${id}`, { method: 'GET' });
+  },
+  getCatalogue: async (search = '') => {
+    return ApiRequest(`/inventory/catalogue?search=${encodeURIComponent(search)}`, { method: 'GET' });
+  },
+  registerMedicine: async (medicineData) => {
+    return ApiRequest('/inventory/medicines', {
+      method: 'POST',
+      body: JSON.stringify(medicineData),
+    });
+  },
+
+  getBatches: async () => {
+    return ApiRequest('/inventory/batches', { method: 'GET' });
+  },
+  receiveStock: async (batchData) => {
+    return ApiRequest('/inventory/batches', {
+      method: 'POST',
+      body: JSON.stringify(batchData),
+    });
+  },
+  getBatchDetails: async (id) => {
+    return ApiRequest(`/inventory/batches/${id}`, { method: 'GET' });
+  },
+  updateBatch: async (id, data) => {
+    return ApiRequest(`/inventory/batches/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  adjustStock: async (adjustmentData) => {
+    return ApiRequest('/inventory/adjustments', {
+      method: 'POST',
+      body: JSON.stringify(adjustmentData),
+    });
+  },
+
+  getTransactions: async () => {
+    return ApiRequest('/inventory/transactions', { method: 'GET' });
+  },
+  getReports: async (format = 'JSON') => {
+    return ApiRequest(`/inventory/reports?format=${format}`, { method: 'GET' });
+  }
+};

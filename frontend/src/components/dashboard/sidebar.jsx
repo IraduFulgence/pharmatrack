@@ -8,18 +8,18 @@ import logo from "../../assets/logo.png";
 
 const DashboardSidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
-    { icon: <LayoutGrid size={20} />, label: 'Overview', path: '/dashboard' },
-    { icon: <FileText size={20} />, label: 'Prescriptions', path: '/dashboard/prescriptions' },
-    { icon: <ShoppingBag size={20} />, label: 'Orders', badge: '12', path: '/dashboard/orders' },
-    { icon: <Package size={20} />, label: 'Inventory', path: '/dashboard/inventory' },
-    { icon: <Users size={20} />, label: 'Customers', path: '/dashboard/customers' },
-    { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3', path: '/dashboard/messages' },
+    { icon: <LayoutGrid size={20} />, label: 'Overview', path: '/pharmacy/dashboard' },
+    { icon: <FileText size={20} />, label: 'Prescriptions', path: '/pharmacy/dashboard/prescriptions' },
+    { icon: <ShoppingBag size={20} />, label: 'Orders', badge: '12', path: '/pharmacy/dashboard/orders' },
+    { icon: <Package size={20} />, label: 'Inventory', path: '/pharmacy/dashboard/inventory' },
+    { icon: <Users size={20} />, label: 'Customers', path: '/pharmacy/dashboard/customers' },
+    { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3', path: '/pharmacy/dashboard/messages' },
   ];
 
  
   const bottomItems = [
-    { icon: <Settings size={20} />, label: 'Settings & Profile', path: '/dashboard/profile' },
-    { icon: <HelpCircle size={20} />, label: 'Help center', path: '/dashboard/help' },
+    { icon: <Settings size={20} />, label: 'Settings & Profile', path: '/pharmacy/dashboard/profile' },
+    { icon: <HelpCircle size={20} />, label: 'Help center', path: '/pharmacy/dashboard/help' },
   ];
 
   return (
@@ -53,7 +53,7 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
 
         {/* Pharmacy Profile Card */}
         <div className="p-4">
-           <Link to="/dashboard/profile" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors block">
+           <Link to="/pharmacy/dashboard/profile" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors block">
            <div className="bg-[#007a55] text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg">
               +
             </div>
@@ -74,7 +74,7 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
                   key={idx} 
                   to={item.path}
                   onClick={() => setIsOpen(false)} 
-                  end={item.path === '/dashboard'}
+                  end={item.path === '/pharmacy/dashboard'}
                   className={({ isActive }) => `
                     flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                     ${isActive 
