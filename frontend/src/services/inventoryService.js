@@ -36,12 +36,12 @@ export const inventoryService = {
   getBatches: async () => {
     return ApiRequest('/inventory/batches', { method: 'GET' });
   },
-  receiveStock: async (batchData) => {
-    return ApiRequest('/inventory/batches', {
-      method: 'POST',
-      body: JSON.stringify(batchData),
-    });
-  },
+ receiveStock: async (pharmacyId, batchData) => {
+  return ApiRequest(`/inventory/stock-in?pharmacyId=${String(pharmacyId)}`, {
+    method: 'POST',
+    body: JSON.stringify(batchData),
+  });
+},
   getBatchDetails: async (id) => {
     return ApiRequest(`/inventory/batches/${id}`, { method: 'GET' });
   },

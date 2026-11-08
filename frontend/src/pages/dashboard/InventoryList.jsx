@@ -83,7 +83,7 @@ const InventoryList = () => {
           <p className="text-gray-500 dark:text-gray-400">View all medicines currently in your pharmacy.</p>
         </div>
         <Link 
-          to="/dashboard/inventory/stock-in"
+          to="/pharmacy/dashboard/inventory/stock-in"
           className="flex items-center gap-2 px-4 py-2 bg-[#007a55] text-white rounded-lg hover:bg-[#006645] transition-colors text-sm font-semibold"
         >
           <Package size={16} /> Receive Stock
