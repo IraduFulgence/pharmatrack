@@ -24,13 +24,12 @@ const InventoryList = () => {
     try {
       setIsLoading(true);
       const response = await inventoryService.getPharmacyMedicines();
-      
-      // Handle different possible response structures
+      // console.log("RAW BACKEND RESPONSE:", JSON.stringify(response, null, 2));
       let list = [];
       if (response?.data?.medicines) list = response.data.medicines;
       else if (Array.isArray(response?.data)) list = response.data;
       else if (Array.isArray(response)) list = response;
-
+     //console.log("PARSED LIST TO SET IN STATE:", list); 
       setMedicines(list);
     } catch (err) {
       console.error("Failed to load inventory:", err);
@@ -44,8 +43,8 @@ const InventoryList = () => {
     setSelectedMedicine(medicine);
     setIsBatchesLoading(true);
     try {
-      const response = await inventoryService.getMedicineDetails(medicine.id || medicine.medicineId);
-      
+      const response = await inventoryService.getMedicineDetails(medicine.id || medicine.medicineId || medicine.medicine_id);
+      console.log('batches',response);
       let batchList = [];
       if (response?.data?.batches) batchList = response.data.batches;
       else if (Array.isArray(response?.data)) batchList = response.data;
@@ -66,7 +65,7 @@ const InventoryList = () => {
 
   // Filter medicines
   const filteredMedicines = Array.isArray(medicines) ? medicines.filter(med => {
-    const name = med.name || med.medicineName || '';
+    const name = med.name || med.medicine_name || '';
     return name.toLowerCase().includes(searchTerm.toLowerCase());
   }) : [];
 
@@ -132,7 +131,7 @@ const InventoryList = () => {
                 </tr>
               ) : (
                 filteredMedicines.map((med) => {
-                  const stock = med.totalQuantity || med.quantity || 0;
+                  const stock = med.totalQuantity || med.quantity || med.total_quantity || 0;
                   const isLowStock = stock <= (med.reorderLevel || 10);
                   
                   return (
@@ -141,7 +140,7 @@ const InventoryList = () => {
                         <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-lg">
                           <Package size={18} />
                         </div>
-                        {med.name || med.medicineName}
+                        {med.name || med.medicine_name}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -200,10 +199,10 @@ const InventoryList = () => {
                       <div className="space-y-1">
                         <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                           <FileText size={16} className="text-gray-400"/> 
-                          Batch: {batch.batchNumber || batch.batchNo}
+                          Batch: {batch.batch_number || batch.batchNo}
                         </p>
                         <p className="text-sm text-gray-500 flex items-center gap-2">
-                          <Calendar size={14} /> Expires: {new Date(batch.expiryDate).toLocaleDateString()}
+                          <Calendar size={14} /> Expires: {new Date(batch.expiry_date).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="text-left sm:text-right w-full sm:w-auto">
@@ -211,7 +210,10 @@ const InventoryList = () => {
                           Qty: {batch.quantity}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Price: {batch.unitPrice || batch.price} RWF
+                          Unit Price: {batch.unitPrice || batch.unit_price} RWF
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Total Price: {batch.unit_price * batch.quantity} RWF
                         </p>
                       </div>
                     </div>
