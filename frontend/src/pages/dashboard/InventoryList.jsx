@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Search, Package, AlertTriangle, ChevronRight, X, 
-  Loader2, Calendar, FileText, ArrowLeft, Edit, Save, Pill 
+  Loader2, Calendar, FileText, ArrowLeft, Edit, Save 
 } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
 
@@ -30,7 +30,6 @@ const InventoryList = () => {
     try {
       setIsLoading(true);
       const response = await inventoryService.getPharmacyMedicines();
-        //console.log('fetched medicine:', response);
       let list = [];
       if (response?.data?.medicines) list = response.data.medicines;
       else if (Array.isArray(response?.data)) list = response.data;
@@ -46,24 +45,24 @@ const InventoryList = () => {
 
   const handleViewBatches = async (medicine) => {
     setSelectedMedicine(medicine);
-    setIsEditing(false); // Reset edit mode
+    setIsEditing(false);
     setIsBatchesLoading(true);
     
-    // Initialize edit form with current medicine data
+    // Populate edit state with snake_case (matches backend DTO)
     setEditFormData({
-      medicine_name: medicine.medicineName || medicine.medicine_name || '',
-      generic_name: medicine.generic_name || '',
-      brand_name: medicine.brand_name || '',
+      medicine_name: medicine.medicine_name || medicine.medicineName || '',
+      generic_name: medicine.generic_name || medicine.genericName || '',
+      brand_name: medicine.brand_name || medicine.brandName || '',
       strength: medicine.strength || '',
-      dosage_form: medicine.dosage_form || 'Tablet',
+      dosage_form: medicine.dosage_form || medicine.dosageForm || 'Tablet',
       description: medicine.description || '',
-      requires_prescription: medicine.requires_prescription || false,
+      requires_prescription: medicine.requires_prescription ?? medicine.requiresPrescription ?? false,
     });
 
     try {
       const medicineId = medicine.id || medicine.medicineId || medicine.medicine_id;
       const response = await inventoryService.getMedicineDetails(medicineId);
-      //console.log('detailed medicine', response);
+      
       let batchList = [];
       if (Array.isArray(response?.data?.batches)) batchList = response.data.batches;
       else if (Array.isArray(response?.data?.medicine?.batches)) batchList = response.data.medicine.batches;
@@ -78,13 +77,12 @@ const InventoryList = () => {
     }
   };
 
-  
   const handleEditChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setEditFormData({
-      ...editFormData,
+    setEditFormData((prev) => ({
+      ...prev,
       [name]: type === 'checkbox' ? checked : value
-    });
+    }));
   };
 
   const handleSaveEdit = async (e) => {
@@ -94,22 +92,19 @@ const InventoryList = () => {
 
     try {
       const medicineId = selectedMedicine.id || selectedMedicine.medicineId || selectedMedicine.medicine_id;
-      const res = await inventoryService.updateMedicine(medicineId, editFormData);
+      await inventoryService.updateMedicine(medicineId, editFormData);
       
-      // Update the local list so the table reflects the change immediately
+      // Update local list so the table reflects changes immediately
       setMedicines(medicines.map(m => 
         (m.id === medicineId || m.medicineId === medicineId) 
           ? { ...m, ...editFormData } 
           : m
       ));
       
-      // Update the selected medicine object
       setSelectedMedicine({ ...selectedMedicine, ...editFormData });
-      
       setIsEditing(false);
     } catch (err) {
       setEditError(err.message || "Failed to update medicine.");
-      console.log('error', err.message);
     } finally {
       setIsSaving(false);
     }
@@ -228,16 +223,15 @@ const InventoryList = () => {
         </div>
       </div>
 
-      {/* DETAILS */}
+      {/* DETAILS / EDIT MODAL */}
       {selectedMedicine && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
-            {/* Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800">
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {isEditing ? 'Edit Medicine Details' : (selectedMedicine.medicine_name)}
+                  {isEditing ? 'Edit Medicine Details' : (selectedMedicine.medicine_name || selectedMedicine.medicineName)}
                 </h2>
                 <p className="text-sm text-gray-500">
                   {isEditing ? 'Update the information in the central catalogue.' : 'Specific batches & expirations'}
@@ -255,28 +249,27 @@ const InventoryList = () => {
               )}
 
               {isEditing ? (
-                
                 <form onSubmit={handleSaveEdit} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Medicine Name *</label>
-                      <input type="text" name="medicineName" required value={editFormData.medicine_name} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
+                      <input type="text" name="medicine_name" required value={editFormData.medicine_name || ''} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Generic Name *</label>
-                      <input type="text" name="genericName" required value={editFormData.generic_name} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
+                      <input type="text" name="generic_name" required value={editFormData.generic_name || ''} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Brand Name</label>
-                      <input type="text" name="brandName" value={editFormData.brand_name} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
+                      <input type="text" name="brand_name" value={editFormData.brand_name || ''} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Strength</label>
-                      <input type="text" name="strength" value={editFormData.strength} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
+                      <input type="text" name="strength" value={editFormData.strength || ''} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Dosage Form</label>
-                      <select name="dosageForm" value={editFormData.dosage_form} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white">
+                      <select name="dosage_form" value={editFormData.dosage_form || 'Tablet'} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white">
                         <option value="Tablet">Tablet</option>
                         <option value="Capsule">Capsule</option>
                         <option value="Syrup">Syrup</option>
@@ -286,13 +279,13 @@ const InventoryList = () => {
                       </select>
                     </div>
                     <div className="flex items-center mt-6">
-                      <input type="checkbox" name="requiresPrescription" checked={editFormData.requires_prescription} onChange={handleEditChange} className="w-4 h-4 text-[#007a55] border-gray-300 rounded focus:ring-[#007a55]" />
+                      <input type="checkbox" name="requires_prescription" checked={editFormData.requires_prescription || false} onChange={handleEditChange} className="w-4 h-4 text-[#007a55] border-gray-300 rounded focus:ring-[#007a55]" />
                       <label className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Requires Prescription</label>
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-                    <textarea name="description" rows="3" value={editFormData.description} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white resize-none" />
+                    <textarea name="description" rows="3" value={editFormData.description || ''} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white resize-none" />
                   </div>
                   <div className="flex gap-3 pt-4">
                     <button type="button" onClick={() => setIsEditing(false)} className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:bg-gray-200 transition-colors">Cancel</button>
@@ -303,7 +296,6 @@ const InventoryList = () => {
                   </div>
                 </form>
               ) : (
-                /* batches*/
                 <>
                   {isBatchesLoading ? (
                     <div className="flex justify-center py-8">
@@ -340,7 +332,6 @@ const InventoryList = () => {
               )}
             </div>
             
-            {/* Footer */}
             <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30 flex justify-between items-center">
               {!isEditing && (
                 <button 
