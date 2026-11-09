@@ -337,33 +337,33 @@ export class InventoryService {
     const params: any[] = [];
     let paramIdx = 1;
 
-    if (dto.medicineName !== undefined) {
+    if (dto.medicine_name !== undefined) {
       updates.push(`medicine_name = $${paramIdx++}`);
-      params.push(dto.medicineName.trim());
+      params.push(dto.medicine_name.trim());
     }
-    if (dto.genericName !== undefined) {
+    if (dto.generic_name !== undefined) {
       updates.push(`generic_name = $${paramIdx++}`);
-      params.push(dto.genericName.trim() || null);
+      params.push(dto.generic_name.trim() || null);
     }
-    if (dto.brandName !== undefined) {
+    if (dto.brand_name !== undefined) {
       updates.push(`brand_name = $${paramIdx++}`);
-      params.push(dto.brandName.trim() || null);
+      params.push(dto.brand_name.trim() || null);
     }
     if (dto.strength !== undefined) {
       updates.push(`strength = $${paramIdx++}`);
       params.push(dto.strength.trim() || null);
     }
-    if (dto.dosageForm !== undefined) {
+    if (dto.dosage_form !== undefined) {
       updates.push(`dosage_form = $${paramIdx++}`);
-      params.push(dto.dosageForm.trim() || null);
+      params.push(dto.dosage_form.trim() || null);
     }
     if (dto.description !== undefined) {
       updates.push(`description = $${paramIdx++}`);
       params.push(dto.description.trim() || null);
     }
-    if (dto.requiresPrescription !== undefined) {
+    if (dto.requires_prescription !== undefined) {
       updates.push(`requires_prescription = $${paramIdx++}`);
-      params.push(Boolean(dto.requiresPrescription));
+      params.push(Boolean(dto.requires_prescription));
     }
 
     if (updates.length === 0) {
