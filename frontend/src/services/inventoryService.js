@@ -1,21 +1,34 @@
 import { ApiRequest } from "./auth";
 
+const getPharmacyId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user'));
+    return user?.id || user?.pharmacyId;
+  } catch { return null; }
+};
 export const inventoryService = {
   getDashboard: async () => {
     return ApiRequest('/inventory/dashboard', { method: 'GET' });
   },
-  getAlerts: async () => {
-    return ApiRequest('/inventory/alerts', { method: 'GET' });
+   getAlerts: async () => {
+    const pharmacyId = getPharmacyId();
+    return ApiRequest(`/inventory/alerts?pharmacyId=${pharmacyId}`, { method: 'GET' });
   },
-  getNotifications: async () => {
-    return ApiRequest('/inventory/notifications', { method: 'GET' });
+    getNotifications: async () => {
+    const pharmacyId = getPharmacyId();
+    return ApiRequest(`/inventory/notifications?pharmacyId=${pharmacyId}`, { method: 'GET' });
   },
-  markNotificationRead: async (id) => {
-    return ApiRequest(`/inventory/notifications/${id}/read`, { method: 'PATCH' });
-  },
+
   scanAlerts: async () => {
-    return ApiRequest('/inventory/notifications/scan-alerts', { method: 'POST' });
+    const pharmacyId = getPharmacyId();
+    return ApiRequest(`/inventory/notifications/scan-alerts?pharmacyId=${pharmacyId}`, { method: 'POST' });
   },
+  
+  markNotificationRead: async (id) => {
+    const pharmacyId = getPharmacyId();
+    return ApiRequest(`/inventory/notifications/${id}/read?pharmacyId=${pharmacyId}`, { method: 'PATCH' });
+  },
+
 
   getPharmacyMedicines: async () => {
     return ApiRequest('/inventory/medicines', { method: 'GET' });
