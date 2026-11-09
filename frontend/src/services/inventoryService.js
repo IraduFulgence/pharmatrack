@@ -64,5 +64,11 @@ export const inventoryService = {
   },
   getReports: async (format = 'JSON') => {
     return ApiRequest(`/inventory/reports?format=${format}`, { method: 'GET' });
-  }
+  },
+   updateMedicine: async (id, medicineData) => {
+    return ApiRequest(`/inventory/medicines/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(medicineData),
+    });
+  },
 };

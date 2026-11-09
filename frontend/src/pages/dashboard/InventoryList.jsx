@@ -2,20 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Search, Package, AlertTriangle, ChevronRight, X, 
-  Loader2, Calendar, FileText, ArrowLeft 
+  Loader2, Calendar, FileText, ArrowLeft, Edit, Save, Pill 
 } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+
 const InventoryList = () => {
   const [medicines, setMedicines] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal State for viewing batches
+  // Modal State
   const [selectedMedicine, setSelectedMedicine] = useState(null);
   const [batches, setBatches] = useState([]);
   const [isBatchesLoading, setIsBatchesLoading] = useState(false);
 
-  //Fetch aggregated medicines
+  // Edit State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+
   useEffect(() => {
     fetchMedicines();
   }, []);
@@ -24,12 +30,12 @@ const InventoryList = () => {
     try {
       setIsLoading(true);
       const response = await inventoryService.getPharmacyMedicines();
-      // console.log("RAW BACKEND RESPONSE:", JSON.stringify(response, null, 2));
+        //console.log('fetched medicine:', response);
       let list = [];
       if (response?.data?.medicines) list = response.data.medicines;
       else if (Array.isArray(response?.data)) list = response.data;
       else if (Array.isArray(response)) list = response;
-     //console.log("PARSED LIST TO SET IN STATE:", list); 
+
       setMedicines(list);
     } catch (err) {
       console.error("Failed to load inventory:", err);
@@ -38,17 +44,31 @@ const InventoryList = () => {
     }
   };
 
-  // Fetch batches when a medicine is clicked
   const handleViewBatches = async (medicine) => {
     setSelectedMedicine(medicine);
+    setIsEditing(false); // Reset edit mode
     setIsBatchesLoading(true);
+    
+    // Initialize edit form with current medicine data
+    setEditFormData({
+      medicine_name: medicine.medicineName || medicine.medicine_name || '',
+      generic_name: medicine.generic_name || '',
+      brand_name: medicine.brand_name || '',
+      strength: medicine.strength || '',
+      dosage_form: medicine.dosage_form || 'Tablet',
+      description: medicine.description || '',
+      requires_prescription: medicine.requires_prescription || false,
+    });
+
     try {
-      const response = await inventoryService.getMedicineDetails(medicine.id || medicine.medicineId || medicine.medicine_id);
-      console.log('batches',response);
+      const medicineId = medicine.id || medicine.medicineId || medicine.medicine_id;
+      const response = await inventoryService.getMedicineDetails(medicineId);
+      //console.log('detailed medicine', response);
       let batchList = [];
-      if (response?.data?.batches) batchList = response.data.batches;
+      if (Array.isArray(response?.data?.batches)) batchList = response.data.batches;
+      else if (Array.isArray(response?.data?.medicine?.batches)) batchList = response.data.medicine.batches;
+      else if (Array.isArray(response?.batches)) batchList = response.batches;
       else if (Array.isArray(response?.data)) batchList = response.data;
-      else if (Array.isArray(response)) batchList = response;
 
       setBatches(batchList);
     } catch (err) {
@@ -58,14 +78,52 @@ const InventoryList = () => {
     }
   };
 
+  
+  const handleEditChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditFormData({
+      ...editFormData,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setEditError(null);
+
+    try {
+      const medicineId = selectedMedicine.id || selectedMedicine.medicineId || selectedMedicine.medicine_id;
+      const res = await inventoryService.updateMedicine(medicineId, editFormData);
+      
+      // Update the local list so the table reflects the change immediately
+      setMedicines(medicines.map(m => 
+        (m.id === medicineId || m.medicineId === medicineId) 
+          ? { ...m, ...editFormData } 
+          : m
+      ));
+      
+      // Update the selected medicine object
+      setSelectedMedicine({ ...selectedMedicine, ...editFormData });
+      
+      setIsEditing(false);
+    } catch (err) {
+      setEditError(err.message || "Failed to update medicine.");
+      console.log('error', err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const closeModal = () => {
     setSelectedMedicine(null);
     setBatches([]);
+    setIsEditing(false);
+    setEditError(null);
   };
 
-  // Filter medicines
   const filteredMedicines = Array.isArray(medicines) ? medicines.filter(med => {
-    const name = med.name || med.medicine_name || '';
+    const name = med.name || med.medicineName || med.medicine_name || '';
     return name.toLowerCase().includes(searchTerm.toLowerCase());
   }) : [];
 
@@ -82,7 +140,7 @@ const InventoryList = () => {
           <p className="text-gray-500 dark:text-gray-400">View all medicines currently in your pharmacy.</p>
         </div>
         <Link 
-          to="/pharmacy/dashboard/inventory/stock-in"
+          to="/dashboard/inventory/stock-in"
           className="flex items-center gap-2 px-4 py-2 bg-[#007a55] text-white rounded-lg hover:bg-[#006645] transition-colors text-sm font-semibold"
         >
           <Package size={16} /> Receive Stock
@@ -131,7 +189,7 @@ const InventoryList = () => {
                 </tr>
               ) : (
                 filteredMedicines.map((med) => {
-                  const stock = med.totalQuantity || med.quantity || med.total_quantity || 0;
+                  const stock = med.total_quantity ?? med.quantity ?? med.totalStock ?? 0;
                   const isLowStock = stock <= (med.reorderLevel || 10);
                   
                   return (
@@ -140,7 +198,7 @@ const InventoryList = () => {
                         <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-lg">
                           <Package size={18} />
                         </div>
-                        {med.name || med.medicine_name}
+                        {med.name || med.medicineName || med.medicine_name}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -152,13 +210,13 @@ const InventoryList = () => {
                         </span>
                         {isLowStock && <AlertTriangle size={14} className="inline ml-2 text-orange-500" />}
                       </td>
-                      <td className="px-6 py-4">{med.batchCount || 1} active</td>
+                      <td className="px-6 py-4">{med.batchCount ?? 1} active</td>
                       <td className="px-6 py-4 text-right">
                         <button 
                           onClick={() => handleViewBatches(med)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#007a55] bg-[#e6f4ef] hover:bg-[#d1eae1] rounded-lg transition-colors"
                         >
-                          View Batches <ChevronRight size={16} />
+                          View / Edit <ChevronRight size={16} />
                         </button>
                       </td>
                     </tr>
@@ -170,62 +228,131 @@ const InventoryList = () => {
         </div>
       </div>
 
-      {/* batches modal*/}
+      {/* DETAILS */}
       {selectedMedicine && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
+            {/* Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800">
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {selectedMedicine.name || selectedMedicine.medicineName}
+                  {isEditing ? 'Edit Medicine Details' : (selectedMedicine.medicine_name)}
                 </h2>
-                <p className="text-sm text-gray-500">Specific batches & expirations</p>
+                <p className="text-sm text-gray-500">
+                  {isEditing ? 'Update the information in the central catalogue.' : 'Specific batches & expirations'}
+                </p>
               </div>
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             
             <div className="p-6 overflow-y-auto">
-              {isBatchesLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="animate-spin text-[#007a55]" size={32} />
+              
+              {editError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+                  {editError}
                 </div>
-              ) : batches.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">No active batches found for this medicine.</div>
-              ) : (
-                <div className="space-y-4">
-                  {batches.map((batch) => (
-                    <div key={batch.id || batch.batchId} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 gap-4">
-                      <div className="space-y-1">
-                        <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                          <FileText size={16} className="text-gray-400"/> 
-                          Batch: {batch.batch_number || batch.batchNo}
-                        </p>
-                        <p className="text-sm text-gray-500 flex items-center gap-2">
-                          <Calendar size={14} /> Expires: {new Date(batch.expiry_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-left sm:text-right w-full sm:w-auto">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          Qty: {batch.quantity}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Unit Price: {batch.unitPrice || batch.unit_price} RWF
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Total Price: {batch.unit_price * batch.quantity} RWF
-                        </p>
-                      </div>
+              )}
+
+              {isEditing ? (
+                
+                <form onSubmit={handleSaveEdit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Medicine Name *</label>
+                      <input type="text" name="medicineName" required value={editFormData.medicine_name} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
                     </div>
-                  ))}
-                </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Generic Name *</label>
+                      <input type="text" name="genericName" required value={editFormData.generic_name} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Brand Name</label>
+                      <input type="text" name="brandName" value={editFormData.brand_name} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Strength</label>
+                      <input type="text" name="strength" value={editFormData.strength} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Dosage Form</label>
+                      <select name="dosageForm" value={editFormData.dosage_form} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white">
+                        <option value="Tablet">Tablet</option>
+                        <option value="Capsule">Capsule</option>
+                        <option value="Syrup">Syrup</option>
+                        <option value="Injection">Injection</option>
+                        <option value="Cream">Cream</option>
+                        <option value="Drops">Drops</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center mt-6">
+                      <input type="checkbox" name="requiresPrescription" checked={editFormData.requires_prescription} onChange={handleEditChange} className="w-4 h-4 text-[#007a55] border-gray-300 rounded focus:ring-[#007a55]" />
+                      <label className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Requires Prescription</label>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                    <textarea name="description" rows="3" value={editFormData.description} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white resize-none" />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="button" onClick={() => setIsEditing(false)} className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:bg-gray-200 transition-colors">Cancel</button>
+                    <button type="submit" disabled={isSaving} className="flex-1 flex justify-center items-center gap-2 py-2.5 bg-[#007a55] text-white rounded-lg font-semibold hover:bg-[#006645] transition-colors disabled:opacity-70">
+                      {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                /* batches*/
+                <>
+                  {isBatchesLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="animate-spin text-[#007a55]" size={32} />
+                    </div>
+                  ) : batches.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">No active batches found for this medicine.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {batches.map((batch) => (
+                        <div key={batch.id || batch.batchId} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 gap-4">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                              <FileText size={16} className="text-gray-400"/> 
+                              Batch: {batch.batchNumber || batch.batch_number || batch.batchNo}
+                            </p>
+                            <p className="text-sm text-gray-500 flex items-center gap-2">
+                              <Calendar size={14} /> Expires: {new Date(batch.expiryDate || batch.expiry_date).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="text-left sm:text-right w-full sm:w-auto">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              Qty: {batch.quantity ?? batch.quantity_remaining ?? batch.quantityReceived}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Price: {batch.unitPrice || batch.unit_price} RWF
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
             
-            <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30 flex justify-end">
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30 flex justify-between items-center">
+              {!isEditing && (
+                <button 
+                  onClick={() => setIsEditing(true)} 
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                >
+                  <Edit size={16} /> Edit Details
+                </button>
+              )}
               <button 
                 onClick={closeModal}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-300 transition-colors ml-auto"
               >
                 Close
               </button>
