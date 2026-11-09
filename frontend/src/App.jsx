@@ -30,6 +30,7 @@ import StockIn from './pages/dashboard/StockIn';
 import AdjustStock from './pages/dashboard/AdjustStock';
 import InventoryAlerts from './pages/dashboard/InventoryAlerts';
 import TransactionHistory from './pages/dashboard/TransactionHistory';
+import InventoryReports from './pages/dashboard/InventoryReports';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -76,6 +77,7 @@ function App() {
         <Route path='inventory/adjust' element={<AdjustStock />} />
         <Route path='inventory/alerts' element={<InventoryAlerts />} />
         <Route path='inventory/transactions' element={<TransactionHistory />} />
+        <Route path='inventory/reports' element={<InventoryReports />} />
         </Route>
         </Route>
 

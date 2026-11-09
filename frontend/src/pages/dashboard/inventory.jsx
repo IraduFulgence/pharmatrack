@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Package, AlertTriangle, Clock, Bell, 
   Loader2, RefreshCw, CheckCircle2, ChevronRight, List, 
-  ArrowRight, ShieldAlert, ArrowRightLeft
+  ArrowRight, ShieldAlert, ArrowRightLeft,BarChart2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { inventoryService } from '../../services/inventoryService';
@@ -102,6 +102,12 @@ const Inventory = () => {
   className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
 >
   <ArrowRightLeft size={16} /> History
+</Link>
+<Link 
+  to="/pharmacy/dashboard/inventory/reports" 
+  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+>
+  <BarChart2 size={16} /> Reports
 </Link>
           <Link 
             to="/pharmacy/dashboard/inventory/list" 

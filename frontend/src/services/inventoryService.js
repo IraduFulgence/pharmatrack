@@ -101,4 +101,43 @@ export const inventoryService = {
 
     return ApiRequest(`/inventory/transactions?${params.toString()}`, { method: 'GET' });
   },
+
+    generateReport: async (queryParams) => {
+    const pharmacyId = getPharmacyId();
+    
+    // Build query string
+    const params = new URLSearchParams();
+    Object.keys(queryParams).forEach(key => {
+      if (queryParams[key]) params.append(key, queryParams[key]);
+    });
+    params.append('pharmacyId', pharmacyId);
+    const url = ApiRequest(`/inventory/reports?${params.toString()}`);
+    
+    const token = localStorage.getItem('token');
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      // If it's a JSON error, parse it
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate report.');
+      }
+      throw new Error('Failed to generate report.');
+    }
+
+    // Handle CSV vs JSON
+    const contentType = response.headers.get('content-type');
+    if (queryParams.exportFormat === 'csv' || (contentType && contentType.includes('text/csv'))) {
+      return await response.blob();
+    } else {
+      return await response.json();
+    }
+  }
 };
