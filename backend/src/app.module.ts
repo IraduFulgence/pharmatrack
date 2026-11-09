@@ -5,6 +5,10 @@ import { DatabaseModule } from './database/database.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
+import { SalesModule } from './sales/sales.module.js';
+
+@Module({
+  imports: [DatabaseModule, AuthModule, AdminModule, InventoryModule, SalesModule],
 import { PatientsModule } from './patients/patients.module.js';
 
 
