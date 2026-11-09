@@ -1,7 +1,10 @@
 import {ApiRequest} from './auth';
 
 export const adminService ={
-
+    // get admin stats
+  getDashboardStats: async () => {
+    return ApiRequest('/admin/dashboard/stats', { method: 'GET' });
+  },
     // get all admins
     getAllAdmins: async () =>{
         return ApiRequest('/admin/administrators',{method:'GET'});
