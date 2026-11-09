@@ -24,6 +24,13 @@ import AdminDashboard from './pages/admin/dashboard';
 import ManagePatients from './pages/admin/ManagePatients';
 import ManagePharmacies from './pages/admin/ManagePharmacies';
 import ManageAdmins from './pages/admin/ManageAdmins';
+import AdminProfile from './pages/admin/AdminProfileTab';
+import InventoryList from './pages/dashboard/InventoryList';
+import StockIn from './pages/dashboard/StockIn';
+import AdjustStock from './pages/dashboard/AdjustStock';
+import InventoryAlerts from './pages/dashboard/InventoryAlerts';
+import TransactionHistory from './pages/dashboard/TransactionHistory';
+import InventoryReports from './pages/dashboard/InventoryReports';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -65,6 +72,12 @@ function App() {
         <Route path="createprofile" element={<CreatePharmacyProfile/>}/>
         <Route path="prescriptions" element={<Prescriptions/>}/>
         <Route path="orders" element={<Orders/>}/>
+        <Route path="inventory/list" element={<InventoryList />} />
+        <Route path="inventory/stock-in" element={<StockIn />} /> 
+        <Route path='inventory/adjust' element={<AdjustStock />} />
+        <Route path='inventory/alerts' element={<InventoryAlerts />} />
+        <Route path='inventory/transactions' element={<TransactionHistory />} />
+        <Route path='inventory/reports' element={<InventoryReports />} />
         </Route>
         </Route>
 
@@ -80,6 +93,7 @@ function App() {
           <Route path="pharmacies" element={<ManagePharmacies />} />
           <Route path="patients" element={<ManagePatients />} />
           <Route path="admins" element={<ManageAdmins />} />      
+          <Route path="profile" element={<AdminProfile />} />
         </Route>
        </Route>
       

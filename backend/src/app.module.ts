@@ -9,6 +9,11 @@ import { SalesModule } from './sales/sales.module.js';
 
 @Module({
   imports: [DatabaseModule, AuthModule, AdminModule, InventoryModule, SalesModule],
+import { PatientsModule } from './patients/patients.module.js';
+
+
+@Module({
+  imports: [DatabaseModule, AuthModule, AdminModule, InventoryModule,PatientsModule],
   controllers: [AppController],
   providers: [AppService],
 })
