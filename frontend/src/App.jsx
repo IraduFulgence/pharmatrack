@@ -27,6 +27,7 @@ import ManageAdmins from './pages/admin/ManageAdmins';
 import AdminProfile from './pages/admin/AdminProfileTab';
 import InventoryList from './pages/dashboard/InventoryList';
 import StockIn from './pages/dashboard/StockIn';
+import AdjustStock from './pages/dashboard/AdjustStock';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -70,6 +71,7 @@ function App() {
         <Route path="orders" element={<Orders/>}/>
         <Route path="inventory/list" element={<InventoryList />} />
         <Route path="inventory/stock-in" element={<StockIn />} /> 
+        <Route path='inventory/adjust' element={<AdjustStock />} />
         </Route>
         </Route>
 

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, Package, AlertTriangle, ChevronRight, X, 
-  Loader2, Calendar, FileText, ArrowLeft, Edit, Save 
+  Loader2, Calendar, FileText, ArrowLeft, Edit, Save, ShieldAlert
 } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
 
 const InventoryList = () => {
+  const navigate = useNavigate();
   const [medicines, setMedicines] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,6 +31,7 @@ const InventoryList = () => {
     try {
       setIsLoading(true);
       const response = await inventoryService.getPharmacyMedicines();
+      
       let list = [];
       if (response?.data?.medicines) list = response.data.medicines;
       else if (Array.isArray(response?.data)) list = response.data;
@@ -117,6 +119,16 @@ const InventoryList = () => {
     setEditError(null);
   };
 
+  // Navigate to the Adjust Stock page with batch info
+  const handleAdjustClick = (batch) => {
+    navigate('/pharmacy/dashboard/inventory/adjust', {
+      state: {
+        batch: batch,
+        medicineName: selectedMedicine.medicine_name || selectedMedicine.medicineName || selectedMedicine.name
+      }
+    });
+  };
+
   const filteredMedicines = Array.isArray(medicines) ? medicines.filter(med => {
     const name = med.name || med.medicineName || med.medicine_name || '';
     return name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -128,14 +140,14 @@ const InventoryList = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <Link to="/dashboard/inventory" className="text-sm text-[#007a55] hover:underline flex items-center gap-1 mb-2">
+          <Link to="/pharmacy/dashboard/inventory" className="text-sm text-[#007a55] hover:underline flex items-center gap-1 mb-2">
             <ArrowLeft size={14} /> Back to Overview
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventory List</h1>
           <p className="text-gray-500 dark:text-gray-400">View all medicines currently in your pharmacy.</p>
         </div>
         <Link 
-          to="/dashboard/inventory/stock-in"
+          to="/pharmacy/dashboard/inventory/stock-in"
           className="flex items-center gap-2 px-4 py-2 bg-[#007a55] text-white rounded-lg hover:bg-[#006645] transition-colors text-sm font-semibold"
         >
           <Package size={16} /> Receive Stock
@@ -223,7 +235,7 @@ const InventoryList = () => {
         </div>
       </div>
 
-      {/* DETAILS / EDIT MODAL */}
+      {/* EDIT MODAL */}
       {selectedMedicine && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -316,13 +328,23 @@ const InventoryList = () => {
                               <Calendar size={14} /> Expires: {new Date(batch.expiryDate || batch.expiry_date).toLocaleDateString()}
                             </p>
                           </div>
-                          <div className="text-left sm:text-right w-full sm:w-auto">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              Qty: {batch.quantity ?? batch.quantity_remaining ?? batch.quantityReceived}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Price: {batch.unitPrice || batch.unit_price} RWF
-                            </p>
+                          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                            <div className="text-left sm:text-right">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                Qty: {batch.quantity ?? batch.quantity_remaining ?? batch.quantityReceived}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Price: {batch.unitPrice || batch.unit_price} RWF
+                              </p>
+                            </div>
+                            
+                            {/* ADJUST BUTTON */}
+                            <button
+                              onClick={() => handleAdjustClick(batch)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg transition-colors border border-red-100 dark:border-red-900/50"
+                            >
+                              <ShieldAlert size={14} /> Adjust
+                            </button>
                           </div>
                         </div>
                       ))}

@@ -52,12 +52,7 @@ export const inventoryService = {
     });
   },
 
-  adjustStock: async (adjustmentData) => {
-    return ApiRequest('/inventory/adjustments', {
-      method: 'POST',
-      body: JSON.stringify(adjustmentData),
-    });
-  },
+ 
 
   getTransactions: async () => {
     return ApiRequest('/inventory/transactions', { method: 'GET' });
@@ -69,6 +64,13 @@ export const inventoryService = {
     return ApiRequest(`/inventory/medicines/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(medicineData),
+    });
+  },
+  // Adjustments 
+  adjustStock: async (pharmacyId, adjustmentData) => {
+    return ApiRequest(`/inventory/adjustments?pharmacyId=${pharmacyId}`, {
+      method: 'POST',
+      body: JSON.stringify(adjustmentData),
     });
   },
 };
