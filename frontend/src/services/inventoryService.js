@@ -86,4 +86,19 @@ export const inventoryService = {
       body: JSON.stringify(adjustmentData),
     });
   },
+
+  getTransactions: async (queryParams) => {
+    const params = new URLSearchParams();
+    
+    if (queryParams.transactionType) params.append('transactionType', queryParams.transactionType);
+    if (queryParams.startDate) params.append('startDate', queryParams.startDate);
+    if (queryParams.endDate) params.append('endDate', queryParams.endDate);
+    if (queryParams.page) params.append('page', queryParams.page);
+    if (queryParams.limit) params.append('limit', queryParams.limit);
+
+    const pharmacyId = JSON.parse(localStorage.getItem('user'))?.id;
+    if (pharmacyId) params.append('pharmacyId', pharmacyId);
+
+    return ApiRequest(`/inventory/transactions?${params.toString()}`, { method: 'GET' });
+  },
 };

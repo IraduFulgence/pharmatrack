@@ -136,7 +136,7 @@ const InventoryAlerts = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <Link to="/dashboard/inventory" className="text-sm text-[#007a55] hover:underline flex items-center gap-1 mb-2">
+          <Link to="/pharmacy/dashboard/inventory" className="text-sm text-[#007a55] hover:underline flex items-center gap-1 mb-2">
             <ArrowLeft size={14} /> Back to Overview
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Alerts & Notifications</h1>
