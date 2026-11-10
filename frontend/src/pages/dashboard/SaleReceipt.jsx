@@ -72,7 +72,7 @@ const SaleReceipt = () => {
         </button>
       </div>
 
-      {/* Success Banner - Hidden on Print */}
+      {/* Success Banner, Hidden on Print */}
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 text-green-700 print:hidden">
         <CheckCircle2 size={24} />
         <div>
@@ -82,7 +82,7 @@ const SaleReceipt = () => {
       </div>
 
       {/*printable receipt */}
-      <div className="bg-white text-gray-900 p-8 rounded-xl shadow-sm border border-gray-200 print:shadow-none print:border-none print:p-0">
+      <div id="printable-receipt" className="bg-white text-gray-900 p-8 rounded-xl shadow-sm border border-gray-200 print:shadow-none print:border-none print:p-0">
         
         {/* Pharmacy Header */}
         <div className="text-center border-b border-dashed border-gray-300 pb-6 mb-6">
@@ -159,7 +159,7 @@ const SaleReceipt = () => {
           {receipt?.finacials?.discountAmount > 0 && (
             <div className="flex justify-between text-green-600">
               <span>Discount</span>
-              <span>-{Number(receipt?.finacials?.discountAmount).toLocaleString()} RWF</span>
+              <span>-{Number(receipt?.financials?.discountAmount).toLocaleString()} RWF</span>
             </div>
           )}
           {receipt?.financials?.insuranceContribution > 0 && (

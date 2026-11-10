@@ -13,21 +13,28 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 @media print {
-  body {
-    background: white !important;
-  }
   /* Hide everything by default */
   body * {
     visibility: hidden;
   }
-  /* Only show the printable receipt area */
-  .printable-area, .printable-area * {
+
+  /* Only show the printable receipt */
+  #printable-receipt, #printable-receipt * {
     visibility: visible;
   }
-  .printable-area {
+
+  /* Position it at the top-left of the paper */
+  #printable-receipt {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Remove the browser's default page margins */
+  @page {
+    margin: 0.5cm;
   }
 }
