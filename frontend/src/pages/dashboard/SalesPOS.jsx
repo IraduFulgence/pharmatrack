@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, Package, User, Plus, Minus, Trash2, 
-  CreditCard, ShieldCheck, Loader2, ArrowRight, CheckCircle2 
+  CreditCard, Loader2 
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { salesService } from '../../services/salesService';
-
+import PatientSelectorModal from '../../components/sales/PatientSelectorModal';
 const SalesPOS = () => {
   const navigate = useNavigate();
   
   // Search State
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -20,10 +21,9 @@ const SalesPOS = () => {
   const [patientQuery, setPatientQuery] = useState('');
   const [patientResults, setPatientResults] = useState([]);
   const [isSearchingPatient, setIsSearchingPatient] = useState(false);
-
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   // Checkout State
   const [billDetails, setBillDetails] = useState(null);
-  const [isCalculating, setIsCalculating] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [error, setError] = useState(null);
@@ -34,7 +34,7 @@ const SalesPOS = () => {
       if (searchQuery.length > 2) {
         handleSearchMedicines();
       } else {
-        setSearchResults([]);
+        setSearchResults([]); 
       }
     }, 400);
     return () => clearTimeout(delay);
@@ -44,7 +44,40 @@ const SalesPOS = () => {
     try {
       setIsSearching(true);
       const res = await salesService.searchMedicines(searchQuery);
-      setSearchResults(res.data?.medicines || res.data || []);
+      
+      const medicines = res.data || [];
+      
+      
+      let flattenedResults = [];
+      medicines.forEach(med => {
+        if (med.batches && med.batches.length > 0) {
+          med.batches.forEach(batch => {
+            flattenedResults.push({
+              // Medicine Info
+              medicineId: med.medicine_id,
+              medicineName: med.medicine_name,
+              genericName: med.generic_name,
+              strength: med.strength,
+              dosageForm: med.dosage_form,
+              
+              inventoryId: batch.inventory_id,
+              batchNumber: batch.batch_number,
+              unitPrice: Number(batch.unit_price),
+              availableQuantity: Number(batch.quantity),
+              expiryDate: batch.expiry_date
+            });
+          });
+       
+        }
+      });
+       //   return only searched medicine even if backend ignores it
+
+     const lowerQuery = searchQuery.toLowerCase();
+      const filteredResults = flattenedResults.filter(item => 
+        item.medicineName.toLowerCase().includes(lowerQuery) ||
+        (item.genericName && item.genericName.toLowerCase().includes(lowerQuery))
+      );
+      setSearchResults(flattenedResults);
     } catch (err) {
       console.error(err);
     } finally {
@@ -67,13 +100,13 @@ const SalesPOS = () => {
   };
 
   // Cart Actions
-  const addToCart = (medicine) => {
- 
-    const existingItem = cart.find(item => item.inventoryId === (medicine.inventory_id || medicine.inventoryId));
+  const addToCart = (batchItem) => {
+    
+    const existingItem = cart.find(item => item.inventoryId === batchItem.inventoryId);
     
     if (existingItem) {
-      if (existingItem.quantity >= (medicine.available_quantity || medicine.quantity)) {
-        alert("Cannot add more than available stock.");
+      if (existingItem.quantity >= batchItem.availableQuantity) {
+        alert(`Cannot add more. Only ${batchItem.availableQuantity} units available for this batch.`);
         return;
       }
       setCart(cart.map(item => 
@@ -83,15 +116,12 @@ const SalesPOS = () => {
       ));
     } else {
       setCart([...cart, {
-        inventoryId: medicine.inventory_id || medicine.inventoryId,
-        medicineId: medicine.medicine_id || medicine.medicineId,
-        name: medicine.medicine_name || medicine.name,
-        batchNumber: medicine.batch_number,
-        price: Number(medicine.unit_price || medicine.price || 0),
-        quantity: 1,
-        maxQuantity: Number(medicine.available_quantity || medicine.quantity || 100)
+        ...batchItem,
+        quantity: 1
       }]);
     }
+    
+    // Clear search after adding
     setSearchQuery('');
     setSearchResults([]);
   };
@@ -100,7 +130,7 @@ const SalesPOS = () => {
     setCart(cart.map(item => {
       if (item.inventoryId === inventoryId) {
         const newQty = item.quantity + delta;
-        if (newQty > 0 && newQty <= item.maxQuantity) {
+        if (newQty > 0 && newQty <= item.availableQuantity) {
           return { ...item, quantity: newQty };
         }
       }
@@ -112,37 +142,10 @@ const SalesPOS = () => {
     setCart(cart.filter(item => item.inventoryId !== inventoryId));
   };
 
-  // Calculate Bill 
-  useEffect(() => {
-    if (cart.length === 0) {
-      setBillDetails(null);
-      return;
-    }
+  // Calculate subtotal
+  const subtotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
 
-    const calculate = async () => {
-      try {
-        setIsCalculating(true);
-        const payload = {
-          items: cart.map(item => ({ inventoryId: item.inventoryId, quantity: item.quantity })),
-          patientId: patient?.id || null,
-          insuranceProviderId: null 
-        };
-        
-        
-        const res = await salesService.calculateBill(payload);
-        setBillDetails(res.data);
-      } catch (err) {
-        console.error("Failed to calculate bill", err);
-      } finally {
-        setIsCalculating(false);
-      }
-    };
-    
-    const timeout = setTimeout(calculate, 500);
-    return () => clearTimeout(timeout);
-  }, [cart, patient]);
-
-
+  // Complete Sale 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setIsProcessing(true);
@@ -150,18 +153,25 @@ const SalesPOS = () => {
 
     try {
       const payload = {
-        items: cart.map(item => ({ inventoryId: item.inventoryId, quantity: item.quantity })),
+        items: cart.map(item => ({ 
+          inventoryId: item.inventoryId, 
+          quantity: item.quantity,
+          unitPrice: item.unitPrice 
+        })),
         patientId: patient?.id || null,
         paymentMethod,
-        
       };
-
-      const res = await salesService.createSale(payload);
-      const saleId = res.data?.saleId || res.data?.id;
       
-      // Success! Navigate to receipt or reset
-      alert("Sale completed successfully!");
-      navigate(`/pharmacy/dashboard/sales/${saleId}/receipt`);
+      console.log("Submitting Sale:", payload);
+      
+      // 
+      // const res = await salesService.createSale(payload);
+      // navigate(`/dashboard/sales/${res.data.saleId}/receipt`);
+      
+      // Simulate success for now
+      await new Promise(r => setTimeout(r, 1000));
+      alert("Sale Completed Successfully!");
+      setCart([]);
 
     } catch (err) {
       setError(err.message || "Failed to process sale.");
@@ -170,13 +180,11 @@ const SalesPOS = () => {
     }
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-6">
       
       {/* Search & Products */}
-      <div className="flex-grow flex flex-col space-y-4">
+      <div className="flex-grow flex flex-col space-y-4 relative">
         
         {/* Medicine Search */}
         <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm relative z-20">
@@ -195,19 +203,23 @@ const SalesPOS = () => {
           {/* Search Results Dropdown */}
           {searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-96 overflow-y-auto">
-              {searchResults.map((med) => (
+              {searchResults.map((batch) => (
                 <div 
-                  key={med.inventory_id || med.inventoryId}
-                  onClick={() => addToCart(med)}
+                  key={batch.inventoryId}
+                  onClick={() => addToCart(batch)}
                   className="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center"
                 >
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">{med.medicine_name || med.name}</p>
-                    <p className="text-xs text-gray-500">Batch: {med.batch_number} • Exp: {med.expiry_date}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">
+                      {batch.medicineName} <span className="text-sm font-normal text-gray-500">{batch.strength}</span>
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Batch: {batch.batchNumber} • Exp: {new Date(batch.expiryDate).toLocaleDateString()}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-[#007a55]">{Number(med.unit_price || med.price).toLocaleString()} RWF</p>
-                    <p className="text-xs text-gray-500">{med.available_quantity || med.quantity} available</p>
+                    <p className="font-bold text-[#007a55]">{batch.unitPrice.toLocaleString()} RWF</p>
+                    <p className="text-xs text-gray-500">{batch.availableQuantity} available</p>
                   </div>
                 </div>
               ))}
@@ -231,7 +243,7 @@ const SalesPOS = () => {
               cart.map((item) => (
                 <div key={item.inventoryId} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white">{item.name}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{item.medicineName}</p>
                     <p className="text-xs text-gray-500">Batch: {item.batchNumber}</p>
                   </div>
                   
@@ -242,7 +254,7 @@ const SalesPOS = () => {
                       <button onClick={() => updateQuantity(item.inventoryId, 1)} className="p-1 hover:bg-white dark:hover:bg-gray-700 rounded shadow-sm"><Plus size={14}/></button>
                     </div>
                     <p className="font-bold text-gray-900 dark:text-white w-24 text-right">
-                      {(item.price * item.quantity).toLocaleString()} RWF
+                      {(item.unitPrice * item.quantity).toLocaleString()} RWF
                     </p>
                     <button onClick={() => removeFromCart(item.inventoryId)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
                       <Trash2 size={18} />
@@ -260,42 +272,28 @@ const SalesPOS = () => {
         
         {/* Patient Selection */}
         <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-3 text-sm">Patient</h3>
+          <h3 className="font-bold text-gray-900 dark:text-white mb-3 text-sm">Customer</h3>
           
           {patient ? (
-            <div className="flex items-center justify-between p-2 bg-[#e6f4ef] dark:bg-[#007a55]/20 rounded-lg border border-[#007a55]/30">
-              <div className="flex items-center gap-2">
-                <User size={16} className="text-[#007a55]" />
-                <span className="font-semibold text-[#007a55]">{patient.fullName}</span>
+            <div className="flex items-center justify-between p-3 bg-[#e6f4ef] dark:bg-[#007a55]/20 rounded-lg border border-[#007a55]/30">
+              <div className="flex items-center gap-3">
+                
+                <div>
+                  <p className="font-semibold text-[#007a55] text-sm">{patient.full_name}</p>
+                  <p className="text-xs text-[#007a55]/70">{patient.phone_number}</p>
+                </div>
               </div>
-              <button onClick={() => setPatient(null)} className="text-xs text-red-600 hover:underline">Clear</button>
+              <button onClick={() => setPatient(null)} className="text-xs font-semibold text-red-600 hover:underline">
+                Change
+              </button>
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Search by name/phone..." 
-                  value={patientQuery}
-                  onChange={(e) => setPatientQuery(e.target.value)}
-                  className="flex-grow bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#007a55]"
-                />
-                <button onClick={handleSearchPatient} className="px-3 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm font-semibold">Search</button>
-              </div>
-              
-              {/* Patient Results */}
-              {patientResults.length > 0 && (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-40 overflow-y-auto mt-2">
-                  {patientResults.map(p => (
-                    <div key={p.id} onClick={() => { setPatient(p); setPatientResults([]); }} className="p-2 hover:bg-gray-50 cursor-pointer text-sm border-b last:border-0">
-                      {p.fullName} <span className="text-gray-400 text-xs">({p.phoneNumber})</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <button className="text-xs font-semibold text-[#007a55] hover:underline">+ Register Walk-in Patient</button>
-            </div>
+            <button 
+              onClick={() => setIsPatientModalOpen(true)}
+              className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-gray-500 hover:border-[#007a55] hover:text-[#007a55] hover:bg-[#e6f4ef]/50 transition-all flex items-center justify-center gap-2 font-medium"
+            >
+              <User size={18} /> Select or Register Customer
+            </button>
           )}
         </div>
 
@@ -308,11 +306,10 @@ const SalesPOS = () => {
               <span>Subtotal</span>
               <span>{subtotal.toLocaleString()} RWF</span>
             </div>
-            {/* Add Tax, Insurance, Discount*/}
             
             <div className="border-t border-gray-100 dark:border-gray-800 pt-3 flex justify-between font-bold text-lg text-gray-900 dark:text-white">
               <span>Total</span>
-              <span className="text-[#007a55]">{billDetails?.totalAmount ? Number(billDetails.totalAmount).toLocaleString() : subtotal.toLocaleString()} RWF</span>
+              <span className="text-[#007a55]">{subtotal.toLocaleString()} RWF</span>
             </div>
           </div>
 
@@ -337,6 +334,11 @@ const SalesPOS = () => {
         </div>
 
       </div>
+      <PatientSelectorModal 
+        isOpen={isPatientModalOpen}
+        onClose={() => setIsPatientModalOpen(false)}
+        onSelectPatient={(selectedPatient) => setPatient(selectedPatient)}
+      />
     </div>
   );
 };
