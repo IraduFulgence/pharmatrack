@@ -64,5 +64,25 @@ export const salesService = {
   // Receipt 
   getReceipt: async (saleId, format = 'JSON') => {
     return ApiRequest(`/sales/${saleId}/receipt?format=${format}`, { method: 'GET' });
-  }
+  },
+//   insurance claims
+  getClaimsSummary: async () => {
+    return ApiRequest('/sales/claims/summary', { method: 'GET' });
+  },
+  getInsuranceClaims: async (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== '' && filters[key] !== null && filters[key] !== 'ALL') {
+        params.append(key, filters[key]);
+      }
+    });
+    return ApiRequest(`/sales/claims?${params.toString()}`, { method: 'GET' });
+  },
+
+  updateClaimStatus: async (id, data) => {
+    return ApiRequest(`/sales/claims/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
 };

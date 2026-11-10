@@ -35,6 +35,7 @@ import PharmacySettings from './pages/dashboard/PharmacySettings';
 import SalesPOS from './pages/dashboard/SalesPOS';
 import SaleReceipt from './pages/dashboard/SaleReceipt';
 import SalesHistory from './pages/dashboard/SalesHistory';
+import InsuranceClaims from './pages/dashboard/InsuranceClaims';
 
 
 const Layout =({children}) =>(
@@ -88,6 +89,7 @@ function App() {
         <Route path="sales/pos" element={<SalesPOS />} />
         <Route path="sales/:id/receipt" element={<SaleReceipt />} />
          <Route path="sales/history" element={<SalesHistory />} />
+        <Route path='insurance' element={<InsuranceClaims />} />
         </Route>
         </Route>
 
