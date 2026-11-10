@@ -12,3 +12,22 @@ body {
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+@media print {
+  body {
+    background: white !important;
+  }
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+  /* Only show the printable receipt area */
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

@@ -94,7 +94,7 @@ const PatientSelectorModal = ({ isOpen, onClose, onSelectPatient }) => {
               {searchResults.length > 0 ? (
                 searchResults.map((patient) => (
                   <div 
-                    key={patient.id}
+                    key={patient.id || patient.patient_id || patient.patientId}
                     onClick={() => { onSelectPatient(patient); onClose(); }}
                     className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer border border-transparent hover:border-[#007a55] transition-all"
                   >

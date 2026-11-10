@@ -33,6 +33,7 @@ import TransactionHistory from './pages/dashboard/TransactionHistory';
 import InventoryReports from './pages/dashboard/InventoryReports';
 import PharmacySettings from './pages/dashboard/PharmacySettings';
 import SalesPOS from './pages/dashboard/SalesPOS';
+import SaleReceipt from './pages/dashboard/SaleReceipt';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -82,6 +83,7 @@ function App() {
         <Route path='inventory/reports' element={<InventoryReports />} />
         <Route path="settings" element={<PharmacySettings />} /> 
         <Route path="sales/pos" element={<SalesPOS />} />
+        <Route path="sales/:id/receipt" element={<SaleReceipt />} />
         </Route>
         </Route>
 

@@ -21,10 +21,10 @@ export const salesService = {
   // POS Search 
   searchMedicines: async (query) => {
     const pharmacyId = getPharmacyId();
-    return ApiRequest(`/sales/pos/search-medicines?pharmacyId=${pharmacyId}&search=${encodeURIComponent(query)}`, { method: 'GET' });
+    return ApiRequest(`/sales/pos/search-medicines?pharmacyId=${pharmacyId}&query=${encodeURIComponent(query)}`, { method: 'GET' });
   },
   searchPatients: async (query) => {
-    return ApiRequest(`/sales/patients/search?search=${encodeURIComponent(query)}`, { method: 'GET' });
+    return ApiRequest(`/sales/patients/search?query=${encodeURIComponent(query)}`, { method: 'GET' });
   },
   registerWalkIn: async (patientData) => {
     return ApiRequest('/sales/patients/register-walkin', {

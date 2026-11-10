@@ -29,12 +29,31 @@ const SalesPOS = () => {
   const [patientQuery, setPatientQuery] = useState('');
   const [patientResults, setPatientResults] = useState([]);
   const [isSearchingPatient, setIsSearchingPatient] = useState(false);
+  const [insuranceProviders, setInsuranceProviders] = useState([]);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
- const [selectedInsurance, setSelectedInsurance] = useState(null);
+  const [selectedInsurance, setSelectedInsurance] = useState(null);
+  const [insuranceCardNumber, setInsuranceCardNumber] = useState(''); 
   // Checkout State
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [error, setError] = useState(null);
+
+
+
+  // Fetch Insurance Providers on Load
+  useEffect(() => {
+    const fetchInsuranceProviders = async () => {
+      try {
+        const res = await salesService.getInsuranceProviders();
+        console.log('insurances',res);
+        const providers = res.data || res.data?.providers || [];
+        setInsuranceProviders(providers);
+      } catch (err) {
+        console.error("Failed to load insurance providers", err);
+      }
+    };
+    fetchInsuranceProviders();
+  }, []);
 
   // Search Medicines 
   useEffect(() => {
@@ -155,44 +174,68 @@ const SalesPOS = () => {
  // Calculate Insurance Split
   let insuranceAmount = 0;
   let patientAmount = subtotal;
+  let coveragePercentage = 0;
 
   if (selectedInsurance) {
-    insuranceAmount = subtotal * selectedInsurance.coverage;
-    patientAmount = subtotal - insuranceAmount;
+    coveragePercentage = Number(selectedInsurance.default_coverage_percentage);
+    insuranceAmount = (subtotal * coveragePercentage)/100;
+    patientAmount = subtotal-insuranceAmount;
   }
   // Complete Sale 
-  const handleCheckout = async () => {
+    const handleCheckout = async () => {
     if (cart.length === 0) return;
+    if (!patient) {
+      setError("Please select or register a patient before completing the sale.");
+      return;
+    }
+
     setIsProcessing(true);
     setError(null);
 
     try {
       const payload = {
-        items: cart.map(item => ({ 
-          inventoryId: item.inventoryId, 
-          quantity: item.quantity,
-          unitPrice: item.unitPrice 
-        })),
-        patientId: patient?.id || null,
-        insuranceProviderId: selectedInsurance?.id || null,
+        paymentCategory: selectedInsurance ? 'INSURANCE' : 'PRIVATE',
         paymentMethod,
+        items: cart.map(item => ({
+          inventoryId: Number(item.inventoryId),
+          quantity: Number(item.quantity),
+          isInsuranceCovered: !!selectedInsurance,
+          // If they have insurance, pass the custom coverage % (e.g. 80)
+          customCoveragePercentage: selectedInsurance ? Number(selectedInsurance.default_coverage_percentage) : 0
+        })),
+
+        // The Amount the patient is paying cash/momo
+        amountPaid: Math.round(patientAmount),
+
+        // Patient Details
+        patientId: Number(patient.id || patient.patientId),
+        customerName: patient.full_name || patient.name || 'Walk-in',
+        customerPhone: patient.phone_number || patient.phone || '',
+
+        // Insurance Provider (if selected)
+        providerId: selectedInsurance ? Number(selectedInsurance.provider_id) : null,
+        
+        insuranceCardNumber: selectedInsurance ? insuranceCardNumber : null, 
+        discountAmount: 0,
+        notes: `Sale processed via POS by Pharmacy ${JSON.parse(localStorage.getItem('user'))?.id || ''}`,
       };
+
+      console.log("Submitting Final Swagger Payload:", payload);
       
-      console.log("Submitting Sale:", payload);
-        const res = await salesService.createSale(payload);
+      const res = await salesService.createSale(payload);
       
       const saleId = res.data?.saleId || res.data?.id || res.data?.sale_id;
       if (!saleId) throw new Error("Sale created but no ID returned.");
-      
+
       setCart([]);
       navigate(`/pharmacy/dashboard/sales/${saleId}/receipt`);
+
     } catch (err) {
       setError(err.message || "Failed to process sale.");
     } finally {
       setIsProcessing(false);
     }
   };
-
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-6">
       
@@ -310,30 +353,49 @@ const SalesPOS = () => {
           )}
         </div>
           {/* Insurance Selection */}
-        <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+         <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
           <h3 className="font-bold text-gray-900 dark:text-white mb-3 text-sm flex items-center gap-2">
             <ShieldCheck size={16} className="text-blue-500"/> Select Insurance (Optional)
           </h3>
           
-          <div className="flex gap-2">
-            {INSURANCE_PROVIDERS.map(ins => (
+          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+            {insuranceProviders.map(ins => (
               <button
-                key={ins.id}
-                onClick={() => setSelectedInsurance(selectedInsurance?.id === ins.id ? null : ins)}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                  selectedInsurance?.id === ins.id 
-                    ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                    : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400'
+                key={ins.provider_id}
+                onClick={() => setSelectedInsurance(selectedInsurance?.provider_id === ins.provider_id ? null : ins)}
+                className={`py-2 px-2 rounded-lg text-xs font-semibold border transition-colors text-left truncate ${
+                  selectedInsurance?.provider_id === ins.provider_id 
+                    ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400'
                 }`}
               >
-                {ins.name}
+                {ins.provider_name}
+                <span className="block text-[10px] font-normal opacity-70">
+                  {ins.default_coverage_percentage}% covered
+                </span>
               </button>
             ))}
           </div>
+            {selectedInsurance && (
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                Insurance Card Number *
+              </label>
+              <input 
+                type="text"
+                value={insuranceCardNumber}
+                onChange={(e) => setInsuranceCardNumber(e.target.value)}
+                placeholder="e.g. RAMA-123456789"
+                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#007a55] dark:text-white"
+              />
+            </div>
+          )}
+          
           {selectedInsurance && (
-            <p className="text-xs text-blue-600 mt-2 flex items-center justify-between">
-              <span>Coverage applied: 75%</span>
-              <button onClick={() => setSelectedInsurance(null)} className="text-red-500 hover:underline">Remove</button>
+            
+            <p className="text-xs text-blue-600 mt-3 flex items-center justify-between border-t border-gray-100 pt-2">
+              <span>Coverage applied: {selectedInsurance.default_coverage_percentage}%</span>
+              <button onClick={() => setSelectedInsurance(null)} className="text-red-500 hover:underline font-semibold">Remove</button>
             </p>
           )}
         </div>
