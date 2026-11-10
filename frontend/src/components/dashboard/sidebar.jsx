@@ -32,7 +32,7 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
   ];
 
   const bottomItems = [
-    { icon: <Settings size={20} />, label: 'Settings & Profile', path: '/pharmacy/dashboard/profile' },
+    { icon: <Settings size={20} />, label: 'Settings & Profile', path: '/pharmacy/dashboard/settings' },
     { icon: <HelpCircle size={20} />, label: 'Help center', path: '/pharmacy/dashboard/help' },
   ];
 

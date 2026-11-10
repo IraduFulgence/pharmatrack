@@ -113,10 +113,10 @@ const DashboardHeader = ({ setIsOpen }) => {
                 <p className="text-xs text-gray-500 truncate mt-0.5">{user?.email || 'No email'}</p>
               </div>
               <div className="p-2 space-y-1">
-                <Link to="/dashboard/profile" onClick={() => setIsDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors">
+                <Link to="/pharmacy/dashboard/profile" onClick={() => setIsDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors">
                   <User size={16} /> My Profile
                 </Link>
-                <Link to="/dashboard/settings" onClick={() => setIsDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors">
+                <Link to="/pharmacy/dashboard/settings" onClick={() => setIsDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors">
                   <Settings size={16} /> Settings
                 </Link>
               </div>
