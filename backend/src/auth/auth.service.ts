@@ -571,6 +571,18 @@ export class AuthService {
     };
   }
 
+  async getMyDocumentPath(pharmacyId: number, type: string): Promise<string | null> {
+    const column = type === 'pharmacy' ? 'pharmacy_certificate_path' : 'rdb_certificate_path';
+    const result = await this.db.query(
+      `SELECT ${column} FROM public.pharmacies WHERE pharmacy_id = $1`,
+      [pharmacyId],
+    );
+    if (result.rows.length === 0) {
+      throw new UnauthorizedException('Pharmacy not found.');
+    }
+    return result.rows[0][column] || null;
+  }
+
   /**
    * Helper to retrieve user profile for token verification with updated age
    */
@@ -627,9 +639,23 @@ export class AuthService {
           role: 'ADMIN',
         },
       };
-    } else {
+    }  else {
       const result = await this.db.query(
-        `SELECT pharmacy_id, pharmacy_name, phone_number, email, location_address, tin, verification_status, is_active, created_at 
+        `SELECT 
+           pharmacy_id, 
+           pharmacy_name, 
+           phone_number, 
+           email, 
+           location_address, 
+           latitude,
+           longitude,
+           tin, 
+           verification_status, 
+           verified_at,
+           is_active, 
+           created_at,
+           pharmacy_certificate_path,   
+           rdb_certificate_path         
          FROM public.pharmacies 
          WHERE pharmacy_id = $1`,
         [userId],
@@ -646,8 +672,16 @@ export class AuthService {
           pharmacyName: ph.pharmacy_name,
           phoneNumber: ph.phone_number,
           email: ph.email,
+          locationAddress: ph.location_address || null,
+          latitude: ph.latitude ? Number(ph.latitude) : null,
+          longitude: ph.longitude ? Number(ph.longitude) : null,
           tin: ph.tin || null,
           verificationStatus: ph.verification_status || 'PENDING',
+          verifiedAt: ph.verified_at || null,
+          isActive: ph.is_active,
+          
+          hasPharmacyCertificate: !!ph.pharmacy_certificate_path,
+          hasRdbCertificate: !!ph.rdb_certificate_path,
           role: 'PHARMACY',
         },
       };
