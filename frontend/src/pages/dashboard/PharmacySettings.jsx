@@ -107,8 +107,7 @@ const PharmacySettings = () => {
     setSaveSuccess(false);
 
     try {
-      // In a real app, this would be a PATCH request to /pharmacy/profile
-      // await authService.updateProfile(formData);
+     
       await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API
       
       setProfile(prev => ({ ...prev, ...formData }));
