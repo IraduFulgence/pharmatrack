@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Search, Package, User, Plus, Minus, Trash2, 
+  Search, Package, User, Plus, Minus, Trash2, ShieldCheck,
   CreditCard, Loader2 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { salesService } from '../../services/salesService';
 import PatientSelectorModal from '../../components/sales/PatientSelectorModal';
+
+//   insurance simulation
+const INSURANCE_PROVIDERS = [
+  { id: 1, name: 'RAMA', coverage: 0.75 }, // 75% covered
+  { id: 2, name: 'MMI', coverage: 0.75 },  // 75% covered
+];
+
+
 const SalesPOS = () => {
   const navigate = useNavigate();
-  
+
   // Search State
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,8 +30,8 @@ const SalesPOS = () => {
   const [patientResults, setPatientResults] = useState([]);
   const [isSearchingPatient, setIsSearchingPatient] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+ const [selectedInsurance, setSelectedInsurance] = useState(null);
   // Checkout State
-  const [billDetails, setBillDetails] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [error, setError] = useState(null);
@@ -144,7 +152,14 @@ const SalesPOS = () => {
 
   // Calculate subtotal
   const subtotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+ // Calculate Insurance Split
+  let insuranceAmount = 0;
+  let patientAmount = subtotal;
 
+  if (selectedInsurance) {
+    insuranceAmount = subtotal * selectedInsurance.coverage;
+    patientAmount = subtotal - insuranceAmount;
+  }
   // Complete Sale 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -159,20 +174,18 @@ const SalesPOS = () => {
           unitPrice: item.unitPrice 
         })),
         patientId: patient?.id || null,
+        insuranceProviderId: selectedInsurance?.id || null,
         paymentMethod,
       };
       
       console.log("Submitting Sale:", payload);
+        const res = await salesService.createSale(payload);
       
-      // 
-      // const res = await salesService.createSale(payload);
-      // navigate(`/dashboard/sales/${res.data.saleId}/receipt`);
+      const saleId = res.data?.saleId || res.data?.id || res.data?.sale_id;
+      if (!saleId) throw new Error("Sale created but no ID returned.");
       
-      // Simulate success for now
-      await new Promise(r => setTimeout(r, 1000));
-      alert("Sale Completed Successfully!");
       setCart([]);
-
+      navigate(`/pharmacy/dashboard/sales/${saleId}/receipt`);
     } catch (err) {
       setError(err.message || "Failed to process sale.");
     } finally {
@@ -296,7 +309,34 @@ const SalesPOS = () => {
             </button>
           )}
         </div>
-
+          {/* Insurance Selection */}
+        <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <h3 className="font-bold text-gray-900 dark:text-white mb-3 text-sm flex items-center gap-2">
+            <ShieldCheck size={16} className="text-blue-500"/> Select Insurance (Optional)
+          </h3>
+          
+          <div className="flex gap-2">
+            {INSURANCE_PROVIDERS.map(ins => (
+              <button
+                key={ins.id}
+                onClick={() => setSelectedInsurance(selectedInsurance?.id === ins.id ? null : ins)}
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                  selectedInsurance?.id === ins.id 
+                    ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400'
+                }`}
+              >
+                {ins.name}
+              </button>
+            ))}
+          </div>
+          {selectedInsurance && (
+            <p className="text-xs text-blue-600 mt-2 flex items-center justify-between">
+              <span>Coverage applied: 75%</span>
+              <button onClick={() => setSelectedInsurance(null)} className="text-red-500 hover:underline">Remove</button>
+            </p>
+          )}
+        </div>
         {/* Bill Summary */}
         <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex-grow">
           <h3 className="font-bold text-gray-900 dark:text-white mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">Payment Summary</h3>
