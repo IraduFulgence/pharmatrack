@@ -23,7 +23,6 @@ body {
     visibility: visible;
   }
 
-  /* Position it at the top-left of the paper */
   #printable-receipt {
     position: absolute;
     left: 0;
@@ -33,7 +32,6 @@ body {
     padding: 0;
   }
 
-  /* Remove the browser's default page margins */
   @page {
     margin: 0.5cm;
   }

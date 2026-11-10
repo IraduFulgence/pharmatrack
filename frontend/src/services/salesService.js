@@ -13,9 +13,20 @@ export const salesService = {
     const pharmacyId = getPharmacyId();
     return ApiRequest(`/sales/dashboard?pharmacyId=${pharmacyId}`, { method: 'GET' });
   },
-  getSalesHistory: async (query = '') => {
-    const pharmacyId = getPharmacyId();
-    return ApiRequest(`/sales?pharmacyId=${pharmacyId}${query}`, { method: 'GET' });
+
+  getSalesHistory: async (filters = {}) => {
+    
+    const params = new URLSearchParams();
+
+    
+    // Add all other filters if they have a value
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== '' && filters[key] !== null && filters[key] !== undefined) {
+        params.append(key, filters[key]);
+      }
+    });
+
+    return ApiRequest(`/sales?${params.toString()}`, { method: 'GET' });
   },
 
   // POS Search 
