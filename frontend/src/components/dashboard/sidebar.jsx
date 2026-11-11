@@ -70,10 +70,8 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
 
         {/* Dynamic Pharmacy Profile Card */}
         <div className="p-4">
-           <Link to="/pharmacy/dashboard/profile" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors block">
-           <div className="bg-[#007a55] text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg flex-shrink-0">
-             
-            </div>
+           <Link to="/pharmacy/dashboard/settings" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors block">
+          
             <div className="flex-grow overflow-hidden">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">{displayName}</h3>
               <p className="text-xs text-gray-500 truncate">{location}</p>
