@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
@@ -9,6 +10,8 @@ import { DatabaseService } from '../database/database.service.js';
 import type { CreateAdminDto } from './dto/create-admin.dto.js';
 import type { UpdatePatientDto } from './dto/update-patient.dto.js';
 import type { RejectPharmacyDto } from './dto/reject-pharmacy.dto.js';
+import type { CreatePharmacyDto } from './dto/create-pharmacy.dto.js';
+import type { CreatePatientDto } from './dto/create-patient.dto.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 import { calculateAge, formatDate } from '../auth/auth.service.js';
 
@@ -218,6 +221,100 @@ export class AdminService {
     };
   }
 
+  async createPatient(dto: CreatePatientDto, adminId: number): Promise<ApiResponse> {
+    const { fullName, phoneNumber, dateOfBirth, gender, password, email, nationalId } = dto;
+    const cleanPhone = phoneNumber.trim();
+    const cleanEmail = email ? email.trim().toLowerCase() : null;
+    const cleanNationalId = nationalId ? nationalId.trim() : null;
+
+    // 1. Calculate and validate age
+    const calculatedAge = calculateAge(dateOfBirth);
+    if (calculatedAge < 0 || calculatedAge > 130) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Validation failed.',
+        errors: {
+          dateOfBirth: 'Date of birth must correspond to a valid human age (between 0 and 130 years).',
+        },
+      });
+    }
+
+    // 2. Check duplicate National ID if provided
+    if (cleanNationalId) {
+      const existingNid = await this.db.query(
+        'SELECT patient_id FROM public.patients WHERE national_id = $1 LIMIT 1',
+        [cleanNationalId],
+      );
+      if (existingNid.rows.length > 0) {
+        throw new ConflictException('A patient with this National ID already exists.');
+      }
+    }
+
+    // 3. Check duplicate Email if provided across patients, pharmacies, and admins
+    if (cleanEmail) {
+      const existingEmail = await this.db.query(
+        `SELECT 1 FROM public.patients WHERE LOWER(email) = $1
+         UNION ALL
+         SELECT 1 FROM public.pharmacies WHERE LOWER(email) = $1
+         UNION ALL
+         SELECT 1 FROM public.admins WHERE LOWER(email) = $1
+         LIMIT 1`,
+        [cleanEmail],
+      );
+      if (existingEmail.rows.length > 0) {
+        throw new ConflictException('An account with this email already exists.');
+      }
+    }
+
+    // 4. Check duplicate phone across patients, pharmacies, and admins
+    const existingPhone = await this.db.query(
+      `SELECT 1 FROM public.patients WHERE phone_number = $1
+       UNION ALL
+       SELECT 1 FROM public.pharmacies WHERE phone_number = $1
+       UNION ALL
+       SELECT 1 FROM public.admins WHERE phone_number = $1
+       LIMIT 1`,
+      [cleanPhone],
+    );
+    if (existingPhone.rows.length > 0) {
+      throw new ConflictException('An account with this phone number already exists.');
+    }
+
+    // 5. Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const result = await this.db.query(
+      `INSERT INTO public.patients 
+        (national_id, full_name, age, date_of_birth, phone_number, email, gender, password_hash, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+       RETURNING patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender, is_active, created_at`,
+      [cleanNationalId, fullName.trim(), calculatedAge, dateOfBirth, cleanPhone, cleanEmail, gender, passwordHash],
+    );
+
+    const patient = result.rows[0];
+    await this.logActivity(adminId, 'CREATE_PATIENT', 'PATIENT', Number(patient.patient_id), {
+      fullName: patient.full_name,
+      phoneNumber: patient.phone_number,
+    });
+
+    return {
+      success: true,
+      message: 'Patient account created successfully.',
+      data: {
+        id: Number(patient.patient_id),
+        nationalId: patient.national_id || null,
+        fullName: patient.full_name,
+        dateOfBirth: patient.date_of_birth ? formatDate(patient.date_of_birth) : dateOfBirth,
+        age: calculatedAge,
+        phoneNumber: patient.phone_number,
+        email: patient.email || null,
+        gender: patient.gender,
+        isActive: patient.is_active,
+        createdAt: patient.created_at,
+      },
+    };
+  }
+
   // ───────────── Pharmacies ─────────────
 
   async listPharmacies(search?: string, status?: string, page = 1, limit = 20): Promise<ApiResponse> {
@@ -377,6 +474,110 @@ export class AdminService {
       throw new NotFoundException('Pharmacy not found.');
     }
     return result.rows[0][column] || null;
+  }
+
+  async createPharmacy(dto: CreatePharmacyDto, adminId: number): Promise<ApiResponse> {
+    const { pharmacyName, phoneNumber, email, tin, password, locationAddress, verificationStatus } = dto;
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phoneNumber.trim();
+    const cleanTin = tin.trim();
+    const status = verificationStatus === 'PENDING' ? 'PENDING' : 'APPROVED';
+
+    // 1. Check duplicate email across pharmacies, patients, and admins
+    const existingEmail = await this.db.query(
+      `SELECT 1 FROM public.pharmacies WHERE LOWER(email) = $1
+       UNION ALL
+       SELECT 1 FROM public.patients WHERE LOWER(email) = $1
+       UNION ALL
+       SELECT 1 FROM public.admins WHERE LOWER(email) = $1
+       LIMIT 1`,
+      [cleanEmail],
+    );
+    if (existingEmail.rows.length > 0) {
+      throw new ConflictException('An account with this email already exists.');
+    }
+
+    // 2. Check duplicate phone across pharmacies, patients, and admins
+    const existingPhone = await this.db.query(
+      `SELECT 1 FROM public.pharmacies WHERE phone_number = $1
+       UNION ALL
+       SELECT 1 FROM public.patients WHERE phone_number = $1
+       UNION ALL
+       SELECT 1 FROM public.admins WHERE phone_number = $1
+       LIMIT 1`,
+      [cleanPhone],
+    );
+    if (existingPhone.rows.length > 0) {
+      throw new ConflictException('An account with this phone number already exists.');
+    }
+
+    // 3. Check duplicate TIN
+    const existingTin = await this.db.query(
+      'SELECT pharmacy_id FROM public.pharmacies WHERE tin = $1 LIMIT 1',
+      [cleanTin],
+    );
+    if (existingTin.rows.length > 0) {
+      throw new ConflictException('A pharmacy with this TIN already exists.');
+    }
+
+    // 4. Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // 5. In transaction: insert into pharmacies and pharmacy_users
+    const result = await this.db.transaction(async (client) => {
+      const isApproved = status === 'APPROVED';
+      const pharmRes = await client.query(
+        `INSERT INTO public.pharmacies 
+          (pharmacy_name, phone_number, email, tin, location_address, verification_status, verified_by, verified_at, password_hash, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
+         RETURNING pharmacy_id, pharmacy_name, phone_number, email, tin, location_address, verification_status, is_active, created_at`,
+        [
+          pharmacyName.trim(),
+          cleanPhone,
+          cleanEmail,
+          cleanTin,
+          locationAddress ? locationAddress.trim() : null,
+          status,
+          isApproved ? adminId : null,
+          isApproved ? new Date() : null,
+          passwordHash,
+        ],
+      );
+
+      const newPharmacy = pharmRes.rows[0];
+
+      // Insert primary owner into pharmacy_users
+      await client.query(
+        `INSERT INTO public.pharmacy_users 
+          (pharmacy_id, full_name, email, password_hash, role, is_active)
+         VALUES ($1, $2, $3, $4, 'OWNER', true)`,
+        [newPharmacy.pharmacy_id, pharmacyName.trim(), cleanEmail, passwordHash],
+      );
+
+      return newPharmacy;
+    });
+
+    await this.logActivity(adminId, 'CREATE_PHARMACY', 'PHARMACY', Number(result.pharmacy_id), {
+      pharmacyName: result.pharmacy_name,
+      tin: result.tin,
+      status,
+    });
+
+    return {
+      success: true,
+      message: `Pharmacy "${result.pharmacy_name}" created successfully.`,
+      data: {
+        id: Number(result.pharmacy_id),
+        pharmacyName: result.pharmacy_name,
+        phoneNumber: result.phone_number,
+        email: result.email,
+        tin: result.tin,
+        locationAddress: result.location_address,
+        verificationStatus: result.verification_status,
+        isActive: result.is_active,
+        createdAt: result.created_at,
+      },
+    };
   }
 
   // ───────────── Administrators ─────────────
