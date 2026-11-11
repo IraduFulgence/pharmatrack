@@ -11,7 +11,7 @@ export interface Pharmacy {
 
 export const pharmacyService = {
   getAllPharmacies: async (): Promise<{ data: Pharmacy[] }> => {
-    const response = await ApiRequest('/admin/pharmacies?limit=50', { method: 'GET' });
+    const response = await ApiRequest('/admin/pharmacies', { method: 'GET' });
     return response;
   }
 };

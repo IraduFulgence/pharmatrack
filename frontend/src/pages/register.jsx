@@ -368,7 +368,7 @@ const Register = () => {
                   {errors.tinNumber && <p className="text-red-500 text-xs mt-1">{errors.tinNumber}</p>}
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Physical Location Address</label>
                   <input
                     type="text"
@@ -378,7 +378,7 @@ const Register = () => {
                     placeholder="e.g. Remera, KG 536 St"
                   />
                   {errors.locationAddress && <p className="text-red-500 text-xs mt-1">{errors.locationAddress}</p>}
-                </div>
+                </div> */}
               </div>
             )}
 

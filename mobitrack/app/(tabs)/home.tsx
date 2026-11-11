@@ -64,7 +64,7 @@ export default function HomeScreen() {
     try {
       setIsLoading(true);
       const response = await pharmacyService.getAllPharmacies();
-      
+      console.log("PHARMACY RESPONSE:", JSON.stringify(response, null, 2));
       // Filter to show only APPROVED pharmacies to patients
       const approved = response.data.filter(
         (p: Pharmacy) => p.verificationStatus === 'APPROVED'
