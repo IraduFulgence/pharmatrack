@@ -28,9 +28,19 @@ export const authService = {
       body: formData,
     });
   },
+  getMyDocument: async (type) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/profile/documents/${type}`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    //console.log('documents',response);
 
-  // Get Profile 
-  getProfile: async () => {
-    return ApiRequest('/auth/profile', { method: 'GET' });
+    if (!response.ok) {
+      throw new Error('Failed to load document.');
+
+    }
+    return response.blob();
   }
+ 
 };

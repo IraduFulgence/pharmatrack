@@ -18,7 +18,7 @@ const ManageAdmins = () => {
     fullName: '',
     email: '',
     phoneNumber: '',
-    role: 'ADMIN',
+    
     password: '',
   });
   const [errors, setErrors] = useState({});
@@ -65,7 +65,6 @@ const ManageAdmins = () => {
       newErrors.phoneNumber = "Phone must be in international format (e.g., +250788123456)";
     }
     
-    // Must match your NestJS backend DTO
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+=\-\[\]{}|;:'",.<>\/`~])[A-Za-z\d@$!%*?&...]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       newErrors.password = "Password must be 8+ chars with uppercase, lowercase, number, and special char.";
@@ -87,10 +86,9 @@ const ManageAdmins = () => {
       await adminService.createAdmin(formData);
       
       // Reset form, close modal, and refresh the list
-      setFormData({ fullName: '', email: '', phoneNumber: '', role: 'ADMIN', password: '' });
+      setFormData({ fullName: '', email: '', phoneNumber: '', password: '' });
       setIsAddModalOpen(false);
       
-      // Re-fetch the list to show the new admin with the ID from the DB
       await fetchAdmins();
 
     } catch (err) {
@@ -260,7 +258,7 @@ const ManageAdmins = () => {
                 {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
               </div>
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
                 <select 
                   name="role"
@@ -271,7 +269,7 @@ const ManageAdmins = () => {
                   <option value="ADMIN">Standard Admin</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
-              </div>
+              </div> */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temporary Password</label>

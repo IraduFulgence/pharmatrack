@@ -12,3 +12,27 @@ body {
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+@media print {
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Only show the printable receipt */
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  @page {
+    margin: 0.5cm;
+  }
+}

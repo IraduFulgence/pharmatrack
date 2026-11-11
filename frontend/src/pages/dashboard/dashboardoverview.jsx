@@ -115,7 +115,7 @@ const DashboardOverView = () => {
           </p>
         </div>
         <Link 
-          to="/pharmacy/dashboard/orders/create" 
+          to="/pharmacy/dashboard/sales/pos" 
           className="flex items-center gap-2 bg-[#007a55] hover:bg-[#006645] text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
         >
           <Plus size={18} />

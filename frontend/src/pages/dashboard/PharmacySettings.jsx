@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Building2, MapPin, Phone, Mail, FileText, ShieldCheck, 
+  Building2, MapPin, Phone, Mail, FileText, ShieldCheck,Eye, 
   Loader2, AlertCircle, Save, CheckCircle2, Download, Calendar, Navigation
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -10,6 +10,8 @@ import { authService } from '../../services/authentication';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import DocumentViewer from '../../components/admin/DocumentViewer';
+
 let DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
@@ -32,7 +34,7 @@ const PharmacySettings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
-
+  const [viewingDoc, setViewingDoc] = useState(null);
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -105,8 +107,7 @@ const PharmacySettings = () => {
     setSaveSuccess(false);
 
     try {
-      // In a real app, this would be a PATCH request to /pharmacy/profile
-      // await authService.updateProfile(formData);
+     
       await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API
       
       setProfile(prev => ({ ...prev, ...formData }));
@@ -284,17 +285,50 @@ const PharmacySettings = () => {
           </div>
 
           {/* Documents */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-800">
-              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <FileText size={20} className="text-[#007a55]" /> Submitted Documents
-              </h3>
-            </div>
-            <div className="p-6 space-y-3">
-              <DocumentRow title="Pharmacy License" exists={profile?.hasPharmacyCertificate} type="pharmacy" />
-              <DocumentRow title="RDB Certificate" exists={profile?.hasRdbCertificate} type="rdb" />
-            </div>
+          <div className="p-6 space-y-3">
+        <button 
+          onClick={() => setViewingDoc({ type: 'pharmacy', title: 'Pharmacy License' })}
+          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-[#007a55] transition-colors group"
+        >
+          <div className="flex items-center gap-2">
+            {profile?.hasPharmacyCertificate 
+              ? <CheckCircle2 size={16} className="text-green-500" /> 
+              : <AlertCircle size={16} className="text-orange-500" />
+            }
+            <span className="text-sm font-medium text-gray-900 dark:text-white">Pharmacy License</span>
           </div>
+          <div className="flex items-center gap-2 text-blue-600 group-hover:underline text-xs font-semibold">
+             <Eye size={14} /> View
+          </div>
+        </button>
+
+        <button 
+          onClick={() => setViewingDoc({ type: 'rdb', title: 'RDB Certificate' })}
+          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-[#007a55] transition-colors group"
+        >
+          <div className="flex items-center gap-2">
+            {profile?.hasRdbCertificate 
+              ? <CheckCircle2 size={16} className="text-green-500" /> 
+              : <AlertCircle size={16} className="text-orange-500" />
+            }
+            <span className="text-sm font-medium text-gray-900 dark:text-white">RDB Certificate</span>
+          </div>
+          <div className="flex items-center gap-2 text-blue-600 group-hover:underline text-xs font-semibold">
+             <Eye size={14} /> View
+          </div>
+        </button>
+      </div>
+
+      {/* Add the modal at the bottom */}
+      {viewingDoc && (
+        <DocumentViewer 
+          pharmacyId={profile?.id}
+          docType={viewingDoc.type}
+          title={viewingDoc.title}
+          onClose={() => setViewingDoc(null)}
+          isAdmin={false}  
+        />
+      )}
 
         </div>
 
