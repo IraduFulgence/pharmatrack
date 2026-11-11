@@ -6,7 +6,8 @@ import { StyleSheet,Platform,
     TextInput,
     KeyboardAvoidingView,
     TouchableOpacity,
-    Alert
+    Alert,
+    ActivityIndicator
 
  } from "react-native";
 
@@ -24,7 +25,7 @@ export default function LoginScreen(){
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [phone, setPhone] = useState('');
+    
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSwitch = () =>{
@@ -43,7 +44,7 @@ export default function LoginScreen(){
 
         const user = response.data.user;
         if(user.role === 'PATIENT'){
-          router.replace('/(tabs)');
+          router.replace('/(tabs)/home');
         }
         else if (user.role === 'PHARMACY') {
         Alert.alert(
@@ -180,10 +181,20 @@ return(
             </View>
 
             {/* Submit Button */}
-            <TouchableOpacity style={styles.submitButton} onPress={handleLoging} >
-              <Text style={styles.submitButtonText}>{t('auth.login.signIn')}</Text>
-              <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
+                      <TouchableOpacity 
+            style={[styles.submitButton, isLoading && { opacity: 0.7 }]} 
+            onPress={handleLoging}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Text style={styles.submitButtonText}>{t('auth.login.signIn')}</Text>
+                <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
+              </>
+            )}
+          </TouchableOpacity>
 
           
             </ScrollView>
