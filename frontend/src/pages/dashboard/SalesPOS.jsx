@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, Package, User, Plus, Minus, Trash2, ShieldCheck,
-  CreditCard, Loader2 
+  CreditCard, Loader2,FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { salesService } from '../../services/salesService';
 import PatientSelectorModal from '../../components/sales/PatientSelectorModal';
-
-//   insurance simulation
-const INSURANCE_PROVIDERS = [
-  { id: 1, name: 'RAMA', coverage: 0.75 }, // 75% covered
-  { id: 2, name: 'MMI', coverage: 0.75 },  // 75% covered
-];
+import DispenseCodeModal from '../../components/sales/DispenseCodeModal';
 
 
 const SalesPOS = () => {
+  
   const navigate = useNavigate();
 
   // Search State
@@ -26,9 +22,6 @@ const SalesPOS = () => {
   // Cart & Patient State
   const [cart, setCart] = useState([]);
   const [patient, setPatient] = useState(null);
-  const [patientQuery, setPatientQuery] = useState('');
-  const [patientResults, setPatientResults] = useState([]);
-  const [isSearchingPatient, setIsSearchingPatient] = useState(false);
   const [insuranceProviders, setInsuranceProviders] = useState([]);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [selectedInsurance, setSelectedInsurance] = useState(null);
@@ -38,7 +31,7 @@ const SalesPOS = () => {
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [error, setError] = useState(null);
 
-
+  const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
 
   // Fetch Insurance Providers on Load
   useEffect(() => {
@@ -54,7 +47,14 @@ const SalesPOS = () => {
     };
     fetchInsuranceProviders();
   }, []);
-
+  // handle auto select insurance
+   const handleAutoSelectInsurance = (providerId, cardNumber) => {
+    const ins = insuranceProviders.find(p => Number(p.provider_id) === Number(providerId));
+    if (ins) {
+      setSelectedInsurance(ins);
+      if (cardNumber) setInsuranceCardNumber(cardNumber);
+    }
+  };
   // Search Medicines 
   useEffect(() => {
     const delay = setTimeout(() => {
@@ -97,7 +97,6 @@ const SalesPOS = () => {
        
         }
       });
-       //   return only searched medicine even if backend ignores it
 
      const lowerQuery = searchQuery.toLowerCase();
       const filteredResults = flattenedResults.filter(item => 
@@ -112,19 +111,6 @@ const SalesPOS = () => {
     }
   };
 
-  // Search Patients
-  const handleSearchPatient = async () => {
-    if (patientQuery.length < 3) return;
-    try {
-      setIsSearchingPatient(true);
-      const res = await salesService.searchPatients(patientQuery);
-      setPatientResults(res.data?.patients || res.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSearchingPatient(false);
-    }
-  };
 
   // Cart Actions
   const addToCart = (batchItem) => {
@@ -255,7 +241,14 @@ const SalesPOS = () => {
             />
             {isSearching && <Loader2 className="absolute right-3 top-3 animate-spin text-[#007a55]" size={20} />}
           </div>
-
+         
+           {/* Dispense by Code Button */}
+          <button 
+            onClick={() => setIsPrescriptionModalOpen(true)}
+            className="flex items-center gap-2 mt-5 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-semibold hover:bg-blue-100 transition-colors text-sm border border-blue-200"
+          >
+            <FileText size={18} /> Dispense by Prescription Code
+          </button>
           {/* Search Results Dropdown */}
           {searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-96 overflow-y-auto">
@@ -440,6 +433,18 @@ const SalesPOS = () => {
         isOpen={isPatientModalOpen}
         onClose={() => setIsPatientModalOpen(false)}
         onSelectPatient={(selectedPatient) => setPatient(selectedPatient)}
+      />
+      {/* <PrescriptionSearchModal 
+        isOpen={isPrescriptionModalOpen}
+        onClose={() => setIsPrescriptionModalOpen(false)}
+        onAddToCart={addToCart} // Re-use the existing addToCart function!
+      /> */}
+      <DispenseCodeModal
+        isOpen={isPrescriptionModalOpen}
+        onClose={() => setIsPrescriptionModalOpen(false)}
+        onSelectPatient={(selectedPatient) => setPatient(selectedPatient)}
+        onAddToCart={addToCart}
+        onSelectInsurance={handleAutoSelectInsurance}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Search, Filter, Loader2, Calendar, 
-  ChevronLeft, ChevronRight, FileText, CreditCard
+  Search, X, Loader2, Calendar, 
+  ChevronLeft, ChevronRight, FileText, CreditCard,RotateCcw,AlertCircle
 } from 'lucide-react';
 import { salesService } from '../../services/salesService';
 
@@ -10,7 +10,11 @@ const SalesHistory = () => {
   const [sales, setSales] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-
+// refund states
+  const [selectedSaleForRefund, setSelectedSaleForRefund] = useState(null);
+  const [refundReason, setRefundReason] = useState('');
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [refundError, setRefundError] = useState(null);
   // Pagination State
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -88,7 +92,33 @@ const SalesHistory = () => {
       default: return 'bg-gray-100 text-gray-700';
     }
   };
+// refund function
+  const handleRefundSubmit = async (e) => {
+    e.preventDefault();
+    if (!refundReason.trim()) {
+      setRefundError("Please provide a reason for the refund.");
+      return;
+    }
 
+    setIsRefunding(true);
+    setRefundError(null);
+
+    try {
+      await salesService.refundSale(selectedSaleForRefund.id || selectedSaleForRefund.saleId, {
+        reason: refundReason
+      });
+      
+      // Refresh data
+      await fetchSales();
+      setSelectedSaleForRefund(null);
+      setRefundReason('');
+      
+    } catch (err) {
+      setRefundError(err.message || "Failed to process refund.");
+    } finally {
+      setIsRefunding(false);
+    }
+  };
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       
@@ -259,13 +289,24 @@ const SalesHistory = () => {
                         {sale.sale_status || 'PAID'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link 
-                        to={`/pharmacy/dashboard/sales/${sale.sale_id}/receipt`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#007a55] bg-[#e6f4ef] hover:bg-[#d1eae1] rounded-lg transition-colors"
-                      >
-                        <FileText size={16} /> Receipt
-                      </Link>
+                                        <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end items-center gap-2">
+                        <Link 
+                          to={`/pharmacy/dashboard/sales/${sale.sale_id }/receipt`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#007a55] bg-[#e6f4ef] hover:bg-[#d1eae1] rounded-lg transition-colors"
+                        >
+                          <FileText size={16} /> Receipt
+                        </Link>
+                        
+                        {sale.payment_status !== 'REFUNDED' && sale.payment_status !== 'CANCELLED' && (
+                          <button 
+                            onClick={() => setSelectedSaleForRefund(sale)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                          >
+                            <RotateCcw size={16} /> Refund
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -298,6 +339,61 @@ const SalesHistory = () => {
             </div>
           </div>
         )}
+      {/* Refund Modal */}
+      {selectedSaleForRefund && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <AlertCircle size={20} className="text-red-500" /> Process Refund
+              </h3>
+              <button onClick={() => setSelectedSaleForRefund(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleRefundSubmit} className="p-4 space-y-4">
+              
+              <div className="p-3  text-red-700 rounded-lg text-sm">
+                <p>You are about to refund sale <strong>{selectedSaleForRefund.receipt_number }</strong>.</p>
+                <p className="mt-1">This will restore the inventory stock and mark the sale as CANCELLED.</p>
+              </div>
+
+              {refundError && (
+                <p className="text-sm text-red-500">{refundError}</p>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason for Refund *</label>
+                <textarea 
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  rows="3"
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 dark:text-white resize-none"
+                  placeholder="e.g. Patient returned medicine..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setSelectedSaleForRefund(null)}
+                  className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isRefunding}
+                  className="flex-1 flex justify-center items-center gap-2 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-70"
+                >
+                  {isRefunding ? <Loader2 className="animate-spin" size={16} /> : <RotateCcw size={16} />}
+                  Confirm Refund
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

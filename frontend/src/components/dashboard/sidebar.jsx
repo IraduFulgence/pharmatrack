@@ -24,7 +24,6 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
 
   const navItems = [
     { icon: <LayoutGrid size={20} />, label: 'Overview', path: '/pharmacy/dashboard' },
-    { icon: <FileText size={20} />, label: 'Prescriptions', path: '/pharmacy/dashboard/prescriptions' },
     { icon: <ShoppingBag size={20} />, label: 'Sales',  path: '/pharmacy/dashboard/sales/pos' },
     { icon: <ShoppingBag size={20} />, label: 'Sales History', path: '/pharmacy/dashboard/sales/history' },
     { icon: <Package size={20} />, label: 'Inventory', path: '/pharmacy/dashboard/inventory' },

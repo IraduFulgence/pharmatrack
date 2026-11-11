@@ -85,4 +85,15 @@ export const salesService = {
       body: JSON.stringify(data),
     });
   },
+  // refund sales
+  refundSale: async (saleId, data) =>{
+    return ApiRequest(`/sales/${saleId}/refund`,{
+      method:'POST',
+      body: JSON.stringify(data),
+    });
+  },
+    searchPrescriptions: async (query) => {
+    const pharmacyId = getPharmacyId();
+    return ApiRequest(`/sales/prescriptions/search?pharmacyId=${pharmacyId}&query=${encodeURIComponent(query)}`, { method: 'GET' });
+  },
 };
