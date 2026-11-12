@@ -87,16 +87,34 @@ export class SalesController {
   // ───────────── 3. Patient Management for Sales ─────────────
 
   @Get('patients/search')
-  @ApiOperation({ summary: 'Search existing registered patients' })
-  @ApiQuery({ name: 'query', required: true })
-  async searchPatients(@Query('query') query: string): Promise<ApiResponse> {
-    return this.salesService.searchPatients(query || '');
+  @ApiOperation({ summary: 'Search existing registered patients belonging to this pharmacy' })
+  @ApiQuery({ name: 'query', required: false })
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  async searchPatients(
+    @CurrentUser() user: JwtPayload,
+    @Query('query') query?: string,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId = await this.salesService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.salesService.searchPatients(targetPharmacyId, query || '', user.role === 'ADMIN');
   }
 
   @Post('patients/register-walkin')
-  @ApiOperation({ summary: 'Quick register a patient during checkout' })
-  async registerWalkinPatient(@Body() dto: RegisterSalePatientDto): Promise<ApiResponse> {
-    return this.salesService.registerWalkinPatient(dto);
+  @ApiOperation({ summary: 'Quick register a patient during checkout and associate with pharmacy' })
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  async registerWalkinPatient(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: RegisterSalePatientDto,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId = await this.salesService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.salesService.registerWalkinPatient(targetPharmacyId, dto, user.email);
   }
 
   // ───────────── 4. Prescription Integration ─────────────
@@ -267,6 +285,21 @@ export class SalesController {
     }
 
     res.json(result);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get single sale details with items and payments' })
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  async getSaleById(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId = await this.salesService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.salesService.getSaleById(targetPharmacyId, id);
   }
 
   @Post(':id/refund')
