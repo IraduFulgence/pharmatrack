@@ -40,7 +40,7 @@ export default function AuthHeader(){
 const styles = StyleSheet.create({
      // header styles
         header:{
-            backgroundColor:'#206B5F',
+            backgroundColor:'#007a55',
             height:'30%',
             paddingHorizontal:20,
             position:'relative',
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
       logoText:{
         fontSize:18,
         fontWeight:'700',
-        color: 'white',
+        color: '#fff',
         paddingHorizontal:8
       },
       headerTextContainer: {
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
       overline: {
         fontSize: 18,
         fontWeight: '700',
-        color: 'rgba(255,255,255,0.7)',
+        color: '#fff',
         letterSpacing: 1.5,
         marginBottom: 8,
       },
