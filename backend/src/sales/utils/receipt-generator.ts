@@ -30,6 +30,9 @@ export interface ReceiptData {
     quantity: number;
     unitPrice: number;
     subtotal: number;
+    packagingName?: string;
+    packageQuantity?: number;
+    unitsPerPackage?: number;
     isInsuranceCovered: boolean;
     coveragePercentage: number;
     insuranceContribution: number;
@@ -80,7 +83,9 @@ export function generateHtmlReceipt(data: ReceiptData): string {
               : ''
           }
         </td>
-        <td style="padding: 6px 4px; text-align: center; border-bottom: 1px solid #e5e7eb;">${item.quantity}</td>
+        <td style="padding: 6px 4px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+          ${item.packageQuantity && item.packagingName ? `${item.packageQuantity} ${item.packagingName} (${item.quantity})` : item.quantity}
+        </td>
         <td style="padding: 6px 4px; text-align: right; border-bottom: 1px solid #e5e7eb;">${formatRwf(item.unitPrice)}</td>
         <td style="padding: 6px 4px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${formatRwf(item.subtotal)}</td>
       </tr>
@@ -143,7 +148,7 @@ export function generateHtmlReceipt(data: ReceiptData): string {
         insurance
           ? `<tr>
               <td><strong>Insurance:</strong> ${insurance.providerName}</td>
-              <td style="text-align: right;"><strong>Card No:</strong> ${insurance.cardNumber}</td>
+              <td style="text-align: right;"><strong>Card No:</strong> ${insurance.cardNumber || 'N/A'}</td>
             </tr>
             ${insurance.claimNumber ? `<tr><td colspan="2"><strong>Claim Ref:</strong> ${insurance.claimNumber}</td></tr>` : ''}`
           : ''

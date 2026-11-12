@@ -478,5 +478,69 @@ describe('SalesService', () => {
       expect(res.data.claim_status).toBe('PAID');
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // 6. Packaging & Pharmacy Patient Scope
+  // ─────────────────────────────────────────────────────────────
+  describe('Packaging & Pharmacy-Scoped Patients', () => {
+    it('should correctly calculate bill for packaging units (2 Cartons x 100 Units = 200 base units)', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            inventory_id: 10,
+            pharmacy_id: 1,
+            medicine_id: 100,
+            batch_number: 'B-001',
+            quantity: 500,
+            unit_price: '50.00',
+            selling_price: '50.00',
+            expiry_date: '2028-12-31',
+            medicine_name: 'Paracetamol 500mg',
+            strength: '500mg',
+          },
+        ],
+      });
+
+      const res = await service.calculateBill(1, {
+        paymentCategory: 'PRIVATE',
+        items: [
+          {
+            inventoryId: 10,
+            quantity: 2,
+            packagingName: 'Carton',
+            packageQuantity: 2,
+            unitsPerPackage: 100,
+          },
+        ],
+      });
+
+      expect(res.success).toBe(true);
+      // 2 cartons x 100 tablets = 200 tablets at 50 RWF = 10,000 RWF
+      expect(res.data.financials.grossTotal).toBe(10000);
+      expect(res.data.items[0].packagingName).toBe('Carton');
+      expect(res.data.items[0].packageQuantity).toBe(2);
+      expect(res.data.items[0].dispensedBaseQuantity).toBe(200);
+    });
+
+    it('should query patients scoped to the specific pharmacy', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            patient_id: 10,
+            full_name: 'Eric Kwizera',
+            phone_number: '+250788000001',
+            insurances: [],
+          },
+        ],
+      });
+
+      const res = await service.searchPatients(1, 'Eric', false);
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0].full_name).toBe('Eric Kwizera');
+      // Confirm query filtered by pharmacy_patients
+      expect(mockDb.query.mock.calls[0][0]).toContain('pharmacy_patients');
+    });
+  });
 });
 

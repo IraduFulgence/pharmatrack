@@ -3,12 +3,16 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
   UseGuards,
   Res,
   ParseIntPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,7 +20,9 @@ import {
   ApiResponse as SwaggerResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { InventoryService } from './inventory.service.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
@@ -30,6 +36,7 @@ import { UpdateMedicineDto } from './dto/update-medicine.dto.js';
 import { UpdateBatchDto } from './dto/update-batch.dto.js';
 import { QueryInventoryDto } from './dto/query-inventory.dto.js';
 import { QueryReportDto } from './dto/query-report.dto.js';
+import { CreatePackagingDto } from './dto/create-packaging.dto.js';
 import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 
@@ -354,6 +361,118 @@ export class InventoryController {
     }
 
     res.json(result.response);
+  }
+
+  // ───────────── 10. Bulk Import & Templates (Module 2.1) ─────────────
+
+  @Get('template')
+  @ApiOperation({ summary: 'Download inventory import template (CSV or Excel)' })
+  @ApiQuery({ name: 'format', enum: ['csv', 'xlsx'], required: false })
+  async downloadTemplate(
+    @Query('format') format: 'csv' | 'xlsx' = 'xlsx',
+    @Res() res: Response,
+  ): Promise<void> {
+    const validFormat = format === 'csv' ? 'csv' : 'xlsx';
+    const { buffer, contentType, filename } = this.inventoryService.downloadImportTemplate(validFormat);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Post('import/preview')
+  @ApiOperation({ summary: 'Preview and validate bulk inventory file before submission' })
+  @ApiConsumes('multipart/form-data')
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  @UseInterceptors(FileInterceptor('file'))
+  async previewImport(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('File is required for preview.');
+    }
+    const targetPharmacyId = await this.inventoryService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.inventoryService.previewBulkImport(targetPharmacyId, file.buffer);
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: 'Upload and process bulk inventory records' })
+  @ApiConsumes('multipart/form-data')
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  @UseInterceptors(FileInterceptor('file'))
+  async importInventory(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('File is required for inventory import.');
+    }
+    const targetPharmacyId = await this.inventoryService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.inventoryService.importBulkInventory(targetPharmacyId, file.buffer, user.email);
+  }
+
+  // ───────────── 11. Multi-Format Inventory Export (Module 2.2) ─────────────
+
+  @Get('export/:format')
+  @ApiOperation({ summary: 'Export inventory as CSV, Excel, PDF, or Word' })
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  async exportInventory(
+    @CurrentUser() user: JwtPayload,
+    @Param('format') format: 'csv' | 'xlsx' | 'pdf' | 'docx',
+    @Query() query: QueryInventoryDto,
+    @Res() res: Response,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<void> {
+    const validFormats = ['csv', 'xlsx', 'pdf', 'docx'];
+    if (!validFormats.includes(format?.toLowerCase())) {
+      throw new BadRequestException(`Export format must be one of: ${validFormats.join(', ')}.`);
+    }
+
+    const targetPharmacyId = await this.inventoryService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+
+    const { buffer, contentType, filename } = await this.inventoryService.exportInventory(
+      targetPharmacyId,
+      query,
+      format.toLowerCase() as any,
+    );
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  // ───────────── 12. Product Packaging Management (Module 2.4) ─────────────
+
+  @Get('medicines/:id/packaging')
+  @ApiOperation({ summary: 'Get configured packaging units for a medicine' })
+  async getPackaging(@Param('id', ParseIntPipe) id: number): Promise<ApiResponse> {
+    return this.inventoryService.getPackaging(id);
+  }
+
+  @Post('medicines/:id/packaging')
+  @ApiOperation({ summary: 'Add a packaging configuration for a medicine' })
+  async createPackaging(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreatePackagingDto,
+  ): Promise<ApiResponse> {
+    return this.inventoryService.createPackaging(id, dto);
+  }
+
+  @Delete('packaging/:id')
+  @ApiOperation({ summary: 'Delete a packaging configuration' })
+  async deletePackaging(@Param('id', ParseIntPipe) id: number): Promise<ApiResponse> {
+    return this.inventoryService.deletePackaging(id);
   }
 }
 

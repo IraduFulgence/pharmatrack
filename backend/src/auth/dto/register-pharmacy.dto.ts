@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class RegisterPharmacyDto {
   @ApiProperty({
@@ -9,6 +10,32 @@ export class RegisterPharmacyDto {
   @IsNotEmpty({ message: 'Pharmacy name is required.' })
   @IsString({ message: 'Pharmacy name must be a string.' })
   pharmacyName: string;
+
+  @ApiProperty({
+    example: 'KN 4 Ave, Kigali, Rwanda',
+    description: 'Physical location address of the pharmacy (mandatory)',
+  })
+  @IsNotEmpty({ message: 'Location address is required.' })
+  @IsString({ message: 'Location address must be a string.' })
+  locationAddress: string;
+
+  @ApiPropertyOptional({
+    example: -1.9441,
+    description: 'Detected or manual GPS latitude',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Latitude must be a valid number.' })
+  latitude?: number;
+
+  @ApiPropertyOptional({
+    example: 30.0619,
+    description: 'Detected or manual GPS longitude',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Longitude must be a valid number.' })
+  longitude?: number;
 
   @ApiProperty({
     example: '+250788123456',

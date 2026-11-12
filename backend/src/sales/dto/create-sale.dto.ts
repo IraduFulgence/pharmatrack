@@ -56,6 +56,25 @@ export class SaleItemDto {
   @IsNumber({}, { message: 'customCoveragePercentage must be a number.' })
   @Min(0, { message: 'customCoveragePercentage cannot be negative.' })
   customCoveragePercentage?: number;
+
+  @ApiPropertyOptional({ example: 'Carton', description: 'Selected packaging unit (e.g. Carton, Box, Tablet)' })
+  @IsOptional()
+  @IsString()
+  packagingName?: string;
+
+  @ApiPropertyOptional({ example: 2, description: 'Number of packages to sell' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'packageQuantity must be an integer.' })
+  @Min(1, { message: 'packageQuantity must be at least 1.' })
+  packageQuantity?: number;
+
+  @ApiPropertyOptional({ example: 100, description: 'Base units per package (conversion factor)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'unitsPerPackage must be an integer.' })
+  @Min(1, { message: 'unitsPerPackage must be at least 1.' })
+  unitsPerPackage?: number;
 }
 
 export class CreateSaleDto {

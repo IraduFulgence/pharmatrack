@@ -16,6 +16,12 @@ import type { QueryReportDto } from './dto/query-report.dto.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 import { jsonToCsv } from './utils/csv-exporter.js';
+import {
+  generateTemplate,
+  parseAndValidateFile,
+} from './utils/inventory-importer.js';
+import { InventoryExporter, type InventoryExportItem } from './utils/inventory-exporter.js';
+import type { CreatePackagingDto } from './dto/create-packaging.dto.js';
 
 @Injectable()
 export class InventoryService {
@@ -558,11 +564,14 @@ export class InventoryService {
       medicineId,
       batchNumber,
       quantityReceived,
-      unitPrice,
       expiryDate,
       reorderLevel = 10,
       notes,
     } = dto;
+
+    const purchasePrice = dto.purchasePrice ?? dto.unitPrice ?? 0;
+    const sellingPrice = dto.sellingPrice ?? dto.unitPrice ?? 0;
+    const unitPrice = sellingPrice;
 
     // 1. Validate quantity > 0
     if (quantityReceived <= 0) {
@@ -570,8 +579,8 @@ export class InventoryService {
     }
 
     // 2. Validate unit price >= 0
-    if (unitPrice < 0) {
-      throw new BadRequestException('Unit price cannot be negative.');
+    if (unitPrice < 0 || purchasePrice < 0 || sellingPrice < 0) {
+      throw new BadRequestException('Prices cannot be negative.');
     }
 
     // 3. Validate expiry date (must be in future)
@@ -627,20 +636,20 @@ export class InventoryService {
 
         const updateRes = await client.query(
           `UPDATE public.inventory_batches 
-           SET quantity = $1, unit_price = $2, last_restocked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, status = 'ACTIVE'
-           WHERE inventory_id = $3
-           RETURNING inventory_id, pharmacy_id, medicine_id, batch_number, quantity, unit_price, to_char(expiry_date, 'YYYY-MM-DD') AS expiry_date, reorder_level, status, last_restocked_at`,
-          [newQuantity, unitPrice, eb.inventory_id],
+           SET quantity = $1, unit_price = $2, purchase_price = $3, selling_price = $4, last_restocked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, status = 'ACTIVE'
+           WHERE inventory_id = $5
+           RETURNING inventory_id, pharmacy_id, medicine_id, batch_number, quantity, unit_price, purchase_price, selling_price, to_char(expiry_date, 'YYYY-MM-DD') AS expiry_date, reorder_level, status, last_restocked_at`,
+          [newQuantity, unitPrice, purchasePrice, sellingPrice, eb.inventory_id],
         );
         batchRecord = updateRes.rows[0];
       } else {
         // Insert new batch record
         const insertRes = await client.query(
           `INSERT INTO public.inventory_batches 
-            (pharmacy_id, medicine_id, batch_number, quantity, unit_price, expiry_date, reorder_level, last_restocked_at, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, 'ACTIVE')
-           RETURNING inventory_id, pharmacy_id, medicine_id, batch_number, quantity, unit_price, to_char(expiry_date, 'YYYY-MM-DD') AS expiry_date, reorder_level, status, last_restocked_at`,
-          [pharmacyId, medicineId, batchNumber.trim(), quantityReceived, unitPrice, expiryDate, reorderLevel],
+            (pharmacy_id, medicine_id, batch_number, quantity, unit_price, purchase_price, selling_price, expiry_date, reorder_level, last_restocked_at, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, 'ACTIVE')
+           RETURNING inventory_id, pharmacy_id, medicine_id, batch_number, quantity, unit_price, purchase_price, selling_price, to_char(expiry_date, 'YYYY-MM-DD') AS expiry_date, reorder_level, status, last_restocked_at`,
+          [pharmacyId, medicineId, batchNumber.trim(), quantityReceived, unitPrice, purchasePrice, sellingPrice, expiryDate, reorderLevel],
         );
         batchRecord = insertRes.rows[0];
       }
@@ -943,6 +952,8 @@ export class InventoryService {
         m.requires_prescription,
         ib.batch_number,
         ib.quantity,
+        COALESCE(ib.purchase_price, ib.unit_price) AS purchase_price,
+        COALESCE(ib.selling_price, ib.unit_price) AS selling_price,
         ib.unit_price,
         to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date,
         ib.reorder_level,
@@ -954,7 +965,7 @@ export class InventoryService {
           ELSE false 
         END AS is_expired,
         (ib.expiry_date - CURRENT_DATE) AS days_until_expiry,
-        (ib.quantity * ib.unit_price) AS batch_valuation
+        (ib.quantity * COALESCE(ib.selling_price, ib.unit_price)) AS batch_valuation
        FROM public.inventory_batches ib
        JOIN public.medicines m ON m.medicine_id = ib.medicine_id
        ${whereClause}
@@ -995,6 +1006,8 @@ export class InventoryService {
         m.requires_prescription,
         ib.batch_number,
         ib.quantity,
+        COALESCE(ib.purchase_price, ib.unit_price) AS purchase_price,
+        COALESCE(ib.selling_price, ib.unit_price) AS selling_price,
         ib.unit_price,
         to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date,
         ib.reorder_level,
@@ -1006,7 +1019,7 @@ export class InventoryService {
           ELSE false 
         END AS is_expired,
         (ib.expiry_date - CURRENT_DATE) AS days_until_expiry,
-        (ib.quantity * ib.unit_price) AS batch_valuation
+        (ib.quantity * COALESCE(ib.selling_price, ib.unit_price)) AS batch_valuation
        FROM public.inventory_batches ib
        JOIN public.medicines m ON m.medicine_id = ib.medicine_id
        WHERE ib.inventory_id = $1 AND ib.pharmacy_id = $2`,
@@ -1065,8 +1078,19 @@ export class InventoryService {
     const params: any[] = [];
     let paramIdx = 1;
 
-    if (dto.unitPrice !== undefined) {
+    if (dto.purchasePrice !== undefined) {
+      updates.push(`purchase_price = $${paramIdx++}`);
+      params.push(dto.purchasePrice);
+    }
+    if (dto.sellingPrice !== undefined) {
+      updates.push(`selling_price = $${paramIdx++}`);
+      params.push(dto.sellingPrice);
       updates.push(`unit_price = $${paramIdx++}`);
+      params.push(dto.sellingPrice);
+    } else if (dto.unitPrice !== undefined) {
+      updates.push(`unit_price = $${paramIdx++}`);
+      params.push(dto.unitPrice);
+      updates.push(`selling_price = $${paramIdx++}`);
       params.push(dto.unitPrice);
     }
     if (dto.reorderLevel !== undefined) {
@@ -1089,7 +1113,7 @@ export class InventoryService {
       `UPDATE public.inventory_batches 
        SET ${updates.join(', ')} 
        WHERE inventory_id = $${paramIdx} AND pharmacy_id = $${paramIdx + 1} 
-       RETURNING inventory_id, batch_number, quantity, unit_price, to_char(expiry_date, 'YYYY-MM-DD') AS expiry_date, reorder_level, status, updated_at`,
+       RETURNING inventory_id, batch_number, quantity, unit_price, purchase_price, selling_price, to_char(expiry_date, 'YYYY-MM-DD') AS expiry_date, reorder_level, status, updated_at`,
       params,
     );
 
@@ -1783,6 +1807,402 @@ export class InventoryService {
         },
       },
       csvString,
+    };
+  }
+
+  // =========================================================================
+  // 10. BULK IMPORT & TEMPLATES (Module 2.1)
+  // =========================================================================
+
+  /**
+   * Download CSV or Excel import template with sample format
+   */
+  downloadImportTemplate(format: 'csv' | 'xlsx'): { buffer: Buffer; contentType: string; filename: string } {
+    const buffer = generateTemplate(format);
+    const contentType =
+      format === 'csv'
+        ? 'text/csv'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const filename = `inventory-import-template.${format}`;
+    return { buffer, contentType, filename };
+  }
+
+  /**
+   * Preview and validate bulk inventory records without persisting to database
+   */
+  async previewBulkImport(pharmacyId: number, fileBuffer: Buffer): Promise<ApiResponse> {
+    const batchRes = await this.db.query(
+      'SELECT batch_number FROM public.inventory_batches WHERE pharmacy_id = $1',
+      [pharmacyId],
+    );
+    const existingBatches = new Set<string>(batchRes.rows.map((r: any) => String(r.batch_number).toUpperCase()));
+
+    const preview = parseAndValidateFile(fileBuffer, existingBatches);
+
+    return {
+      success: true,
+      message: 'Bulk inventory file parsed and validated.',
+      data: preview,
+    };
+  }
+
+  /**
+   * Import valid rows into database, register missing medicines, and record inventory transactions
+   */
+  async importBulkInventory(
+    pharmacyId: number,
+    fileBuffer: Buffer,
+    userEmail?: string,
+  ): Promise<ApiResponse> {
+    const batchRes = await this.db.query(
+      'SELECT batch_number FROM public.inventory_batches WHERE pharmacy_id = $1',
+      [pharmacyId],
+    );
+    const existingBatches = new Set<string>(batchRes.rows.map((r: any) => String(r.batch_number).toUpperCase()));
+
+    const validation = parseAndValidateFile(fileBuffer, existingBatches);
+
+    if (validation.validRows === 0) {
+      throw new BadRequestException({
+        success: false,
+        message: 'No valid rows found to import.',
+        errors: validation.preview.filter((r) => !r.isValid).map((r) => ({
+          row: r.rowNumber,
+          errors: r.errors,
+        })),
+      });
+    }
+
+    const pharmacyUserId = await this.getPharmacyUserId(pharmacyId, userEmail);
+
+    const importResults = await this.db.transaction(async (client) => {
+      let importedCount = 0;
+      const importedBatches: any[] = [];
+
+      for (const row of validation.preview) {
+        if (!row.isValid) continue;
+
+        // 1. Resolve or create medicine in catalogue
+        let medicineId: number;
+        const medRes = await client.query(
+          'SELECT medicine_id FROM public.medicines WHERE LOWER(medicine_name) = $1 LIMIT 1',
+          [row.medicineName.trim().toLowerCase()],
+        );
+
+        if (medRes.rows.length > 0) {
+          medicineId = Number(medRes.rows[0].medicine_id);
+        } else {
+          const insertMed = await client.query(
+            `INSERT INTO public.medicines 
+              (medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
+             VALUES ($1, $2, $3, $4, $5, $6, false)
+             RETURNING medicine_id`,
+            [
+              row.medicineName.trim(),
+              row.genericName || row.medicineName.trim(),
+              row.brandName || null,
+              row.strength || null,
+              row.dosageForm || 'Tablet',
+              `Auto-registered via bulk inventory import`,
+            ],
+          );
+          medicineId = Number(insertMed.rows[0].medicine_id);
+        }
+
+        // 2. Configure packaging if specified
+        if (row.packagingUnit && row.unitsPerPackage && row.unitsPerPackage > 0) {
+          await client.query(
+            `INSERT INTO public.medicine_packaging 
+              (medicine_id, package_name, package_unit, units_per_package, price_per_package, is_default)
+             VALUES ($1, $2, $3, $4, $5, true)
+             ON CONFLICT (medicine_id, package_name) DO UPDATE 
+             SET units_per_package = EXCLUDED.units_per_package,
+                 package_unit = EXCLUDED.package_unit`,
+            [
+              medicineId,
+              `${row.packagingUnit} of ${row.unitsPerPackage}`,
+              row.packagingUnit,
+              row.unitsPerPackage,
+              row.sellingPrice * row.unitsPerPackage,
+            ],
+          );
+        }
+
+        // 3. Insert inventory batch
+        const batchInsert = await client.query(
+          `INSERT INTO public.inventory_batches 
+            (pharmacy_id, medicine_id, batch_number, quantity, unit_price, purchase_price, selling_price, expiry_date, reorder_level, last_restocked_at, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 10, CURRENT_TIMESTAMP, 'ACTIVE')
+           RETURNING inventory_id, batch_number, quantity, unit_price, purchase_price, selling_price, to_char(expiry_date, 'YYYY-MM-DD') AS expiry_date`,
+          [
+            pharmacyId,
+            medicineId,
+            row.batchNumber.trim(),
+            row.quantity,
+            row.sellingPrice,
+            row.purchasePrice,
+            row.sellingPrice,
+            row.expiryDate,
+          ],
+        );
+        const batch = batchInsert.rows[0];
+
+        // 4. Record transaction in audit log
+        await client.query(
+          `INSERT INTO public.inventory_transactions 
+            (inventory_id, pharmacy_id, pharmacy_user_id, transaction_type, quantity, previous_quantity, new_quantity, reason, notes)
+           VALUES ($1, $2, $3, 'STOCK_IN', $4, 0, $4, 'Bulk inventory import', $5)`,
+          [batch.inventory_id, pharmacyId, pharmacyUserId, row.quantity, `Imported batch ${row.batchNumber}`],
+        );
+
+        importedCount++;
+        importedBatches.push(batch);
+      }
+
+      return {
+        importedCount,
+        importedBatches,
+      };
+    });
+
+    return {
+      success: true,
+      message: `Successfully imported ${importResults.importedCount} inventory batch record(s).`,
+      data: {
+        totalRows: validation.totalRows,
+        importedCount: importResults.importedCount,
+        skippedInvalidCount: validation.invalidRows,
+        errors: validation.preview.filter((r) => !r.isValid).map((r) => ({
+          row: r.rowNumber,
+          batchNumber: r.batchNumber,
+          errors: r.errors,
+        })),
+        importedBatches: importResults.importedBatches,
+      },
+    };
+  }
+
+  // =========================================================================
+  // 11. INVENTORY EXPORT (Module 2.2)
+  // =========================================================================
+
+  /**
+   * Export inventory in CSV, Excel (.xlsx), PDF, or Word (.docx)
+   */
+  async exportInventory(
+    pharmacyId: number,
+    query: QueryInventoryDto,
+    format: 'csv' | 'xlsx' | 'pdf' | 'docx',
+  ): Promise<{ buffer: Buffer; contentType: string; filename: string }> {
+    // 1. Fetch pharmacy info for report headers
+    const pharmRes = await this.db.query(
+      'SELECT pharmacy_name, tin, email, phone_number, location_address FROM public.pharmacies WHERE pharmacy_id = $1',
+      [pharmacyId],
+    );
+    const pharmacy = pharmRes.rows[0] || { pharmacy_name: 'PharmTrack Partner Pharmacy' };
+
+    // 2. Fetch inventory items matching query
+    const conditions: string[] = ['ib.pharmacy_id = $1'];
+    const params: any[] = [pharmacyId];
+    let paramIdx = 2;
+
+    if (query.search?.trim()) {
+      const term = `%${query.search.trim()}%`;
+      conditions.push(
+        `(ib.batch_number ILIKE $${paramIdx} OR m.medicine_name ILIKE $${paramIdx} OR m.generic_name ILIKE $${paramIdx} OR m.brand_name ILIKE $${paramIdx})`,
+      );
+      params.push(term);
+      paramIdx++;
+    }
+
+    if (query.expiryStatus === 'EXPIRED') {
+      conditions.push('ib.expiry_date < CURRENT_DATE');
+    } else if (query.expiryStatus === 'EXPIRING_30') {
+      conditions.push("ib.expiry_date >= CURRENT_DATE AND ib.expiry_date <= CURRENT_DATE + INTERVAL '30 days'");
+    } else if (query.expiryStatus === 'EXPIRING_60') {
+      conditions.push("ib.expiry_date > CURRENT_DATE + INTERVAL '30 days' AND ib.expiry_date <= CURRENT_DATE + INTERVAL '60 days'");
+    } else if (query.expiryStatus === 'EXPIRING_90') {
+      conditions.push("ib.expiry_date > CURRENT_DATE + INTERVAL '60 days' AND ib.expiry_date <= CURRENT_DATE + INTERVAL '90 days'");
+    } else if (query.expiryStatus === 'VALID') {
+      conditions.push('(ib.expiry_date IS NULL OR ib.expiry_date >= CURRENT_DATE)');
+    }
+
+    if (query.stockStatus === 'IN_STOCK') {
+      conditions.push('ib.quantity > 0');
+    } else if (query.stockStatus === 'LOW_STOCK') {
+      conditions.push('ib.quantity > 0 AND ib.quantity <= ib.reorder_level');
+    } else if (query.stockStatus === 'OUT_OF_STOCK') {
+      conditions.push('ib.quantity = 0');
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+    const itemsRes = await this.db.query(
+      `SELECT 
+        m.medicine_name,
+        m.generic_name,
+        m.brand_name,
+        m.strength,
+        m.dosage_form,
+        ib.batch_number,
+        ib.quantity AS quantity_available,
+        COALESCE(ib.purchase_price, ib.unit_price) AS purchase_price,
+        COALESCE(ib.selling_price, ib.unit_price) AS selling_price,
+        ib.reorder_level,
+        to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date,
+        ib.status
+       FROM public.inventory_batches ib
+       JOIN public.medicines m ON m.medicine_id = ib.medicine_id
+       ${whereClause}
+       ORDER BY ib.expiry_date ASC NULLS LAST, m.medicine_name ASC`,
+      params,
+    );
+
+    const items: InventoryExportItem[] = itemsRes.rows.map((r: any) => ({
+      medicineName: r.medicine_name,
+      genericName: r.generic_name,
+      brandName: r.brand_name,
+      strength: r.strength,
+      dosageForm: r.dosage_form,
+      batchNumber: r.batch_number,
+      quantityAvailable: Number(r.quantity_available),
+      purchasePrice: Number(r.purchase_price ?? 0),
+      sellingPrice: Number(r.selling_price ?? 0),
+      reorderLevel: Number(r.reorder_level),
+      expiryDate: r.expiry_date || 'N/A',
+      status: r.status,
+    }));
+
+    const meta = {
+      pharmacyName: pharmacy.pharmacy_name,
+      tin: pharmacy.tin,
+      email: pharmacy.email,
+      phoneNumber: pharmacy.phone_number,
+      generatedAt: new Date().toLocaleString(),
+      filterSummary: query.search ? `Search: "${query.search}"` : undefined,
+    };
+
+    const timestamp = Date.now();
+
+    if (format === 'csv') {
+      const buffer = InventoryExporter.toCsv(items);
+      return {
+        buffer,
+        contentType: 'text/csv',
+        filename: `inventory-export-${timestamp}.csv`,
+      };
+    }
+
+    if (format === 'xlsx') {
+      const buffer = InventoryExporter.toExcel(items, meta);
+      return {
+        buffer,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        filename: `inventory-export-${timestamp}.xlsx`,
+      };
+    }
+
+    if (format === 'pdf') {
+      const buffer = await InventoryExporter.toPdf(items, meta);
+      return {
+        buffer,
+        contentType: 'application/pdf',
+        filename: `inventory-export-${timestamp}.pdf`,
+      };
+    }
+
+    if (format === 'docx') {
+      const buffer = await InventoryExporter.toWord(items, meta);
+      return {
+        buffer,
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        filename: `inventory-export-${timestamp}.docx`,
+      };
+    }
+
+    throw new BadRequestException(`Unsupported export format: ${format}`);
+  }
+
+  // =========================================================================
+  // 12. PRODUCT PACKAGING MANAGEMENT (Module 2.4)
+  // =========================================================================
+
+  /**
+   * Get packaging units configured for a medicine
+   */
+  async getPackaging(medicineId: number): Promise<ApiResponse> {
+    const medCheck = await this.db.query('SELECT medicine_id FROM public.medicines WHERE medicine_id = $1', [medicineId]);
+    if (medCheck.rows.length === 0) {
+      throw new NotFoundException(`Medicine with ID ${medicineId} not found.`);
+    }
+
+    const res = await this.db.query(
+      `SELECT packaging_id, medicine_id, package_name, package_unit, units_per_package, price_per_package, is_default, created_at
+       FROM public.medicine_packaging 
+       WHERE medicine_id = $1 
+       ORDER BY is_default DESC, units_per_package ASC`,
+      [medicineId],
+    );
+
+    return {
+      success: true,
+      message: 'Packaging configurations retrieved successfully.',
+      data: res.rows,
+    };
+  }
+
+  /**
+   * Add a packaging configuration for a medicine
+   */
+  async createPackaging(medicineId: number, dto: CreatePackagingDto): Promise<ApiResponse> {
+    const medCheck = await this.db.query('SELECT medicine_id, medicine_name FROM public.medicines WHERE medicine_id = $1', [medicineId]);
+    if (medCheck.rows.length === 0) {
+      throw new NotFoundException(`Medicine with ID ${medicineId} not found.`);
+    }
+
+    const res = await this.db.query(
+      `INSERT INTO public.medicine_packaging 
+        (medicine_id, package_name, package_unit, units_per_package, price_per_package, is_default)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (medicine_id, package_name) DO UPDATE 
+       SET package_unit = EXCLUDED.package_unit,
+           units_per_package = EXCLUDED.units_per_package,
+           price_per_package = EXCLUDED.price_per_package,
+           is_default = EXCLUDED.is_default,
+           updated_at = CURRENT_TIMESTAMP
+       RETURNING packaging_id, medicine_id, package_name, package_unit, units_per_package, price_per_package, is_default`,
+      [
+        medicineId,
+        dto.packageName.trim(),
+        dto.packageUnit,
+        dto.unitsPerPackage,
+        dto.pricePerPackage ?? null,
+        Boolean(dto.isDefault),
+      ],
+    );
+
+    return {
+      success: true,
+      message: 'Packaging unit configured successfully.',
+      data: res.rows[0],
+    };
+  }
+
+  /**
+   * Delete a packaging configuration
+   */
+  async deletePackaging(packagingId: number): Promise<ApiResponse> {
+    const res = await this.db.query(
+      'DELETE FROM public.medicine_packaging WHERE packaging_id = $1 RETURNING packaging_id',
+      [packagingId],
+    );
+    if (res.rows.length === 0) {
+      throw new NotFoundException(`Packaging configuration with ID ${packagingId} not found.`);
+    }
+
+    return {
+      success: true,
+      message: 'Packaging unit deleted successfully.',
     };
   }
 }

@@ -462,5 +462,115 @@ describe('InventoryService', () => {
       expect(result.csvString).toContain('Amoxicillin 500mg');
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // 9. Bulk Import & Templates
+  // ─────────────────────────────────────────────────────────────
+  describe('Bulk Import & Templates', () => {
+    it('should generate CSV import template', () => {
+      const template = service.downloadImportTemplate('csv');
+      expect(template.contentType).toBe('text/csv');
+      expect(template.filename).toBe('inventory-import-template.csv');
+      expect(template.buffer.toString()).toContain('Medicine name');
+      expect(template.buffer.toString()).toContain('Selling price');
+    });
+
+    it('should generate Excel import template', () => {
+      const template = service.downloadImportTemplate('xlsx');
+      expect(template.contentType).toContain('spreadsheetml');
+      expect(template.filename).toBe('inventory-import-template.xlsx');
+      expect(template.buffer.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 10. Product Packaging Management
+  // ─────────────────────────────────────────────────────────────
+  describe('Product Packaging Management', () => {
+    it('should retrieve packaging units for a medicine', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ medicine_id: 10 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              packaging_id: 1,
+              medicine_id: 10,
+              package_name: 'Carton',
+              package_unit: 'Carton',
+              units_per_package: 100,
+              price_per_package: '15000',
+              is_default: true,
+            },
+          ],
+        });
+
+      const res = await service.getPackaging(10);
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0].package_name).toBe('Carton');
+      expect(res.data[0].units_per_package).toBe(100);
+    });
+
+    it('should create a packaging unit for a medicine', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ medicine_id: 10 }] }) // medicine exists
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              packaging_id: 2,
+              medicine_id: 10,
+              package_name: 'Box',
+              package_unit: 'Box',
+              units_per_package: 20,
+              price_per_package: '3000',
+              is_default: false,
+            },
+          ],
+        });
+
+      const res = await service.createPackaging(10, {
+        packageName: 'Box',
+        packageUnit: 'Box',
+        unitsPerPackage: 20,
+        pricePerPackage: 3000,
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data.package_name).toBe('Box');
+      expect(res.data.units_per_package).toBe(20);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 11. Multi-Format Inventory Export
+  // ─────────────────────────────────────────────────────────────
+  describe('Multi-Format Inventory Export', () => {
+    it('should export inventory in CSV format', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_name: 'Test Pharmacy' }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              medicine_name: 'Paracetamol 500mg',
+              generic_name: 'Paracetamol',
+              brand_name: 'Panadol',
+              strength: '500mg',
+              dosage_form: 'Tablet',
+              batch_number: 'B-001',
+              quantity_available: 150,
+              purchase_price: 50,
+              selling_price: 100,
+              reorder_level: 20,
+              expiry_date: '2027-12-31',
+              status: 'ACTIVE',
+            },
+          ],
+        });
+
+      const csvExport = await service.exportInventory(1, {}, 'csv');
+      expect(csvExport.filename).toContain('.csv');
+      expect(csvExport.buffer.toString()).toContain('Paracetamol 500mg');
+    });
+  });
 });
 

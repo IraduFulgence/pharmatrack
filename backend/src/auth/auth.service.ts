@@ -185,10 +185,13 @@ export class AuthService {
     pharmacyCertificatePath?: string | null,
     rdbCertificatePath?: string | null,
   ): Promise<ApiResponse> {
-    const { pharmacyName, phoneNumber, email, tin, password } = dto;
+    const { pharmacyName, phoneNumber, email, tin, password, locationAddress, latitude, longitude } = dto;
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phoneNumber.trim();
     const cleanTin = tin.trim();
+    const cleanAddress = locationAddress ? locationAddress.trim() : null;
+    const parsedLat = latitude !== undefined && latitude !== null ? Number(latitude) : null;
+    const parsedLng = longitude !== undefined && longitude !== null ? Number(longitude) : null;
 
     // 1. Check for duplicate Email (across pharmacies and patients)
     const existingEmailPharmacy = await this.db.query(
@@ -233,10 +236,21 @@ export class AuthService {
       const pharmacy = await this.db.transaction(async (client) => {
         const pharmResult = await client.query(
           `INSERT INTO public.pharmacies 
-            (pharmacy_name, phone_number, email, tin, pharmacy_certificate_path, rdb_certificate_path, verification_status, password_hash, is_active)
-           VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, true)
-           RETURNING pharmacy_id, pharmacy_name, phone_number, email, tin, verification_status`,
-          [pharmacyName.trim(), cleanPhone, cleanEmail, cleanTin, pharmacyCertificatePath || null, rdbCertificatePath || null, passwordHash],
+            (pharmacy_name, phone_number, email, tin, location_address, latitude, longitude, pharmacy_certificate_path, rdb_certificate_path, verification_status, password_hash, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING', $10, true)
+           RETURNING pharmacy_id, pharmacy_name, phone_number, email, tin, location_address, latitude, longitude, verification_status`,
+          [
+            pharmacyName.trim(),
+            cleanPhone,
+            cleanEmail,
+            cleanTin,
+            cleanAddress,
+            parsedLat,
+            parsedLng,
+            pharmacyCertificatePath || null,
+            rdbCertificatePath || null,
+            passwordHash,
+          ],
         );
 
         const newPharmacy = pharmResult.rows[0];
@@ -261,6 +275,9 @@ export class AuthService {
           phoneNumber: pharmacy.phone_number,
           email: pharmacy.email,
           tin: pharmacy.tin,
+          locationAddress: pharmacy.location_address || null,
+          latitude: pharmacy.latitude ? Number(pharmacy.latitude) : null,
+          longitude: pharmacy.longitude ? Number(pharmacy.longitude) : null,
           verificationStatus: pharmacy.verification_status,
           role: 'PHARMACY',
         },
