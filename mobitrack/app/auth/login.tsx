@@ -5,30 +5,64 @@ import { StyleSheet,Platform,
     Text,
     TextInput,
     KeyboardAvoidingView,
-    TouchableOpacity
+    TouchableOpacity,
+    Alert,
+    ActivityIndicator
 
  } from "react-native";
 
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitcher } from "@/components/language/languageswitche";
 import { FontAwesome5,AntDesign,Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import AuthHeader from "@/components/topheader/auth_header";
-
+import { AuthService } from "@/src/api/auth/authService";
 export default function LoginScreen(){
     const router = useRouter();
     const {t} = useTranslation();
     const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin')
-    
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [phone, setPhone] = useState('');
+    
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSwitch = () =>{
 
         router.replace('/auth/register');
+    }
+
+    const handleLoging = async () =>{
+      if(!identifier.trim() || !password.trim()){
+        Alert.alert('Please enter your credentials');
+      }
+      try {
+        setIsLoading(true);
+        // send request to api endpoint
+        const response = await AuthService.login(identifier.trim(), password);
+
+        const user = response.data.user;
+        if(user.role === 'PATIENT'){
+          router.replace('/(tabs)/home');
+        }
+        else if (user.role === 'PHARMACY') {
+        Alert.alert(
+          "Pharmacy Account", 
+          "This mobile app is for patients. Please use the web portal to manage your pharmacy.",
+          [{ text: "OK", onPress: () => AuthService.logout() }]
+        );
+      } else {
+        Alert.alert("Notice", "Admin accounts must use the web portal.", [
+          { text: "OK", onPress: () => AuthService.logout() }
+        ]);
+      }
+
+    } catch (error: any) {
+      Alert.alert("Login Failed", error.message || "Invalid credentials");
+    } finally {
+      setIsLoading(false);
+    }
     }
 
 
@@ -99,10 +133,10 @@ return(
                 <Ionicons name="call-outline" size={20} color="#98A2B3" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="0788000003"
+                  placeholder={t('auth.login.phone')}
                   placeholderTextColor="#98A2B3"
-                  value={phone}
-                  onChangeText={setPhone}
+                  value={identifier}
+                  onChangeText={setIdentifier}
                 />
               </View>
             </View>
@@ -147,10 +181,20 @@ return(
             </View>
 
             {/* Submit Button */}
-            <TouchableOpacity style={styles.submitButton} >
-              <Text style={styles.submitButtonText}>{t('auth.login.signIn')}</Text>
-              <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
+                      <TouchableOpacity 
+            style={[styles.submitButton, isLoading && { opacity: 0.7 }]} 
+            onPress={handleLoging}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Text style={styles.submitButtonText}>{t('auth.login.signIn')}</Text>
+                <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
+              </>
+            )}
+          </TouchableOpacity>
 
           
             </ScrollView>

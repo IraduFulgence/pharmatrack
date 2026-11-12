@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutGrid, FileText, ShoppingBag, Package, Users, 
   MessageSquare, Settings, HelpCircle, X 
@@ -7,20 +7,37 @@ import { NavLink, Link } from 'react-router-dom';
 import logo from "../../assets/logo.png";
 
 const DashboardSidebar = ({ isOpen, setIsOpen }) => {
+  const [user, setUser] = useState(null);
+
+  // Load user data on mount
+  useEffect(() => {
+    const userString = localStorage.getItem('user');
+    console.log('fetched user', userString);
+    if (userString) {
+      try {
+        setUser(JSON.parse(userString));
+      } catch (e) {
+        console.error("Failed to parse user data");
+      }
+    }
+  }, []);
+
   const navItems = [
     { icon: <LayoutGrid size={20} />, label: 'Overview', path: '/pharmacy/dashboard' },
-    { icon: <FileText size={20} />, label: 'Prescriptions', path: '/pharmacy/dashboard/prescriptions' },
-    { icon: <ShoppingBag size={20} />, label: 'Orders', badge: '12', path: '/pharmacy/dashboard/orders' },
+    { icon: <ShoppingBag size={20} />, label: 'Sales',  path: '/pharmacy/dashboard/sales/pos' },
+    { icon: <ShoppingBag size={20} />, label: 'Sales History', path: '/pharmacy/dashboard/sales/history' },
     { icon: <Package size={20} />, label: 'Inventory', path: '/pharmacy/dashboard/inventory' },
-    { icon: <Users size={20} />, label: 'Customers', path: '/pharmacy/dashboard/customers' },
+    { icon: <Users size={20} />, label: 'Insurance Claims', path: '/pharmacy/dashboard/insurance' },
     { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3', path: '/pharmacy/dashboard/messages' },
   ];
 
- 
   const bottomItems = [
-    { icon: <Settings size={20} />, label: 'Settings & Profile', path: '/pharmacy/dashboard/profile' },
+    { icon: <Settings size={20} />, label: 'Settings & Profile', path: '/pharmacy/dashboard/settings' },
     { icon: <HelpCircle size={20} />, label: 'Help center', path: '/pharmacy/dashboard/help' },
   ];
+
+  const displayName = user?.pharmacyName || user?.fullName;
+  const location = user?.locationAddress || 'Kigali';
 
   return (
     <>
@@ -51,15 +68,13 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
 
-        {/* Pharmacy Profile Card */}
+        {/* Dynamic Pharmacy Profile Card */}
         <div className="p-4">
-           <Link to="/pharmacy/dashboard/profile" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors block">
-           <div className="bg-[#007a55] text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg">
-              +
-            </div>
-            <div className="flex-grow">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Ineza Pharmacy</h3>
-              <p className="text-xs text-gray-500">Kigali</p>
+           <Link to="/pharmacy/dashboard/settings" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3 shadow-sm cursor-pointer hover:border-[#007a55] transition-colors block">
+          
+            <div className="flex-grow overflow-hidden">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">{displayName}</h3>
+              <p className="text-xs text-gray-500 truncate">{location}</p>
             </div>
            </Link>
         </div>

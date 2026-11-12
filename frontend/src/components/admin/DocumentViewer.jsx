@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, AlertCircle, FileText, Download } from 'lucide-react';
 import { adminService } from '../../services/AdminServices';
-const DocumentViewer = ({ pharmacyId, docType, title, onClose }) => {
+import { authService } from '../../services/authentication';
+
+
+
+
+const DocumentViewer = ({ pharmacyId, docType, title, onClose, isAdmin=true }) => {
   const [blobUrl, setBlobUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -12,8 +17,12 @@ const DocumentViewer = ({ pharmacyId, docType, title, onClose }) => {
       try {
         setIsLoading(true);
         // Call the service to get the file as a Blob
-        const blob = await adminService.getPharmacyDocument(pharmacyId, docType);
-        
+         let blob;
+        if (isAdmin) {
+          blob = await adminService.getPharmacyDocument(pharmacyId, docType);
+        } else {
+          blob = await authService.getMyDocument(docType);
+        }
         // Save the mime type (e.g., 'application/pdf' or 'image/jpeg')
         setMimeType(blob.type);
         
@@ -26,16 +35,17 @@ const DocumentViewer = ({ pharmacyId, docType, title, onClose }) => {
         setIsLoading(false);
       }
     };
+     if (docType) fetchDocument();
 
-    if (pharmacyId && docType) {
-      fetchDocument();
-    }
+    // if (pharmacyId && docType) {
+    //   fetchDocument();
+    // }
 
     // Revoke the object URL to free memory when the component unmounts
     return () => {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
-  }, [pharmacyId, docType]);
+  }, [pharmacyId, docType,isAdmin]);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">

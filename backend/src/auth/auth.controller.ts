@@ -10,6 +10,9 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  Res,
+  Param,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +20,7 @@ import {
   ApiResponse as SwaggerResponse,
   ApiBearerAuth,
   ApiConsumes,
+  ApiParam,
 } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
@@ -31,7 +35,9 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
-
+import  fs from 'node:fs';
+import type { Response } from 'express';
+import path from 'node:path';
 @ApiTags('Authentication')
 @Controller('api/auth')
 export class AuthController {
@@ -187,5 +193,38 @@ export class AuthController {
   @SwaggerResponse({ status: 401, description: 'Unauthorized or token expired.' })
   async getProfile(@CurrentUser() user: JwtPayload): Promise<ApiResponse> {
     return this.authService.getProfile(user.sub, user.role);
+  }
+  
+@Get('profile/documents/:type')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Download my own pharmacy document' })
+  async getMyDocument(
+    @CurrentUser() user: JwtPayload,
+    @Param('type') type: string,
+    @Res() res: Response,
+  ) {
+    if (type !== 'pharmacy' && type !== 'rdb') {
+      throw new BadRequestException('Invalid document type.');
+    }
+
+    // Fetch path from DB
+    const filePath = await this.authService.getMyDocumentPath(user.sub, type);
+    if (!filePath) {
+      throw new NotFoundException('Document path not found in database.');
+    }
+
+   
+    const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+    const absolutePath = path.resolve(cleanPath);
+
+    // Check if file exists
+    if (!fs.existsSync(absolutePath)) {
+      console.error(`File missing on disk at: ${absolutePath}`);
+      throw new NotFoundException('Document file not found on disk.');
+    }
+
+    // Stream the file
+    res.sendFile(absolutePath);
   }
 }

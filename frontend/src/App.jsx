@@ -31,6 +31,13 @@ import AdjustStock from './pages/dashboard/AdjustStock';
 import InventoryAlerts from './pages/dashboard/InventoryAlerts';
 import TransactionHistory from './pages/dashboard/TransactionHistory';
 import InventoryReports from './pages/dashboard/InventoryReports';
+import PharmacySettings from './pages/dashboard/PharmacySettings';
+import SalesPOS from './pages/dashboard/SalesPOS';
+import SaleReceipt from './pages/dashboard/SaleReceipt';
+import SalesHistory from './pages/dashboard/SalesHistory';
+import InsuranceClaims from './pages/dashboard/InsuranceClaims';
+
+
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -78,6 +85,11 @@ function App() {
         <Route path='inventory/alerts' element={<InventoryAlerts />} />
         <Route path='inventory/transactions' element={<TransactionHistory />} />
         <Route path='inventory/reports' element={<InventoryReports />} />
+        <Route path="settings" element={<PharmacySettings />} /> 
+        <Route path="sales/pos" element={<SalesPOS />} />
+        <Route path="sales/:id/receipt" element={<SaleReceipt />} />
+         <Route path="sales/history" element={<SalesHistory />} />
+        <Route path='insurance' element={<InsuranceClaims />} />
         </Route>
         </Route>
 
@@ -94,6 +106,7 @@ function App() {
           <Route path="patients" element={<ManagePatients />} />
           <Route path="admins" element={<ManageAdmins />} />      
           <Route path="profile" element={<AdminProfile />} />
+         
         </Route>
        </Route>
       
