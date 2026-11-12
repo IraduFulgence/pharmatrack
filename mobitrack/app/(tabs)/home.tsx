@@ -1,48 +1,33 @@
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, SafeAreaView, Platform, ActivityIndicator, Image, Alert
+  SafeAreaView, Platform, ActivityIndicator, Image, Alert, ScrollView, Modal
 } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { useLocation } from '@/hooks/useLocation'; 
+import { Ionicons, FontAwesome5, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocation } from '@/hooks/useLocation';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-
 import { Pharmacy, pharmacyService } from '@/src/api/pharmacy/pharmacyService';
-const logo = require('../../assets/images/logo.png');
+import { useTranslation } from 'react-i18next';
+
+const logo = require('../../assets/images/White Logo.png');
 
 export default function HomeScreen() {
   const { location } = useLocation();
   const router = useRouter();
+  const { t } = useTranslation();
   
   // State
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
-  const [filteredPharmacies, setFilteredPharmacies] = useState<Pharmacy[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'list' | 'map'>('list');
   const [userInitials, setUserInitials] = useState('U');
-  const [userName, setUserName] = useState('User');
+  const [userName, setUserName] = useState('there');
+  const [isMenuVisible, setIsMenuVisible] = useState(false); 
 
-  // Load User & Fetch Pharmacies
   useEffect(() => {
     loadUser();
     fetchPharmacies();
   }, []);
-
-  // Client-side Search Filter
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredPharmacies(pharmacies);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = pharmacies.filter(p => 
-        p.pharmacyName.toLowerCase().includes(query) || 
-        (p.locationAddress && p.locationAddress.toLowerCase().includes(query))
-      );
-      setFilteredPharmacies(filtered);
-    }
-  }, [searchQuery, pharmacies]);
 
   const loadUser = async () => {
     try {
@@ -50,8 +35,8 @@ export default function HomeScreen() {
       if (userString) {
         const user = JSON.parse(userString);
         const name = user.fullName || 'User';
-        setUserName(name);
-        // Extract initials (e.g., "John Doe" -> "JD")
+        const firstName = name.split(' ')[0];
+        setUserName(firstName);
         const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
         setUserInitials(initials || 'U');
       }
@@ -64,73 +49,78 @@ export default function HomeScreen() {
     try {
       setIsLoading(true);
       const response = await pharmacyService.getAllPharmacies();
-      console.log("PHARMACY RESPONSE:", JSON.stringify(response, null, 2));
-      // Filter to show only APPROVED pharmacies to patients
-      const approved = response.data.filter(
-        (p: Pharmacy) => p.verificationStatus === 'APPROVED'
+      const pharmacyList = response.data?.pharmacies || [];
+      const approved = pharmacyList.filter(
+        (p: Pharmacy) => p.verificationStatus === 'APPROVED' || p.verification_status === 'APPROVED'
       );
-      
       setPharmacies(approved);
-      setFilteredPharmacies(approved);
     } catch (error: any) {
-      Alert.alert("Connection Error", "Could not load pharmacies. Please check your internet.");
+      console.error("Fetch Error:", error);
+      Alert.alert("Connection Error", "Could not load pharmacies.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to sign out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Sign Out", 
-          style: "destructive", 
-          onPress: async () => {
-            await SecureStore.deleteItemAsync('token');
-            await SecureStore.deleteItemAsync('user');
-            router.replace('/auth/login');
-          } 
-        }
-      ]
-    );
+  const handleLogout = async () => {
+    setIsMenuVisible(false);
+    await SecureStore.deleteItemAsync('token');
+    await SecureStore.deleteItemAsync('user');
+    router.replace('/auth/login');
   };
 
-  // Render each pharmacy card
+  const handleMenuItemPress = (action: string) => {
+    setIsMenuVisible(false);
+    switch (action) {
+      case 'profile':
+        Alert.alert("Coming Soon", "Profile page coming soon.");
+        break;
+      case 'orders':
+        Alert.alert("Coming Soon", "Order history coming soon.");
+        break;
+      case 'logout':
+        handleLogout();
+        break;
+    }
+  };
+
+  // Quick Action Card
+  const QuickAction = ({ icon, title, subtitle, bgColor, onPress }: any) => (
+    <TouchableOpacity style={styles.quickActionCard} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.quickActionIcon, { backgroundColor: bgColor }]}>
+        {icon}
+      </View>
+      <Text style={styles.quickActionTitle}>{title}</Text>
+      <Text style={styles.quickActionSubtitle}>{subtitle}</Text>
+    </TouchableOpacity>
+  );
+
+  // Pharmacy Card
   const renderPharmacy = ({ item }: { item: Pharmacy }) => (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.7}>
       <View style={styles.cardIconContainer}>
-        <FontAwesome5 name="clinic-medical" size={18} color="white" />
+        <FontAwesome5 name="clinic-medical" size={20} color="white" />
       </View>
       <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{item.pharmacyName}</Text>
+        <Text style={styles.cardTitle}>{item.pharmacyName || (item as any).pharmacy_name}</Text>
         <View style={styles.statusRow}>
           <View style={styles.openDot} />
           <Text style={styles.openText}>Open</Text>
           <Text style={styles.hoursText}> • {item.locationAddress || 'Kigali'}</Text>
         </View>
       </View>
-      <TouchableOpacity>
-        <Ionicons name="chevron-forward" size={20} color="#98A2B3" />
-      </TouchableOpacity>
-    </View>
+      <Ionicons name="chevron-forward" size={20} color="#98A2B3" />
+    </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      
-      {/* --- Header section --- */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View style={styles.logoContainer}>
-            <Image source={logo} style={styles.logoImage} resizeMode="contain" />
-            <Text style={styles.logoText}>Pharmatrack</Text>
-          </View>
+          <Image source={logo} style={styles.headerLogo} resizeMode="contain" />
           
-          {/* Avatar (Tap to Logout) */}
-          <TouchableOpacity onPress={handleLogout} style={styles.avatar}>
+         
+          <TouchableOpacity onPress={() => setIsMenuVisible(true)} style={styles.avatar}>
             <Text style={styles.avatarText}>{userInitials}</Text>
           </TouchableOpacity>
         </View>
@@ -138,183 +128,410 @@ export default function HomeScreen() {
         <View style={styles.locationSection}>
           <Text style={styles.locationLabel}>YOUR LOCATION</Text>
           <TouchableOpacity style={styles.locationRow}>
-            <Ionicons name="location" size={16} color="white" style={{ marginRight: 4 }} />
             <Text style={styles.locationText}>Kigali, Rwanda</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      
-      <View style={styles.content}>
-        <Text style={styles.title}>Pharmacies near you</Text>
-        <Text style={styles.subtitle}>
-          {filteredPharmacies.length} trusted pharmacies found
-        </Text>
-
-        {/* Search */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#98A2B3" style={{ marginRight: 8 }} />
-            <TextInput 
-              placeholder="Search pharmacy or location..." 
-              placeholderTextColor="#98A2B3"
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color="#98A2B3" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* List/Map Toggle */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity 
-            style={[styles.toggleButton, activeTab === 'list' && styles.toggleActive]}
-            onPress={() => setActiveTab('list')}
-          >
-            <Text style={[styles.toggleText, activeTab === 'list' && styles.toggleTextActive]}>List</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.toggleButton, activeTab === 'map' && styles.toggleActive]}
-            onPress={() => setActiveTab('map')}
-          >
-            <Text style={[styles.toggleText, activeTab === 'map' && styles.toggleTextActive]}>Map</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Loading / List */}
-        {isLoading ? (
-          <ActivityIndicator size="large" color="#206B5F" style={{ marginTop: 40 }} />
-        ) : (
-          <FlatList
-            data={filteredPharmacies}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderPharmacy}
-            contentContainerStyle={{ paddingBottom: 100 }} 
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="business-outline" size={48} color="#D0D5DD" />
-                <Text style={styles.emptyText}>No pharmacies found</Text>
-                <Text style={styles.emptySubtext}>Try a different search or location</Text>
+    
+      <Modal
+        visible={isMenuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsMenuVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setIsMenuVisible(false)}
+        >
+          <View style={styles.dropdownContainer}>
+            
+           
+            <View style={styles.dropdownHeader}>
+              <View style={styles.dropdownAvatar}>
+                <Text style={styles.dropdownAvatarText}>{userInitials}</Text>
               </View>
-            }
+              <View>
+                <Text style={styles.dropdownName}>{userName}</Text>
+               
+              </View>
+            </View>
+
+            <View style={styles.dropdownDivider} />
+
+           
+            <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuItemPress('profile')}>
+              <Ionicons name="person-outline" size={20} color="#344054" />
+              <Text style={styles.menuItemText}>My Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuItemPress('orders')}>
+              <Ionicons name="receipt-outline" size={20} color="#344054" />
+              <Text style={styles.menuItemText}>My Orders</Text>
+            </TouchableOpacity>
+
+            <View style={styles.dropdownDivider} />
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuItemPress('logout')}>
+              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+              <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingTitle}>Hello, {userName} </Text>
+          <Text style={styles.greetingSubtitle}>How can we help you today?</Text>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={20} color="#98A2B3" style={{ marginRight: 8 }} />
+          <TextInput 
+            placeholder="Search medicine or pharmacy..." 
+            placeholderTextColor="#98A2B3"
+            style={styles.searchInput}
           />
+        </View>
+
+        <View style={styles.quickActionRow}>
+          <QuickAction
+            icon={<Ionicons name="camera-outline" size={26} color="#007a55" />}
+            title="Upload"
+            subtitle="Prescription"
+            bgColor="#e6f4ef"
+            onPress={() => Alert.alert("Coming Soon", "Prescription upload will be available shortly.")}
+          />
+          <QuickAction
+            icon={<Ionicons name="medical-outline" size={26} color="#007bff" />}
+            title="Find"
+            subtitle="Pharmacies"
+            bgColor="#e6f0ff"
+            onPress={() => { /* Scroll to list */ }}
+          />
+          <QuickAction
+            icon={<MaterialCommunityIcons name="package-variant-closed" size={26} color="#ff8c00" />}
+            title="My"
+            subtitle="Orders"
+            bgColor="#fff4e5"
+            onPress={() => Alert.alert("Coming Soon", "Order history coming soon.")}
+          />
+        </View>
+
+      
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Pharmacies near you</Text>
+          <Text style={styles.sectionSubtitle}>{pharmacies.length} found</Text>
+        </View>
+
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#007a55" style={{ marginTop: 30 }} />
+        ) : pharmacies.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="business-outline" size={48} color="#D0D5DD" />
+            <Text style={styles.emptyText}>No pharmacies found</Text>
+            <Text style={styles.emptySubtext}>Try again later</Text>
+          </View>
+        ) : (
+          pharmacies.map((pharmacy) => (
+            <View key={pharmacy.id}>
+              {renderPharmacy({ item: pharmacy })}
+            </View>
+          ))
         )}
-      </View>
+
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9F9' },
+
   header: {
-    backgroundColor: '#206B5F', 
+    backgroundColor: '#007a55', 
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'android' ? 40 : 10,
     paddingBottom: 24,
   },
-  logoImage: { height: 32, width: 32, tintColor: 'white' },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
+  headerLogo: { 
+    height: 30, 
+    width: 140 
   },
-  logoText: { color: 'white', fontWeight: '700', fontSize: 18, marginLeft: 8 },
   avatar: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 42, 
+    height: 42, 
+    borderRadius: 21,
     backgroundColor: 'white',
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    
+  alignItems: 'center',
+    borderWidth: 2, 
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  avatarText: { fontWeight: '700', color: '#206B5F', fontSize: 14 },
-  locationSection: { marginTop: 4 },
-  locationLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  locationText: { color: 'white', fontSize: 16, fontWeight: '600' },
+  avatarText: { 
+    fontWeight: '700',
+     color: '#007a55', 
+     fontSize: 14 
+    },
+  locationSection: { 
+    marginTop: 4 
+  },
+  locationLabel: { 
+    color: 'rgba(255,255,255,0.7)', 
+    fontSize: 11, 
+    fontWeight: '700', 
+    letterSpacing: 1 
+  },
+  locationRow: { 
+    flexDirection: 'row',
+     alignItems: 'center',
+      marginTop: 6 
+    },
+  locationText: { 
+    color: 'white',
+     fontSize: 16, 
+     fontWeight: '600'
+     },
 
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+
+  scrollContent: {
+     paddingHorizontal: 20,
+      paddingTop: 24, 
+      paddingBottom: 40 
+    },
+
+  greetingSection: { 
+    marginBottom: 20
+   },
+  greetingTitle: { 
+    fontSize: 26, 
+    fontWeight: '800', 
+    color: '#0F2926', 
+    marginBottom: 4 
   },
-  title: { fontSize: 26, fontWeight: '700', color: '#0F2926', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#667085', marginBottom: 20 },
-  
-  searchRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  greetingSubtitle: { 
+    fontSize: 15, 
+    color: '#667085' 
+  },
+
   searchContainer: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'white', borderWidth: 1, borderColor: '#EAECF0',
-    borderRadius: 12, paddingHorizontal: 16, height: 50,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, elevation: 1,
+    flexDirection: 'row', 
+    alignItems: 'center',
+    backgroundColor: 'white', 
+    borderWidth: 1, 
+    borderColor: '#EAECF0',
+    borderRadius: 14, 
+    paddingHorizontal: 16, 
+    height: 54,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.04, 
+    elevation: 2,
+    marginBottom: 24,
   },
   searchInput: { flex: 1, fontSize: 15, color: '#101828' },
 
-  toggleContainer: {
-    flexDirection: 'row', 
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12, 
-    padding: 4, 
-    marginBottom: 20,
+
+  quickActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+    gap: 12, 
   },
-  toggleButton: {
+  quickActionCard: {
     flex: 1, 
-    paddingVertical: 10, 
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  toggleActive: {
     backgroundColor: 'white',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, elevation: 2,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.04,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F2F4F7',
+    minHeight: 130, 
   },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#667085' },
-  toggleTextActive: { color: '#0F2926' },
+  quickActionIcon: {
+    width: 48, height: 48,
+    borderRadius: 12,
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  quickActionTitle: { 
+    fontSize: 14, 
+    fontWeight: '700', 
+    color: '#0F2926', 
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  quickActionSubtitle: { 
+    fontSize: 11, 
+    color: '#667085', 
+    textAlign: 'center',
+  },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 16,
+  },
+  sectionTitle: { 
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F2926' 
+  },
+  sectionSubtitle: {
+     fontSize: 13, 
+     color: '#667085',
+      fontWeight: '500' 
+    },
+
 
   card: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'white', borderRadius: 16, padding: 16, marginBottom: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, elevation: 2,
-    borderWidth: 1, borderColor: '#F2F4F7',
+    flexDirection: 'row',
+     alignItems: 'center',
+    backgroundColor: 'white',
+     borderRadius: 16, 
+     padding: 16, 
+     marginBottom: 12,
+    shadowColor: '#000',
+     shadowOffset: { width: 0, height: 2 },
+     shadowOpacity: 0.03, 
+     elevation: 2,
+    borderWidth: 1, 
+    borderColor: '#F2F4F7',
   },
   cardIconContainer: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: '#206B5F',
-    justifyContent: 'center', alignItems: 'center', marginRight: 16,
-  },
-  cardContent: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#0F2926', marginBottom: 4 },
-  statusRow: { flexDirection: 'row', alignItems: 'center' },
-  openDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: '#12B76A', marginRight: 6,
-  },
-  openText: { color: '#206B5F', fontSize: 13, fontWeight: '500' },
-  hoursText: { color: '#98A2B3', fontSize: 13 },
-
-  emptyState: {
+    width: 44, height: 44,
+     borderRadius: 12,
+    backgroundColor: '#007a55',
+    justifyContent: 'center', 
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 60,
+     marginRight: 16,
   },
-  emptyText: {
+  cardContent: { 
+    flex: 1 
+  },
+  cardTitle: { 
     fontSize: 16,
-    fontWeight: '600',
-    color: '#344054',
-    marginTop: 12,
+     fontWeight: '600', 
+     color: '#0F2926',
+      marginBottom: 4 
+    },
+  statusRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center'
+   },
+  openDot: { 
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#12B76A', 
+      marginRight: 6 
+    },
+  openText: {
+     color: '#007a55', 
+     fontSize: 13, 
+     fontWeight: '500'
+     },
+  hoursText: { 
+    color: '#98A2B3', 
+    fontSize: 13 
   },
-  emptySubtext: {
+
+ 
+  emptyState: { 
+     alignItems: 'center',
+     justifyContent: 'center', 
+     marginTop: 40
+     },
+  emptyText: { 
+    fontSize: 16, 
+    fontWeight: '600',
+     color: '#344054', 
+     marginTop: 12 
+    },
+  emptySubtext: { 
     fontSize: 14,
-    color: '#98A2B3',
-    marginTop: 4,
-  }
+     color: '#98A2B3',
+      marginTop: 4 
+    },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingTop: Platform.OS === 'android' ? 80 : 60,
+    paddingRight: 24,
+    alignItems: 'flex-end',
+  },
+  dropdownContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    width: 220,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    elevation: 10,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    gap: 12,
+  },
+  dropdownAvatar: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: '#e6f4ef',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  dropdownAvatarText: {
+    color: '#007a55',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  dropdownName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F2926',
+  },
+  dropdownEmail: {
+    fontSize: 11,
+    color: '#667085',
+    marginTop: 2,
+  },
+  dropdownDivider: {
+    height: 1,
+    backgroundColor: '#EAECF0',
+    marginVertical: 6,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    gap: 10,
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#344054',
+  },
 });

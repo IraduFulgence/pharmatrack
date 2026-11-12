@@ -66,7 +66,7 @@ export default function LoginScreen() {
       const user = response.data.user;
 
       if (user.role === 'PATIENT') {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/home');
       } else if (user.role === 'PHARMACY') {
         Alert.alert(
           "Pharmacy Account", 
