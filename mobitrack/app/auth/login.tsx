@@ -19,12 +19,45 @@ export default function LoginScreen() {
   // UI State
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  
+  const validateField = (field:string, value:string) : string =>{
+      switch(field){
+        case 'identifier':
+          if (!value.trim()) return `${t('auth.login.EmailFail')}`
+          return "";
+        case 'password':
+          if (!value) return `${t('auth.login.passwordFail')}`
+          return "";
+        default:
+          return "";
+
+      }
+  };
+
+  // handle field change
+
+  const handleFieldChange = (field: string, setter: (val: string) =>void, value:string) =>{
+    setter(value);
+    if(errors[field]) {
+      setErrors(prev => ({...prev, [field]: ''}));
+    }
+  };
+
 
   const handleLogin = async () => {
-    if (!identifier.trim() || !password.trim()) {
-      Alert.alert("Missing Fields", "Please enter your email/phone and password.");
+    const newErrors: {[key: string]: string} = {};
+    newErrors.identifier = validateField('identifier', identifier);
+    newErrors.password = validateField('password', password);
+
+    const cleanedErrors = Object.fromEntries(
+      Object.entries(newErrors).filter(([_,v]) =>v !== "")
+    );
+    if(Object.keys(cleanedErrors).length > 0) {
+      setErrors(cleanedErrors);
       return;
     }
+    setErrors({});
 
     try {
       setIsLoading(true);
@@ -47,7 +80,7 @@ export default function LoginScreen() {
       }
 
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message || "Invalid credentials");
+      Alert.alert("Login Failed", error.message || `${t('auth.login.LoginError')}`);
     } finally {
       setIsLoading(false);
     }
@@ -101,31 +134,33 @@ export default function LoginScreen() {
           {/* Identifier Input*/}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>{t('auth.login.phone')}</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#98A2B3" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, errors.identifier && styles.inputContainerError]}>
+              <Ionicons name="mail-outline" size={20} color={errors.identifier ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="you@gmail.com or +250788..."
                 placeholderTextColor="#98A2B3"
                 autoCapitalize="none"
                 value={identifier}
-                onChangeText={setIdentifier}
+                onChangeText={(v) => handleFieldChange('identifier', setIdentifier, v)}
               />
             </View>
+            {errors.identifier && <Text style={styles.errorText}>{errors.identifier}</Text>}
           </View>
 
           {/* Password Input*/}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>{t('auth.login.password')}</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#98A2B3" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, errors.password && styles.inputContainerError]}>
+              <Ionicons name="lock-closed-outline" size={20} color={errors.password?"#EF4444":"#98A2B3"} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="••••••••"
                 placeholderTextColor="#98A2B3"
                 secureTextEntry={!showPassword}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => handleFieldChange('password', setPassword, v)}
+
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons 
@@ -135,6 +170,7 @@ export default function LoginScreen() {
                 />
               </TouchableOpacity>
             </View>
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
           </View>
 
           {/* Forgot Password */}
@@ -152,6 +188,7 @@ export default function LoginScreen() {
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.submitButtonText}>{t('auth.login.signIn')}</Text>
+            
             )}
           </TouchableOpacity>
 
@@ -292,5 +329,15 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     color: '#667085',
+  },
+   errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+   inputContainerError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
   },
 });

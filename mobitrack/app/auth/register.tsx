@@ -14,8 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 export default function RegisterScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signup');
-  
+
   // Form State
   const [fullName, setFullName] = useState('');
   const [Gender, setGender] = useState<'Male' | 'Female' | 'Other'>('Male'); 
@@ -41,33 +40,33 @@ export default function RegisterScreen() {
   const validateField = (field: string, value: string): string => {
     switch (field) {
       case 'fullName':
-        if (!value.trim()) return "Full name is required";
-        if (value.trim().length < 3) return "Name must be at least 3 characters";
+        if (!value.trim()) return `${t('auth.signup.fullnameFail')}`;
+        if (value.trim().length < 3) return `${t('auth.signup.fullnameCount')}`;
         return "";
       
       case 'dateOfBirth':
-        if (!value.trim()) return "Date of birth is required";
+        if (!value.trim()) return `${t('auth.signup.DOBFail')}`;
         return "";
 
       case 'phone':
-        if (!value.trim()) return "Phone number is required";
+        if (!value.trim()) return `${t('auth.signup.phoneFail')}`;
         if (!/^\+[1-9]\d{1,14}$/.test(value.trim())) {
-          return "Phone must be in international format (e.g. +250788...)";
+        return `${t('auth.signup.phoneInternational')}`;
         }
         return "";
 
       case 'email':
         
         if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
-          return "Please enter a valid email address";
+          return `${t('auth.signup.emailFail')}`;
         }
         return "";
 
       case 'password':
-        if (!value) return "Password is required";
+        if (!value) return `${t('auth.signup.passwordFail')}`;
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+=\-\[\]{}|;:'",.<>\/`~])[A-Za-z\d@$!%*?&#^()_+=\-\[\]{}|;:'",.<>\/`~]{8,}$/;
         if (!passwordRegex.test(value)) {
-          return "8+ chars with uppercase, lowercase, number & special char";
+          return `${t('auth.signup.passwordCount')}`;
         }
         return "";
 
@@ -144,7 +143,7 @@ export default function RegisterScreen() {
       
       Alert.alert(
         "Success", 
-        "Patient account created successfully!", 
+        `${t('auth.signup.AccountSuccess')}`, 
         [{ text: "OK", onPress: () => router.replace('/auth/login') }]
       );
       
@@ -364,55 +363,145 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9F9' },
-  formWrapper: { flex: 1, marginTop: -30 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 40, paddingTop: 60 },
+  container: {
+     flex: 1,
+      backgroundColor: '#F8F9F9'
+     },
+  formWrapper: { 
+    flex: 1,
+     marginTop: -30
+     },
+  scrollContent: { 
+    flexGrow: 1, 
+    paddingHorizontal: 20,
+     paddingBottom: 40, 
+     paddingTop: 60 
+    },
 
-  welcomeHeader: { marginBottom: 24 },
-  welcomeText: { fontSize: 28, fontWeight: '800', color: '#0F2926', marginBottom: 8 },
-  subText: { fontSize: 14, color: '#667085' },
-  linkText: { color: '#007a55', fontWeight: '700' },
+  welcomeHeader: { 
+    marginBottom: 24 
+  },
+  welcomeText: {
+     fontSize: 28, 
+     fontWeight: '800', 
+     color: '#0F2926', 
+     marginBottom: 8 
+    },
+  subText: { 
+    fontSize: 14,
+     color: '#667085'
+     },
+  linkText: { 
+    color: '#007a55',
+     fontWeight: '700' 
+    },
 
   tabContainer: {
-    flexDirection: 'row', backgroundColor: '#F3F4F6',
-    borderRadius: 12, padding: 4, marginBottom: 24,
+    flexDirection: 'row', 
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12, 
+    padding: 4, 
+    marginBottom: 24,
   },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  tab: { 
+    flex: 1, 
+    paddingVertical: 10, 
+    alignItems: 'center',
+     borderRadius: 8 
+    },
   activeTab: {
-    backgroundColor: 'white', shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2,
+    backgroundColor: 'white', 
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+     shadowOpacity: 0.05, 
+     shadowRadius: 2, 
+     elevation: 2,
   },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#667085' },
-  activeTabText: { color: '#007a55' },
+  tabText: {
+     fontSize: 14, 
+    fontWeight: '600',
+     color: '#667085' 
+    },
+  activeTabText: { 
+    color: '#007a55'
+   },
 
-  socialRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginBottom: 24 },
+  socialRow: {
+     flexDirection: 'row',
+      justifyContent: 'space-between', 
+      gap: 12, 
+      marginBottom: 24
+     },
   socialButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', paddingVertical: 14,
-    borderWidth: 1, borderColor: '#EAECF0', borderRadius: 12, backgroundColor: 'white',
+    flex: 1, 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    justifyContent: 'center', 
+    paddingVertical: 14,
+    borderWidth: 1, 
+    borderColor: '#EAECF0', 
+    borderRadius: 12, 
+    backgroundColor: 'white',
   },
-  socialText: { fontSize: 14, fontWeight: '600', color: '#344054' },
+  socialText: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#344054' 
+  },
 
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#EAECF0' },
-  dividerText: { marginHorizontal: 12, fontSize: 12, color: '#98A2B3', fontWeight: '500' },
+  dividerRow: { 
+    flexDirection: 'row',
+     alignItems: 'center', 
+     marginBottom: 24 
+    },
+  dividerLine: { 
+    flex: 1, 
+    height: 1,
+     backgroundColor: '#EAECF0'
 
-  inputGroup: { marginBottom: 20 },
-  inputLabel: { fontSize: 13, fontWeight: '600', color: '#344054', marginBottom: 8 },
+   },
+  dividerText: { 
+    marginHorizontal: 12, 
+    fontSize: 12, 
+    color: '#98A2B3',
+     fontWeight: '500'
+
+   },
+
+  inputGroup: { 
+    marginBottom: 20
+   },
+  inputLabel: { 
+    fontSize: 13,
+     fontWeight: '600', 
+     color: '#344054', 
+     marginBottom: 8 
+    },
   inputContainer: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 12,
-    paddingHorizontal: 14, height: 52, backgroundColor: 'white',
+    flexDirection: 'row', 
+    alignItems: 'center',
+    borderWidth: 1, 
+    borderColor: '#D0D5DD',
+     borderRadius: 12,
+    paddingHorizontal: 14, 
+    height: 52, 
+    backgroundColor: 'white',
   },
-  // 🚨 NEW: Red border for invalid fields
+  
   inputContainerError: {
     borderColor: '#EF4444',
     backgroundColor: '#FEF2F2',
   },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 15, color: '#101828' },
+  inputIcon: { 
+    marginRight: 10 
+  },
+  input: { 
+    flex: 1,
+     fontSize: 15, 
+     color: '#101828' 
+    },
   
-  // 🚨 NEW: Error text style
+
   errorText: {
     fontSize: 12,
     color: '#EF4444',
@@ -420,39 +509,109 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  radioGroup: { flexDirection: 'row', gap: 8 },
-  radioOption: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 10, paddingHorizontal: 14,
-    borderWidth: 1, borderColor: '#EAECF0', borderRadius: 12,
-    backgroundColor: 'white', flex: 1,
+  radioGroup: { 
+    flexDirection: 'row', 
+    gap: 8 
   },
-  radioOptionSelected: { borderColor: '#007a55', backgroundColor: '#e6f4ef' },
-  radioCircle: {
-    width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-    borderColor: '#D0D5DD', alignItems: 'center', justifyContent: 'center', marginRight: 8,
-  },
-  radioCircleSelected: { borderColor: '#007a55' },
-  radioInnerCircle: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#007a55' },
-  radioLabel: { fontSize: 14, color: '#667085', fontWeight: '500' },
-  radioLabelSelected: { color: '#0F2926', fontWeight: '600' },
 
-  optionsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 24 },
-  forgotText: { fontSize: 12, color: '#667085' },
-  TermsText: { fontSize: 12, fontWeight: '700', color: '#007a55' },
+  radioOption: {
+    flexDirection: 'row',
+     alignItems: 'center',
+    paddingVertical: 10, 
+    paddingHorizontal: 14,
+    borderWidth: 1, 
+    borderColor: '#EAECF0',
+     borderRadius: 12,
+    backgroundColor: 'white', 
+    flex: 1,
+  },
+  radioOptionSelected: {
+     borderColor: '#007a55', 
+     backgroundColor: '#e6f4ef' 
+    },
+  radioCircle: {
+    width: 20,
+     height: 20, 
+     borderRadius: 10, 
+     borderWidth: 2,
+    borderColor: '#D0D5DD', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 8,
+  },
+  radioCircleSelected: { 
+    borderColor: '#007a55' 
+  },
+  radioInnerCircle: {
+     width: 10, 
+     height: 10,
+      borderRadius: 5, 
+      backgroundColor: '#007a55'
+     },
+  radioLabel: { 
+    fontSize: 14,
+     color: '#667085', 
+     fontWeight: '500' 
+    },
+  radioLabelSelected: { 
+    color: '#0F2926', 
+    fontWeight: '600' 
+  },
+
+  optionsRow: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    alignItems: 'center', 
+    marginBottom: 24 
+  },
+  forgotText: { 
+    fontSize: 12,
+     color: '#667085' 
+    },
+  TermsText: {
+     fontSize: 12, 
+     fontWeight: '700',
+      color: '#007a55' 
+    },
 
   submitButton: {
-    backgroundColor: '#007a55', flexDirection: 'row',
-    justifyContent: 'center', alignItems: 'center',
-    paddingVertical: 18, borderRadius: 12,
-    shadowColor: '#007a55', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
+    backgroundColor: '#007a55', 
+    flexDirection: 'row',
+    justifyContent: 'center', 
+    alignItems: 'center',
+    paddingVertical: 18, 
+    borderRadius: 12,
+    shadowColor: '#007a55', 
+    shadowOffset: { width: 0, height: 4 },
+     shadowOpacity: 0.2, 
+     shadowRadius: 8, 
+     elevation: 4,
   },
-  submitButtonText: { color: 'white', fontSize: 16, fontWeight: '700' },
+  submitButtonText: { 
+    color: 'white', 
+    fontSize: 16, 
+    fontWeight: '700' 
+  },
 
   iosPickerContainer: {
-    backgroundColor: 'white', borderRadius: 12, padding: 10, marginBottom: 20,
-    elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4,
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    padding: 10, 
+    marginBottom: 20,
+    elevation: 3, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1,
+     shadowRadius: 4,
   },
-  iosDoneButton: { alignSelf: 'flex-end', paddingVertical: 10, paddingHorizontal: 20 },
-  iosDoneText: { color: '#007a55', fontSize: 16, fontWeight: '600' },
+  iosDoneButton: { 
+    alignSelf: 'flex-end',
+     paddingVertical: 10,
+      paddingHorizontal: 20
+     },
+  iosDoneText: {
+     color: '#007a55',
+      fontSize: 16, 
+      fontWeight: '600'
+     },
 });

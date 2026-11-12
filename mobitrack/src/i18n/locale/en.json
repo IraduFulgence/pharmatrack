@@ -32,7 +32,10 @@
             "Remember":"Remember me",
             "Forgot":"Forgot password?",
             "Passwordplaceholder":"Enter your password",
-            "SignupText":"Sign up here"
+            "SignupText":"Sign up here",
+            "EmailFail":"Email or phone number is required!",
+            "passwordFail":"Password is required!",
+            "LoginError":"Invalid credentials"
         },
         "signup":{
             "header":"Join Pharmatrack",
@@ -59,7 +62,16 @@
             "DOB":"Date of birth",
             "createAccount":"Create an account",
             "Already":"Already have an account?",
-            "Login":"Login here"
+            "Login":"Login here",
+            "fullnameFail":"Full name is required",
+            "fullnameCount":"Name must be at least 3 characters",
+            "DOBFail":"Date of birth is required",
+            "phoneFail":"Phone number is required",
+            "phoneInternational":"Phone number must be in international format (ex: +25078)",
+            "emailFail":"Please enter a valid email address",
+            "passwordFail":"Password is required",
+            "passwordCount":"password must be of 8 characters with uppercase, lowercase, number & special char",
+            "AccountSuccess":"Account created, Login"
         },
         "after":{
             "header":"You're all set",
