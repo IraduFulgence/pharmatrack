@@ -25,13 +25,14 @@
             "header":"Welcome back",
             "subheader":"Search and get your treatment",
             "signIn":"Sign in",
-            "createAccount":"Create account",
-            "Or":"or continue with phone number or email",
+            "createAccount":"Don't have an account?",
+            "Or":"or continue with",
             "phone":"Phone number or email",
             "password":"Password",
             "Remember":"Remember me",
             "Forgot":"Forgot password?",
-            "Passwordplaceholder":"Enter your password"
+            "Passwordplaceholder":"Enter your password",
+            "SignupText":"Sign up here"
         },
         "signup":{
             "header":"Join Pharmatrack",
@@ -51,10 +52,14 @@
             "terms":"By continuing, you agree to our",
             "button":"Create my account",
             "genderlabelMale":"Male",
-            "genderlabelFeMale":"Female",
+            "genderlabelFemale":"Female",
             "termsLabel":"terms",
             "condition":"privacy policy",
-            "And":"and"
+            "And":"and",
+            "DOB":"Date of birth",
+            "createAccount":"Create an account",
+            "Already":"Already have an account?",
+            "Login":"Login here"
         },
         "after":{
             "header":"You're all set",

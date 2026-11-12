@@ -67,14 +67,14 @@ export default function LoginScreen() {
         >
           {/* Card Header */}
           <View style={styles.cardHeader}>
-            <Text style={styles.welcomeText}>Welcome back</Text>
+            <Text style={styles.welcomeText}>{t('auth.login.header')}</Text>
             <Text style={styles.subText}>
-              Don't have an account?{' '}
+              {t('auth.login.createAccount')}{' '}
               <Text 
                 style={styles.linkText} 
                 onPress={() => router.replace('/auth/register')}
               >
-                Sign up here
+                {t('auth.login.SignupText')}
               </Text>
             </Text>
           </View>
@@ -94,21 +94,20 @@ export default function LoginScreen() {
           {/* Divider  */}
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Or continue with</Text>
+            <Text style={styles.dividerText}>{t('auth.login.Or')}</Text>
             <View style={styles.dividerLine} />
           </View>
 
           {/* Identifier Input*/}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email or Phone Number</Text>
+            <Text style={styles.inputLabel}>{t('auth.login.phone')}</Text>
             <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color="#98A2B3" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="you@gmail.com or 0788..."
+                placeholder="you@gmail.com or +250788..."
                 placeholderTextColor="#98A2B3"
                 autoCapitalize="none"
-                keyboardType="email-address"
                 value={identifier}
                 onChangeText={setIdentifier}
               />
@@ -117,7 +116,7 @@ export default function LoginScreen() {
 
           {/* Password Input*/}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>{t('auth.login.password')}</Text>
             <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color="#98A2B3" style={styles.inputIcon} />
               <TextInput
@@ -140,7 +139,7 @@ export default function LoginScreen() {
 
           {/* Forgot Password */}
           <TouchableOpacity style={styles.forgotContainer}>
-            <Text style={styles.forgotText}>Forgot password?</Text>
+            <Text style={styles.forgotText}>{t('auth.login.Forgot')}</Text>
           </TouchableOpacity>
 
           {/* Submit Button */}
@@ -152,7 +151,7 @@ export default function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.submitButtonText}>Sign In</Text>
+              <Text style={styles.submitButtonText}>{t('auth.login.signIn')}</Text>
             )}
           </TouchableOpacity>
 

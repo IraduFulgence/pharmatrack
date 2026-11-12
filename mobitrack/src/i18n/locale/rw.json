@@ -25,13 +25,14 @@
             "header":"Ikaze",
             "subheader":"Shaka ndetse ubone imiti",
             "signIn":"Injira",
-            "createAccount":"Fungura konti",
+            "createAccount":"Nta konti ufite?",
             "Or":"cyangwa ukoreshe nimero cyangwa imeyili",
             "phone":"Nimero ya telefoni cg imeyili",
             "password":"Ijambo banga",
             "Remember":"Nyibuka",
             "Forgot":"wibagiwe ijambo banga?",
-            "Passwordplaceholder":"shyiramo ijambo banga"
+            "Passwordplaceholder":"shyiramo ijambo banga",
+            "SignupText":"Iyandikishe hano"
         },
         "signup":{
             "header":"Ikaze kuri Pharmatrack",
@@ -51,10 +52,14 @@
             "terms":"Mugukomeza, wemeye ",
             "button":"Fungura konti yange",
             "genderlabelMale":"Gabo",
-            "genderlabelFeMale":"Gore",
+            "genderlabelFemale":"Gore",
              "termsLabel":"Amategeko",
             "condition":"Amabwiriza",
-            "And":"n'"
+            "And":"n'",
+            "DOB":"Itariki y' amavuko",
+            "createAccount":"Iyandikishe",
+            "Already":"Ufite konti?",
+            "Login":"Injira hano"
         },
         "after":{
             "header":"Byose byujujwe",
