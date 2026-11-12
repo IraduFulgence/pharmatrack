@@ -220,6 +220,8 @@ export class SalesService {
           ib.inventory_id,
           ib.batch_number,
           ib.quantity,
+          COALESCE(ib.selling_price, ib.unit_price) AS selling_price,
+          COALESCE(ib.purchase_price, ib.unit_price) AS purchase_price,
           ib.unit_price,
           to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date,
           (ib.expiry_date - CURRENT_DATE) AS days_until_expiry,
@@ -235,10 +237,25 @@ export class SalesService {
 
       const totalAvailable = batchesRes.rows.reduce((sum, b) => sum + Number(b.quantity), 0);
 
+      // Fetch packaging configurations for this medicine
+      const packRes = await this.db.query(
+        `SELECT packaging_id, package_name, package_unit, units_per_package, price_per_package, is_default
+         FROM public.medicine_packaging
+         WHERE medicine_id = $1
+         ORDER BY is_default DESC, units_per_package ASC`,
+        [med.medicine_id],
+      );
+
       results.push({
         ...med,
         totalAvailableStock: totalAvailable,
-        batches: batchesRes.rows,
+        packagingOptions: packRes.rows,
+        batches: batchesRes.rows.map((b: any) => ({
+          ...b,
+          sellingPrice: Number(b.selling_price),
+          purchasePrice: Number(b.purchase_price),
+          unitPrice: Number(b.unit_price),
+        })),
       });
     }
 
@@ -253,8 +270,13 @@ export class SalesService {
   // 3. PATIENT MANAGEMENT & INSURANCE CARDS (Section 5)
   // =========================================================================
 
-  async searchPatients(query: string): Promise<ApiResponse> {
+  async searchPatients(pharmacyId: number, query: string, isAdmin = false): Promise<ApiResponse> {
     const term = `%${query.trim()}%`;
+    const pharmacyFilter = isAdmin
+      ? ''
+      : `JOIN public.pharmacy_patients pp ON pp.patient_id = p.patient_id AND pp.pharmacy_id = $2`;
+    const params = isAdmin ? [term] : [term, pharmacyId];
+
     const res = await this.db.query(
       `SELECT 
         p.patient_id,
@@ -280,16 +302,17 @@ export class SalesService {
           ) FILTER (WHERE pi.patient_insurance_id IS NOT NULL), '[]'
         ) AS insurances
        FROM public.patients p
+       ${pharmacyFilter}
        LEFT JOIN public.patient_insurances pi ON pi.patient_id = p.patient_id AND pi.is_active = true
        LEFT JOIN public.insurance_providers ip ON ip.provider_id = pi.provider_id
-       WHERE p.full_name ILIKE $1 
+       WHERE (p.full_name ILIKE $1 
           OR p.phone_number ILIKE $1 
           OR p.national_id ILIKE $1 
-          OR p.email ILIKE $1
+          OR p.email ILIKE $1)
        GROUP BY p.patient_id
        ORDER BY p.full_name ASC
        LIMIT 20`,
-      [term],
+      params,
     );
 
     return {
@@ -299,8 +322,13 @@ export class SalesService {
     };
   }
 
-  async registerWalkinPatient(dto: RegisterSalePatientDto): Promise<ApiResponse> {
+  async registerWalkinPatient(
+    pharmacyId: number,
+    dto: RegisterSalePatientDto,
+    userEmail?: string,
+  ): Promise<ApiResponse> {
     const { fullName, phoneNumber, nationalId, email, dateOfBirth, gender, address, providerId, insuranceCardNumber } = dto;
+    const pharmacyUserId = await this.getPharmacyUserId(pharmacyId, userEmail);
 
     const patientRes = await this.db.query(
       `INSERT INTO public.patients 
@@ -319,9 +347,17 @@ export class SalesService {
 
     const patient = patientRes.rows[0];
 
+    // Associate newly registered patient with current pharmacy in pharmacy_patients
+    await this.db.query(
+      `INSERT INTO public.pharmacy_patients (pharmacy_id, patient_id, registered_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (pharmacy_id, patient_id) DO NOTHING`,
+      [pharmacyId, patient.patient_id, pharmacyUserId],
+    );
+
     // If insurance provider was also supplied, link it
     let insuranceRecord = null;
-    if (providerId && insuranceCardNumber) {
+    if (providerId) {
       const provRes = await this.db.query(
         'SELECT default_coverage_percentage FROM public.insurance_providers WHERE provider_id = $1',
         [providerId],
@@ -333,14 +369,14 @@ export class SalesService {
           (patient_id, provider_id, card_number, coverage_percentage, is_active)
          VALUES ($1, $2, $3, $4, true)
          RETURNING patient_insurance_id, provider_id, card_number, coverage_percentage`,
-        [patient.patient_id, providerId, insuranceCardNumber.trim(), coverage],
+        [patient.patient_id, providerId, insuranceCardNumber?.trim() || null, coverage],
       );
       insuranceRecord = insRes.rows[0];
     }
 
     return {
       success: true,
-      message: 'Patient registered successfully.',
+      message: 'Patient registered and associated with pharmacy successfully.',
       data: {
         ...patient,
         insurance: insuranceRecord,
@@ -458,6 +494,8 @@ export class SalesService {
           ib.medicine_id,
           ib.batch_number,
           ib.quantity,
+          COALESCE(ib.selling_price, ib.unit_price) AS selling_price,
+          COALESCE(ib.purchase_price, ib.unit_price) AS purchase_price,
           ib.unit_price,
           to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date,
           m.medicine_name,
@@ -475,7 +513,7 @@ export class SalesService {
 
       const batch = batchRes.rows[0];
       const availableQty = Number(batch.quantity);
-      const unitPrice = Number(batch.unit_price);
+      const unitSellingPrice = Number(batch.selling_price || batch.unit_price);
       const isExpired = batch.expiry_date && new Date(batch.expiry_date) < new Date();
 
       if (isExpired) {
@@ -484,13 +522,19 @@ export class SalesService {
         );
       }
 
-      if (item.quantity > availableQty) {
+      // Calculate dispensed base quantity based on packaging conversion factor
+      const dispensedBaseQuantity =
+        item.packageQuantity && item.unitsPerPackage && item.unitsPerPackage > 0
+          ? Number(item.packageQuantity) * Number(item.unitsPerPackage)
+          : Number(item.quantity);
+
+      if (dispensedBaseQuantity > availableQty) {
         throw new BadRequestException(
-          `Insufficient stock for ${batch.medicine_name} (Batch: ${batch.batch_number}). Requested: ${item.quantity}, Available: ${availableQty}.`,
+          `Insufficient stock for ${batch.medicine_name} (Batch: ${batch.batch_number}). Requested: ${dispensedBaseQuantity} units, Available: ${availableQty} units.`,
         );
       }
 
-      const itemSubtotal = Math.round(unitPrice * item.quantity);
+      const itemSubtotal = Math.round(unitSellingPrice * dispensedBaseQuantity);
       grossTotal += itemSubtotal;
 
       let itemInsurance = 0;
@@ -517,8 +561,12 @@ export class SalesService {
         dosageForm: batch.dosage_form,
         batchNumber: batch.batch_number,
         expiryDate: batch.expiry_date,
-        quantity: item.quantity,
-        unitPrice,
+        quantity: dispensedBaseQuantity,
+        packagingName: item.packagingName || null,
+        packageQuantity: item.packageQuantity || null,
+        unitsPerPackage: item.unitsPerPackage || null,
+        dispensedBaseQuantity,
+        unitPrice: unitSellingPrice,
         subtotal: itemSubtotal,
         isInsuranceCovered: paymentCategory === 'INSURANCE' ? (item.isInsuranceCovered !== false) : false,
         coveragePercentage: appliedCoverage,
@@ -582,9 +630,6 @@ export class SalesService {
       if (!providerId) {
         throw new BadRequestException('Insurance provider is required for insurance sales.');
       }
-      if (!insuranceCardNumber?.trim()) {
-        throw new BadRequestException('Insurance membership card number is required for insurance sales.');
-      }
     }
 
     const pharmacyUserId = await this.getPharmacyUserId(pharmacyId, userEmail);
@@ -614,6 +659,14 @@ export class SalesService {
         finalCustomerPhone = patientRes.rows[0].phone_number || finalCustomerPhone;
         customerType = 'REGISTERED';
       }
+
+      // Associate patient with this pharmacy in pharmacy_patients if not already linked
+      await this.db.query(
+        `INSERT INTO public.pharmacy_patients (pharmacy_id, patient_id, registered_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (pharmacy_id, patient_id) DO NOTHING`,
+        [pharmacyId, patientId, pharmacyUserId],
+      );
     }
 
     // Determine payment status
@@ -671,24 +724,30 @@ export class SalesService {
 
       // 3. Insert sale items and deduct stock
       for (const item of validatedItems) {
+        const deductQty = item.dispensedBaseQuantity || item.quantity;
+
         // Insert sale_item
         await client.query(
           `INSERT INTO public.sale_items 
             (sale_id, inventory_id, medicine_id, batch_number, quantity, unit_price, subtotal, 
-             is_insurance_covered, coverage_percentage, insurance_contribution, patient_contribution)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+             is_insurance_covered, coverage_percentage, insurance_contribution, patient_contribution,
+             packaging_name, package_quantity, units_per_package)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
           [
             saleId,
             item.inventoryId,
             item.medicineId,
             item.batchNumber,
-            item.quantity,
+            deductQty,
             item.unitPrice,
             item.subtotal,
             item.isInsuranceCovered,
             item.coveragePercentage,
             item.insuranceContribution,
             item.patientContribution,
+            item.packagingName || null,
+            item.packageQuantity || null,
+            item.unitsPerPackage || null,
           ],
         );
 
@@ -700,7 +759,7 @@ export class SalesService {
                updated_at = CURRENT_TIMESTAMP
            WHERE inventory_id = $2 AND pharmacy_id = $3
            RETURNING inventory_id, quantity, reorder_level`,
-          [item.quantity, item.inventoryId, pharmacyId],
+          [deductQty, item.inventoryId, pharmacyId],
         );
 
         const updatedBatch = batchUpdateRes.rows[0];
@@ -715,11 +774,11 @@ export class SalesService {
             item.inventoryId,
             pharmacyId,
             pharmacyUserId,
-            item.quantity,
-            newQty + item.quantity,
+            deductQty,
+            newQty + deductQty,
             newQty,
             `Sale dispensed - ${receiptNumber}`,
-            `Item: ${item.medicineName} (${item.batchNumber})`,
+            `Item: ${item.medicineName} (${item.batchNumber}) ${item.packagingName ? `[${item.packageQuantity} ${item.packagingName}]` : ''}`,
           ],
         );
 
@@ -773,7 +832,7 @@ export class SalesService {
             providerId,
             claimNumber,
             patientId || null,
-            insuranceCardNumber!.trim(),
+            insuranceCardNumber?.trim() || null,
             financials.insuranceContribution,
             `Claim generated from sale ${receiptNumber}`,
           ],
@@ -1013,6 +1072,9 @@ export class SalesService {
         quantity: Number(i.quantity),
         unitPrice: Number(i.unit_price),
         subtotal: Number(i.subtotal),
+        packagingName: i.packaging_name || undefined,
+        packageQuantity: i.package_quantity ? Number(i.package_quantity) : undefined,
+        unitsPerPackage: i.units_per_package ? Number(i.units_per_package) : undefined,
         isInsuranceCovered: i.is_insurance_covered,
         coveragePercentage: Number(i.coverage_percentage),
         insuranceContribution: Number(i.insurance_contribution),
@@ -1044,6 +1106,71 @@ export class SalesService {
       data: {
         receipt: receiptData,
         html,
+      },
+    };
+  }
+
+  async getSaleById(pharmacyId: number, saleId: number): Promise<ApiResponse> {
+    const saleRes = await this.db.query(
+      `SELECT 
+        s.*,
+        to_char(s.created_at, 'YYYY-MM-DD HH24:MI:SS') AS formatted_date,
+        ph.pharmacy_name,
+        ph.phone_number AS pharmacy_phone,
+        ph.email AS pharmacy_email,
+        ph.tin AS pharmacy_tin,
+        ph.location_address AS pharmacy_address,
+        pu.full_name AS staff_name,
+        ip.provider_name,
+        ip.provider_code,
+        pr.prescription_reference,
+        ic.claim_number
+       FROM public.sales s
+       JOIN public.pharmacies ph ON ph.pharmacy_id = s.pharmacy_id
+       LEFT JOIN public.pharmacy_users pu ON pu.pharmacy_user_id = s.pharmacy_user_id
+       LEFT JOIN public.insurance_providers ip ON ip.provider_id = s.provider_id
+       LEFT JOIN public.prescriptions pr ON pr.prescription_id = s.prescription_id
+       LEFT JOIN public.insurance_claims ic ON ic.sale_id = s.sale_id
+       WHERE s.sale_id = $1 AND s.pharmacy_id = $2`,
+      [saleId, pharmacyId],
+    );
+
+    if (saleRes.rows.length === 0) {
+      throw new NotFoundException(`Sale with ID ${saleId} not found.`);
+    }
+
+    const sale = saleRes.rows[0];
+
+    const itemsRes = await this.db.query(
+      `SELECT 
+        si.*,
+        m.medicine_name,
+        m.strength,
+        m.dosage_form,
+        to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date
+       FROM public.sale_items si
+       JOIN public.medicines m ON m.medicine_id = si.medicine_id
+       LEFT JOIN public.inventory_batches ib ON ib.inventory_id = si.inventory_id
+       WHERE si.sale_id = $1
+       ORDER BY si.sale_item_id ASC`,
+      [saleId],
+    );
+
+    const paymentsRes = await this.db.query(
+      `SELECT payment_id, amount, payment_method, payment_reference, payer_type, to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
+       FROM public.payments
+       WHERE sale_id = $1
+       ORDER BY payment_id ASC`,
+      [saleId],
+    );
+
+    return {
+      success: true,
+      message: 'Sale details retrieved successfully.',
+      data: {
+        ...sale,
+        items: itemsRes.rows,
+        payments: paymentsRes.rows,
       },
     };
   }

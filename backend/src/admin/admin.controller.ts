@@ -28,6 +28,8 @@ import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { CreateAdminDto } from './dto/create-admin.dto.js';
 import { RejectPharmacyDto } from './dto/reject-pharmacy.dto.js';
 import { UpdatePatientDto } from './dto/update-patient.dto.js';
+import { CreatePharmacyDto } from './dto/create-pharmacy.dto.js';
+import { CreatePatientDto } from './dto/create-patient.dto.js';
 import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 
@@ -80,6 +82,16 @@ export class AdminController {
   @ApiOperation({ summary: 'Toggle patient active/inactive status' })
   async togglePatientStatus(@Param('id', ParseIntPipe) id: number): Promise<ApiResponse> {
     return this.adminService.togglePatientStatus(id);
+  }
+
+  @Post('patients')
+  @ApiOperation({ summary: 'Create a new patient account by admin' })
+  @SwaggerResponse({ status: 201, description: 'Patient created successfully.' })
+  async createPatient(
+    @Body() dto: CreatePatientDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ApiResponse> {
+    return this.adminService.createPatient(dto, user.sub);
   }
 
   // ───────────── Pharmacies ─────────────
@@ -141,6 +153,16 @@ export class AdminController {
     }
 
     res.sendFile(absolutePath);
+  }
+
+  @Post('pharmacies')
+  @ApiOperation({ summary: 'Create a new pharmacy account by admin' })
+  @SwaggerResponse({ status: 201, description: 'Pharmacy created successfully.' })
+  async createPharmacy(
+    @Body() dto: CreatePharmacyDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ApiResponse> {
+    return this.adminService.createPharmacy(dto, user.sub);
   }
 
   // ───────────── Administrators ─────────────

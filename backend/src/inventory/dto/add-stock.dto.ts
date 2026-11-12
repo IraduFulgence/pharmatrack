@@ -28,11 +28,26 @@ export class AddStockDto {
   @Min(1, { message: 'Quantity received must be greater than zero.' })
   quantityReceived: number;
 
-  @ApiProperty({ example: 15.5, description: 'Unit selling / inventory price per item' })
+  @ApiPropertyOptional({ example: 12.0, description: 'Purchase price / cost incurred by the pharmacy' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Purchase price must be a valid number.' })
+  @Min(0, { message: 'Purchase price cannot be negative.' })
+  purchasePrice?: number;
+
+  @ApiPropertyOptional({ example: 15.5, description: 'Selling price charged to patient' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Selling price must be a valid number.' })
+  @Min(0, { message: 'Selling price cannot be negative.' })
+  sellingPrice?: number;
+
+  @ApiPropertyOptional({ example: 15.5, description: 'Unit selling / inventory price per item' })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'Unit price must be a valid number.' })
   @Min(0, { message: 'Unit price cannot be negative.' })
-  unitPrice: number;
+  unitPrice?: number;
 
   @ApiProperty({ example: '2027-12-31', description: 'Expiry date (YYYY-MM-DD)' })
   @IsNotEmpty({ message: 'Expiry date is required.' })

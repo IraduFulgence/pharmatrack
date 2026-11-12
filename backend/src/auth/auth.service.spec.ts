@@ -200,6 +200,9 @@ describe('AuthService', () => {
       phoneNumber: '+250788123456',
       email: 'kigalipharmacy@example.com',
       tin: '123456789',
+      locationAddress: 'KG 123 St, Kigali',
+      latitude: -1.95,
+      longitude: 30.06,
       password: 'Pharmacy@123',
     };
 
@@ -223,6 +226,9 @@ describe('AuthService', () => {
                     phone_number: validPharmacyDto.phoneNumber,
                     email: validPharmacyDto.email,
                     tin: validPharmacyDto.tin,
+                    location_address: validPharmacyDto.locationAddress,
+                    latitude: validPharmacyDto.latitude,
+                    longitude: validPharmacyDto.longitude,
                     verification_status: 'PENDING',
                   },
                 ],
@@ -244,6 +250,9 @@ describe('AuthService', () => {
         phoneNumber: '+250788123456',
         email: 'kigalipharmacy@example.com',
         tin: '123456789',
+        locationAddress: 'KG 123 St, Kigali',
+        latitude: -1.95,
+        longitude: 30.06,
         verificationStatus: 'PENDING',
         role: 'PHARMACY',
       });
