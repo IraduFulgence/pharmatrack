@@ -82,6 +82,49 @@
             "cancel":"Cancel",
             "openSetting":"Open Settings"
         }
+    },
+    "homescreen":{
+        "Location":"YOUR LOCATION",
+        "GPS":"GPS Location Active",
+        "hello":"Hello,",
+        "welcome":"How can we help you today?",
+        "searchPlaceholder":"Search medicine or pharmacy....",
+        "ActionFind":"Find Pharmacies",
+        "actionsubt":"Pharmacies",
+        "ActionOrder":"My",
+        "actionO":"Orders",
+        "PhaNear":"Pharmacies near you",
+        "Found":"found",
+        "notFound":"No nearby pharmacies found",
+        "try":"Try again"
+
+    },
+    "Navbar":{
+        "Home":"Home",
+        "Search":"Search"
+    },
+    "searchScreen":{
+        "searchText":"Search Medicine",
+        "search":"Type medicine name (e.g: paracetamol)",
+        "searchMessage":"Searching pharmacies",
+        "NotFound":"Not available in any nearby pharmacy.",
+        "inStock":"In Stock",
+        "noresult":"No results found",
+        "tryMessage":"Try a different spelling or medicine name."
+    },
+    "dropdown":{
+        "Myprofile":"My Profile",
+        "MyOrders":"My Orders",
+        "Signout":"Sign Out"
+    },
+     "locationrequired":{
+        "title":"Location Required",
+        "subtitle":"Pharmatrack needs your location to find nearby pharmacies. Please turn on GPS and allow location access in settings.",
+        "openButton":"Open Settings",
+        "retryButton":"I turned it on, Retry",
+        "message":"We need your location to find the closest pharmacies.",
+        "allow":"Allow location"
+
     }
     
 }

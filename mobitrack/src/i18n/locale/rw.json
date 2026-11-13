@@ -82,5 +82,50 @@
             "cancel": "Hagarika",
             "openSetting": "Fungura igenamiterere"
         }
+    },
+    "homescreen":{
+        "Location":"Aho uherereye",
+        "GPS":"Indaga cyerecyezo irafunguye",
+        "hello":"Muraho,",
+        "welcome":"Ni gute twagufasha uyu munsi?",
+        "searchPlaceholder":"Shaka umuti cyangwa farumasi....",
+        "ActionFind":"Shaka",
+        "actionsubt":"Farumasi",
+        "ActionOrder":"Ibyo",
+        "actionO":"Natumije",
+        "PhaNear":"Farumasi ziri hafi",
+        "Found":"zabonetse",
+        "notFound":"Nta farumasi zikwegereye zabonetse",
+        "try":"Ongera ugerageze"
+
+    },
+    "Navbar":{
+        "Home":"Ahabanza",
+        "Search":"Shakisha"
+    },
+    "searchScreen":{
+        "searchText":"Shaka Umuti",
+        "search":"Andika umuti ushaka (e.g: paracetamol)",
+        "searchMessage":"Turi gushakisha farumasi",
+        "NotFound":"nta farumasi ikwegereye ifite uwo muti",
+        "inStock":"Ibihari",
+        "noresult":"nta gisubizo cyabonetse",
+        "tryMessage":"Reba neza uko wanditse umuti"
+
+
+    },
+     "dropdown":{
+        "Myprofile":"Umwirondoro",
+        "MyOrders":"Ibyatumijwe",
+        "Signout":"Sohoka"
+    },
+    "locationrequired":{
+        "title":"Aho uherereye harakenewe",
+        "subtitle":"Pharmatrack ikeneye aho uherereye kugirango ubone farumasi zikwegereye.  fungura GPS hanyuma wemere",
+        "openButton":"Fungura igenamiterere",
+        "retryButton":"Nayifunguye, ongera ugerageze",
+        "message":"Dukeneye aho uherereye kugira tugushakire farumasi ziri hafi.",
+        "allow":"Emeza aho uherereye"
+
     }
 }

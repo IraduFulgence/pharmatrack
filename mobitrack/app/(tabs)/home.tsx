@@ -92,7 +92,7 @@ export default function HomeScreen() {
       setPharmacies(processed);
     } catch (error: any) {
       console.error("Fetch Nearby Error:", error);
-      Alert.alert("Connection Error", "Could not load nearby pharmacies.");
+      // Alert.alert("Connection Error", "Could not load nearby pharmacies.");
     } finally {
       setIsLoading(false);
     }
@@ -151,14 +151,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
         <View style={styles.locationSection}>
-          <Text style={styles.locationLabel}>YOUR LOCATION</Text>
+          <Text style={styles.locationLabel}>{t('homescreen.Location')}</Text>
           <TouchableOpacity 
             style={styles.locationRow}
             onPress={showLocationBlockedModal ? openSetting : () => requestlocation()}
           >
             <Ionicons name="location" size={14} color="#e6f4ef" style={{ marginRight: 4 }} />
             <Text style={styles.locationText}>
-              {showLocationBlockedModal ? 'Location Off (Tap to enable)' : 'GPS Location Active'}
+              {showLocationBlockedModal ? 'Location Off ' : t('homescreen.GPS')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -172,22 +172,22 @@ export default function HomeScreen() {
               <View style={styles.dropdownAvatar}><Text style={styles.dropdownAvatarText}>{userInitials}</Text></View>
               <View>
                 <Text style={styles.dropdownName}>{userName}</Text>
-                <Text style={styles.dropdownEmail}>Patient Account</Text>
+               
               </View>
             </View>
             <View style={styles.dropdownDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={() => setIsMenuVisible(false)}>
               <Ionicons name="person-outline" size={20} color="#344054" />
-              <Text style={styles.menuItemText}>My Profile</Text>
+              <Text style={styles.menuItemText}>{t('dropdown.Myprofile')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => setIsMenuVisible(false)}>
               <Ionicons name="receipt-outline" size={20} color="#344054" />
-              <Text style={styles.menuItemText}>My Orders</Text>
+              <Text style={styles.menuItemText}>{t('dropdown.MyOrders')}</Text>
             </TouchableOpacity>
             <View style={styles.dropdownDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-              <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Sign Out</Text>
+              <Text style={[styles.menuItemText, { color: '#EF4444' }]}>{t('dropdown.Signout')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -202,51 +202,50 @@ export default function HomeScreen() {
         <View style={styles.blockingOverlay}>
           <View style={styles.blockingCard}>
             
-            <Text style={styles.blockingTitle}>Location Required</Text>
+            <Text style={styles.blockingTitle}>{t('locationrequired.title')}</Text>
             <Text style={styles.blockingText}>
-              Pharmatrack needs your location to find nearby pharmacies. 
-              Please turn on GPS and allow location access in settings.
+             {t('locationrequired.subtitle')}
             </Text>
             <TouchableOpacity style={styles.settingsButton} onPress={openSetting}>
               <Ionicons name="settings-outline" size={20} color="white" />
-              <Text style={styles.settingsButtonText}>Open Settings</Text>
+              <Text style={styles.settingsButtonText}>{t('locationrequired.openButton')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.retryButton} onPress={requestlocation}>
-              <Text style={styles.retryButtonText}>I turned it on, Retry</Text>
+              <Text style={styles.retryButtonText}>{t('locationrequired.retryButton')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* BODY */}
+      {/* */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.greetingSection}>
-          <Text style={styles.greetingTitle}>Hello, {userName} </Text>
-          <Text style={styles.greetingSubtitle}>How can we help you today?</Text>
+          <Text style={styles.greetingTitle}>{t('homescreen.hello')} {userName} </Text>
+          <Text style={styles.greetingSubtitle}> {t('homescreen.welcome')} </Text>
         </View>
 
         <View style={styles.searchContainer}>
           <Feather name="search" size={20} color="#98A2B3" style={{ marginRight: 8 }} />
-          <TextInput placeholder="Search medicine or pharmacy..." placeholderTextColor="#98A2B3" style={styles.searchInput} />
+          <TextInput placeholder={t('homescreen.searchPlaceholder')} placeholderTextColor="#98A2B3" style={styles.searchInput} />
         </View>
 
         <View style={styles.quickActionRow}>
          
           <QuickAction
             icon={<Ionicons name="medical-outline" size={26} color="#007bff" />}
-            title="Find" subtitle="Pharmacies" bgColor="#e6f0ff"
+            title={t('homescreen.ActionFind')} subtitle={t('homescreen.actionsubt')} bgColor="#e6f0ff"
             onPress={() => {}}
           />
           <QuickAction
             icon={<MaterialCommunityIcons name="package-variant-closed" size={26} color="#ff8c00" />}
-            title="My" subtitle="Orders" bgColor="#fff4e5"
+            title={t('homescreen.ActionOrder')} subtitle={t('homescreen.actionO')} bgColor="#fff4e5"
             onPress={() => Alert.alert("Coming Soon", "Order history coming soon.")}
           />
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Pharmacies near you</Text>
-          <Text style={styles.sectionSubtitle}>{pharmacies.length} found</Text>
+          <Text style={styles.sectionTitle}>{t('homescreen.PhaNear')}</Text>
+          <Text style={styles.sectionSubtitle}>{pharmacies.length} {t('homescreen.Found')}</Text>
         </View>
 
         {isLoading || isLocating ? (
@@ -257,8 +256,8 @@ export default function HomeScreen() {
         ) : pharmacies.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="business-outline" size={48} color="#D0D5DD" />
-            <Text style={styles.emptyText}>No pharmacies found nearby</Text>
-            <Text style={styles.emptySubtext}>Try again later</Text>
+            <Text style={styles.emptyText}>{t('homescreen.notFound')}</Text>
+            <Text style={styles.emptySubtext}>{t('homescreen.try')}</Text>
           </View>
         ) : (
           pharmacies.map((pharmacy) => (

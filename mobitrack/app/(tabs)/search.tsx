@@ -7,7 +7,7 @@ import { Ionicons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLocation } from '@/hooks/useLocation';
 import { pharmacyService } from '@/src/api/pharmacy/pharmacyService';
-
+import { useTranslation } from 'react-i18next';
 // Haversine formula to calculate distance between 2 points in km
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371;
@@ -21,6 +21,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 export default function SearchScreen() {
+  const {t} = useTranslation();
   const router = useRouter();
   const { location, hasPermission, requestlocation } = useLocation();
 
@@ -99,7 +100,7 @@ export default function SearchScreen() {
       setResults(processed);
     } catch (error: any) {
       console.error("Search Error:", error);
-      Alert.alert("Error", "Failed to search medicines.");
+      // Alert.alert("Error", "Failed to search medicines.");
     } finally {
       setIsLoading(false);
     }
@@ -113,15 +114,15 @@ export default function SearchScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Search Medicine</Text>
+          <Text style={styles.headerTitle}>{t('searchScreen.searchText')}</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.center}>
           <Feather name="map-pin" size={48} color="#D0D5DD" />
-          <Text style={styles.messageTitle}>Location Needed</Text>
-          <Text style={styles.messageText}>We need your location to find the closest pharmacies.</Text>
+          <Text style={styles.messageTitle}>{t('locationrequired.title')}</Text>
+          <Text style={styles.messageText}>{t('locationrequired.message')}</Text>
           <TouchableOpacity style={styles.button} onPress={requestlocation}>
-            <Text style={styles.buttonText}>Allow Location</Text>
+            <Text style={styles.buttonText}>{t('locationrequired.allow')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -142,7 +143,7 @@ export default function SearchScreen() {
         </View>
 
         {pharmacies.length === 0 ? (
-          <Text style={styles.emptyText}>Not available in any nearby pharmacy.</Text>
+          <Text style={styles.emptyText}>{t('searchScreen.NotFound')}</Text>
         ) : (
           pharmacies.map((pharmacy: any, index: number) => (
             <TouchableOpacity 
@@ -158,7 +159,7 @@ export default function SearchScreen() {
                 <View style={styles.stockBadge}>
                   <Ionicons name="checkmark-circle" size={12} color="#166534" />
                   <Text style={styles.stockText}>
-                    In Stock • {pharmacy.quantity_available || pharmacy.quantity || 0} units
+                    {t('searchScreen.inStock')} • {pharmacy.quantity_available || pharmacy.quantity || 0} 
                   </Text>
                 </View>
               </View>
@@ -184,14 +185,14 @@ export default function SearchScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#0F2926" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Find Medicine</Text>
+        <Text style={styles.headerTitle}>{t('searchScreen.searchText')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.searchContainer}>
         <Feather name="search" size={20} color="#98A2B3" style={{ marginRight: 8 }} />
         <TextInput
-          placeholder="Type medicine name (e.g., Paracetamol)..."
+          placeholder={t('searchScreen.search')}
           placeholderTextColor="#98A2B3"
           style={styles.searchInput}
           value={query}
@@ -208,7 +209,7 @@ export default function SearchScreen() {
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#007a55" />
-          <Text style={styles.loadingText}>Searching pharmacies...</Text>
+          <Text style={styles.loadingText}>{t('searchScreen.searchMessage')}</Text>
         </View>
       ) : (
         <FlatList
@@ -221,8 +222,8 @@ export default function SearchScreen() {
             hasSearched && query.length > 2 ? (
               <View style={styles.center}>
                 <Ionicons name="search-outline" size={48} color="#D0D5DD" />
-                <Text style={styles.messageTitle}>No results found</Text>
-                <Text style={styles.messageText}>Try a different spelling or medicine name.</Text>
+                <Text style={styles.messageTitle}>{t('searchScreen.noresult')}</Text>
+                <Text style={styles.messageText}>{t('searchScreen.tryMessage')}</Text>
               </View>
             ) : null
           }
