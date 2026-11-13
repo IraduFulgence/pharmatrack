@@ -119,15 +119,14 @@ const PharmacySettings = () => {
     setSaveSuccess(false);
 
     try {
-      // In a real app, this would be a PATCH request:
-      // await authService.updateProfile(formData);
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API
+      
+      await new Promise(resolve => setTimeout(resolve, 800)); 
       
       setProfile(prev => ({ ...prev, ...formData }));
       setSaveSuccess(true);
       setIsEditing(false);
       
-      // Sync local storage so header/sidebar reflect the new name instantly
+     
       const storedUser = JSON.parse(localStorage.getItem('user'));
       localStorage.setItem('user', JSON.stringify({ ...storedUser, ...formData }));
 
@@ -226,7 +225,7 @@ const PharmacySettings = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Left Column: General Info & Documents */}
+        {/* General Info & Documents */}
         <div className="space-y-6">
           
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden">
