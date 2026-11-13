@@ -108,10 +108,10 @@ const DashboardOverView = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            Good morning, {pharmacyName}.
+            Hello, {pharmacyName}.
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            Here's what's happening at {pharmacyName} today.
+            {/* Here's what's happening at {pharmacyName} today. */}
           </p>
         </div>
         <Link 

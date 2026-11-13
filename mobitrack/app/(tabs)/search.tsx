@@ -52,7 +52,7 @@ export default function SearchScreen() {
 
    
       const response = await pharmacyService.searchMedicine(query.trim());
-      console.log(response);     
+      //console.log(response);     
       const rawData = response.data || response;
       
       
@@ -62,7 +62,7 @@ export default function SearchScreen() {
       const processed = rawResults.map((item: any) => {
         const medicineName = item.medicine?.medicine_name || item.medicine_name || query;
         const rawPharmacies = item.pharmacies || item.inventory || [];
-
+        //console.log(rawPharmacies);
        
         const pharmaciesWithDistance = rawPharmacies
           .map((pharmacy: any) => {
