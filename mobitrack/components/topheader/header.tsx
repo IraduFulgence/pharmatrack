@@ -26,9 +26,9 @@ export default function GuestHeader(){
             </View>
             
             <View style={styles.headerRight}>
-                <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
+                {/* <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
                     <Text style={styles.skipText}>{t('welcome.skipText')}</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 
                
                 <LanguageSwitcher variant="light" textColor="#344054" />

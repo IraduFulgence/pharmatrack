@@ -12,22 +12,21 @@ export interface Pharmacy {
 }
 
 
-export interface PharmacyListResponse {
+export interface NearbyPharmacyResponse {
   success: boolean;
   message: string;
   data: {
     pharmacies: Pharmacy[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+    
   };
 }
 
 export const pharmacyService = {
   
-  getAllPharmacies: async (): Promise<PharmacyListResponse> => {
-    const response = await ApiRequest('/admin/pharmacies', { method: 'GET' });
-    return response;
+  getNearbyPharmacies: async (latitude: number, longitude: number): Promise<NearbyPharmacyResponse> => {
+    return ApiRequest(
+      `/patients/pharmacies/nearby?latitude=${latitude}&longitude=${longitude}`,
+      { method: 'GET' }
+    );
   }
 };

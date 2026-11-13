@@ -17,7 +17,7 @@ import { PatientsModule } from './patients/patients.module.js';
     SalesModule,
     PatientsModule,
   ],
-  imports: [DatabaseModule, AuthModule, AdminModule, InventoryModule,PatientsModule,SalesModule],
+ // imports: [DatabaseModule, AuthModule, AdminModule, InventoryModule,PatientsModule,SalesModule],
   controllers: [AppController],
   providers: [AppService],
 })

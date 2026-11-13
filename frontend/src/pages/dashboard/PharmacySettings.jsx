@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Building2, MapPin, Phone, Mail, FileText, ShieldCheck,Eye, 
-  Loader2, AlertCircle, Save, CheckCircle2, Download, Calendar, Navigation
+  Building2, MapPin, Phone, Mail, FileText, ShieldCheck, Eye, 
+  Loader2, AlertCircle, Save, CheckCircle2, Calendar, Navigation
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { authService } from '../../services/authentication';
+import DocumentViewer from '../../components/admin/DocumentViewer';
 
+// Fix for default Leaflet marker icon
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import DocumentViewer from '../../components/admin/DocumentViewer';
 
 let DefaultIcon = L.icon({
     iconUrl: icon,
@@ -29,12 +30,23 @@ const MapUpdater = ({ center }) => {
   return null;
 };
 
+// Sub-component that handles map clicks to move the pin
+const LocationPicker = ({ onPick }) => {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
+
 const PharmacySettings = () => {
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
   const [viewingDoc, setViewingDoc] = useState(null);
+  
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -107,13 +119,15 @@ const PharmacySettings = () => {
     setSaveSuccess(false);
 
     try {
-     
+      // In a real app, this would be a PATCH request:
+      // await authService.updateProfile(formData);
       await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API
       
       setProfile(prev => ({ ...prev, ...formData }));
       setSaveSuccess(true);
       setIsEditing(false);
       
+      // Sync local storage so header/sidebar reflect the new name instantly
       const storedUser = JSON.parse(localStorage.getItem('user'));
       localStorage.setItem('user', JSON.stringify({ ...storedUser, ...formData }));
 
@@ -143,8 +157,6 @@ const PharmacySettings = () => {
   }
 
   const isApproved = profile?.verificationStatus === 'APPROVED';
-  
-  // Use formData for map so it updates in real-time while editing
   const mapCenter = [formData.latitude, formData.longitude];
 
   return (
@@ -214,7 +226,7 @@ const PharmacySettings = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Left Column: General Info */}
+        {/* Left Column: General Info & Documents */}
         <div className="space-y-6">
           
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden">
@@ -285,61 +297,64 @@ const PharmacySettings = () => {
           </div>
 
           {/* Documents */}
-          <div className="p-6 space-y-3">
-        <button 
-          onClick={() => setViewingDoc({ type: 'pharmacy', title: 'Pharmacy License' })}
-          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-[#007a55] transition-colors group"
-        >
-          <div className="flex items-center gap-2">
-            {profile?.hasPharmacyCertificate 
-              ? <CheckCircle2 size={16} className="text-green-500" /> 
-              : <AlertCircle size={16} className="text-orange-500" />
-            }
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Pharmacy License</span>
-          </div>
-          <div className="flex items-center gap-2 text-blue-600 group-hover:underline text-xs font-semibold">
-             <Eye size={14} /> View
-          </div>
-        </button>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <FileText size={20} className="text-[#007a55]" /> Submitted Documents
+              </h3>
+            </div>
+            <div className="p-6 space-y-3">
+              <button 
+                onClick={() => setViewingDoc({ type: 'pharmacy', title: 'Pharmacy License' })}
+                className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-[#007a55] transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  {profile?.hasPharmacyCertificate 
+                    ? <CheckCircle2 size={16} className="text-green-500" /> 
+                    : <AlertCircle size={16} className="text-orange-500" />
+                  }
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Pharmacy License</span>
+                </div>
+                <div className="flex items-center gap-2 text-blue-600 group-hover:underline text-xs font-semibold">
+                  <Eye size={14} /> View
+                </div>
+              </button>
 
-        <button 
-          onClick={() => setViewingDoc({ type: 'rdb', title: 'RDB Certificate' })}
-          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-[#007a55] transition-colors group"
-        >
-          <div className="flex items-center gap-2">
-            {profile?.hasRdbCertificate 
-              ? <CheckCircle2 size={16} className="text-green-500" /> 
-              : <AlertCircle size={16} className="text-orange-500" />
-            }
-            <span className="text-sm font-medium text-gray-900 dark:text-white">RDB Certificate</span>
+              <button 
+                onClick={() => setViewingDoc({ type: 'rdb', title: 'RDB Certificate' })}
+                className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-[#007a55] transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  {profile?.hasRdbCertificate 
+                    ? <CheckCircle2 size={16} className="text-green-500" /> 
+                    : <AlertCircle size={16} className="text-orange-500" />
+                  }
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">RDB Certificate</span>
+                </div>
+                <div className="flex items-center gap-2 text-blue-600 group-hover:underline text-xs font-semibold">
+                  <Eye size={14} /> View
+                </div>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-blue-600 group-hover:underline text-xs font-semibold">
-             <Eye size={14} /> View
-          </div>
-        </button>
-      </div>
-
-      {/* Add the modal at the bottom */}
-      {viewingDoc && (
-        <DocumentViewer 
-          pharmacyId={profile?.id}
-          docType={viewingDoc.type}
-          title={viewingDoc.title}
-          onClose={() => setViewingDoc(null)}
-          isAdmin={false}  
-        />
-      )}
 
         </div>
 
-        {/* Right Column: Map & Location */}
+        {/* Right Column: Map & Activity */}
         <div className="space-y-6">
           
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <MapPin size={20} className="text-[#007a55]" /> Physical Location
-              </h3>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <MapPin size={20} className="text-[#007a55]" /> Physical Location
+                </h3>
+                {isEditing && (
+                  <p className="text-xs text-[#007a55] font-medium mt-1 animate-pulse">
+                    👆 Click on the map or drag the pin to update
+                  </p>
+                )}
+              </div>
               
               {isEditing && (
                 <button 
@@ -365,14 +380,34 @@ const PharmacySettings = () => {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <Marker position={mapCenter}>
-                  <Popup>{formData.pharmacyName}</Popup>
+                
+                <Marker 
+                  position={mapCenter}
+                  draggable={isEditing}
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const { lat, lng } = e.target.getLatLng();
+                      setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                    },
+                  }}
+                >
+                  <Popup>{formData.pharmacyName || 'Pharmacy Location'}</Popup>
                 </Marker>
+
+                {/* Only allow map click updates when editing */}
+                {isEditing && (
+                  <LocationPicker 
+                    onPick={(lat, lng) => {
+                      setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                    }} 
+                  />
+                )}
+
                 <MapUpdater center={mapCenter} />
               </MapContainer>
             </div>
 
-            {/* Coordinates Inputs */}
+            {/* Coordinates Display */}
             <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Coordinates</p>
               <div className="grid grid-cols-2 gap-4">
@@ -385,7 +420,7 @@ const PharmacySettings = () => {
                       className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#007a55] dark:text-white"
                     />
                   ) : (
-                    <p className="text-sm font-mono text-gray-900 dark:text-white">{formData.latitude}</p>
+                    <p className="text-sm font-mono text-gray-900 dark:text-white">{formData.latitude.toFixed(5)}</p>
                   )}
                 </div>
                 <div>
@@ -397,7 +432,7 @@ const PharmacySettings = () => {
                       className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#007a55] dark:text-white"
                     />
                   ) : (
-                    <p className="text-sm font-mono text-gray-900 dark:text-white">{formData.longitude}</p>
+                    <p className="text-sm font-mono text-gray-900 dark:text-white">{formData.longitude.toFixed(5)}</p>
                   )}
                 </div>
               </div>
@@ -437,35 +472,17 @@ const PharmacySettings = () => {
 
         </div>
       </div>
-    </div>
-  );
-};
 
-
-const DocumentRow = ({ title, exists }) => {
-  if (!exists) {
-    return (
-      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 opacity-60">
-        <span className="text-sm text-gray-500">{title}</span>
-        <span className="text-xs font-semibold text-gray-400">Not Uploaded</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center gap-2">
-        <CheckCircle2 size={16} className="text-green-500" />
-        <span className="text-sm font-medium text-gray-900 dark:text-white">{title}</span>
-      </div>
-      <a 
-        href={`#`} 
-        onClick={(e) => { e.preventDefault(); alert(`Downloading ${title}...`); }}
-        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-        title="Download"
-      >
-        <Download size={16} />
-      </a>
+      {/* Document Viewer Modal */}
+      {viewingDoc && (
+        <DocumentViewer 
+          pharmacyId={profile?.id}
+          docType={viewingDoc.type}
+          title={viewingDoc.title}
+          onClose={() => setViewingDoc(null)}
+          isAdmin={false}  
+        />
+      )}
     </div>
   );
 };
