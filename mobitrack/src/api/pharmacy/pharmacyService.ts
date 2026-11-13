@@ -28,5 +28,14 @@ export const pharmacyService = {
       `/patients/pharmacies/nearby?latitude=${latitude}&longitude=${longitude}`,
       { method: 'GET' }
     );
-  }
+  },
+
+  searchMedicine: async (name: string) => {
+    return ApiRequest(`/patients/medicines/search?name=${encodeURIComponent(name)}`, {
+      method: 'GET',
+    });
+  },
+
+
+  
 };
