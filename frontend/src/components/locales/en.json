@@ -52,5 +52,17 @@
     "privacy": "Privacy policy",
     "cookie": "Cookie policy",
     "rights": "© 2026 Pharmatrack. All rights reserved."
+  },
+  "auth":{
+  "pharmacyDetails": "Pharmacy Details",
+  "tinNumber": "TIN Number ",
+  "uploadDocs": "Verification Documents",
+  "uploadLicense": "Upload Pharmacy License",
+  "uploadRdb": "Upload RDB Certificate",
+  "clickToUpload": "Click to upload",
+  "supportedFormats": "PNG, JPG or PDF",
+  "back": "Back",
+  "continue": "Continue",
+  "createAccountBtn": "Create Account"
   }
 }

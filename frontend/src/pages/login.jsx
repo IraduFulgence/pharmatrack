@@ -1,18 +1,38 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useTranslation } from 'react-i18next';
-
+import { authService } from '../services/authentication';
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
   const { t } = useTranslation();
 
-  
-  const handleSubmit = (e) => {
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await authService.login(identifier,password);
+      // save token on localstrorage
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user',JSON.stringify(response.data.user));
+      navigate(response.data.redirectTo);
+    } catch (error) {
+      setError(error.message);
+    }
+    finally{
+      setIsLoading(false);
+    }
     
-    console.log("Standard Login Submitted");
+    
   };
 
   // Handle Google Login Success
@@ -23,7 +43,7 @@ const Login = () => {
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900 transition-colors">
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-950 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
+      <div className="max-w-150 w-full space-y-8 bg-white dark:bg-gray-950 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
         
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -52,6 +72,8 @@ const Login = () => {
                 <input
                   type="text"
                   required
+                  value={identifier}
+                  onChange={(e)=>setIdentifier(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-900 dark:text-white transition-colors"
                   placeholder="you@example.com or 078..."
                 />
@@ -70,6 +92,8 @@ const Login = () => {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
+                  value={password}
+                  onChange={(e)=>setPassword(e.target.value)}
                   className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-900 dark:text-white transition-colors"
                   placeholder="••••••••"
                 />
@@ -98,8 +122,13 @@ const Login = () => {
             </div>
           </div>
 
-          <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors">
-            {t('auth.signIn', 'Sign in')}
+                    <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex justify-center items-center py-3 px-4 rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 transition-colors disabled:opacity-70"
+          >
+            {isLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
+            {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 

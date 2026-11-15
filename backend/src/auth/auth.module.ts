@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { MailModule } from '../mail/mail.module.js';
+import { UploadModule } from '../upload/upload.module.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 
@@ -12,6 +13,7 @@ import { RolesGuard } from '../common/guards/roles.guard.js';
   imports: [
     DatabaseModule,
     MailModule,
+    UploadModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'super_secret_pharmatrack_jwt_key_2026_x!9qZ#L2m',
       signOptions: {

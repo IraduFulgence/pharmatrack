@@ -1,23 +1,24 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsEmail,
   IsIn,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
 } from 'class-validator';
 
 export class RegisterPatientDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '1234567890123456',
-    description: 'National ID consisting of exactly 16 numerical digits',
+    description: 'National ID consisting of exactly 16 numerical digits (optional)',
   })
-  @IsNotEmpty({ message: 'National ID is required.' })
+  @IsOptional()
   @Matches(/^\d{16}$/, {
     message: 'National ID must contain exactly 16 digits.',
   })
-  nationalId: string;
+  nationalId?: string;
 
   @ApiProperty({
     example: 'John Doe',
@@ -51,13 +52,13 @@ export class RegisterPatientDto {
   })
   phoneNumber: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'john@example.com',
-    description: 'Valid email address',
+    description: 'Valid email address (optional)',
   })
-  @IsNotEmpty({ message: 'Email is required.' })
+  @IsOptional()
   @IsEmail({}, { message: 'Email must be a valid email address.' })
-  email: string;
+  email?: string;
 
   @ApiProperty({
     example: 'Male',

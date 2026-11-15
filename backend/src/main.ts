@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
@@ -22,6 +23,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
+      forbidNonWhitelisted: true,
       stopAtFirstError: false,
       exceptionFactory: (validationErrors = []) => {
         const errors: Record<string, string> = {};
@@ -54,8 +56,9 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   console.log(`Pharmatrack backend running on port ${port}`);
   console.log(`Swagger documentation available at http://localhost:${port}/api/docs`);
 }
+
 await bootstrap();
