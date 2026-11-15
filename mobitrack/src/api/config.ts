@@ -2,7 +2,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 
-export const API_BASE_URL = 'http://192.168.1.104:3000/api';
+export const API_BASE_URL = 'https://pharmatrack-backend-thxw.onrender.com/api';
 
 export const ApiRequest = async (
   endpoint: string, 
