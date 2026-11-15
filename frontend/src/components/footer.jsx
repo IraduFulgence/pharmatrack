@@ -39,7 +39,7 @@ const Footer = () => {
                 </a>
                 <a href="mailto:support@pharmatrack.rw" className="flex items-center gap-3 hover:text-white transition-colors">
                   <Mail size={18} />
-                  <span>iradufulgence2@gmail.com</span>
+                  <span>iradukundaflu2@gmail.com</span>
                 </a>
               </div>
             </div>

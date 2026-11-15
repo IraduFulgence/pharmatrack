@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "mobitrack",
-    "slug": "mobitrack",
+    "slug": "pharmatrack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.fulgence.pharmatrack"
     },
     "web": {
       "bundler": "metro",
@@ -33,6 +34,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "33f0044a-82f2-453d-a6c4-b1f7ff104688"
+      }
+    },
+    "owner": "fulgence"
   }
 }
