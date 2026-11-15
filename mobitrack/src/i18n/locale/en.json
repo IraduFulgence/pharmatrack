@@ -127,4 +127,90 @@
 
     }
     
+{
+    "welcome":{
+        "skipText":"Skip",
+        "nearYou":"Near You",
+        "heading":"Care is closer near you",
+        "paragraph":"Find trusted pharmacies nearby, see opening hours, search medicines and get directions",
+        "button":"Continue",
+        "Open":"Open now",
+        "Close":"Closes",
+        "secondScreen":{
+            "quick":"Quick",
+            "reliable":"Reliable",
+            "track":"Track",
+            "medicineMessage":"Search for medicines in less than 3min",
+            "create":"Create Account",
+            "ready":"Ready to create account?",
+            "createMessage":"First create an account to access the nearby pharmacies.",
+            "button":"Create account",
+            "buttomMessage":"Already have an account?",
+            "signinMessage":"Sign In"
+        }
+    },
+    "auth":{
+        "login":{
+            "header":"Welcome back",
+            "subheader":"Search and get your treatment",
+            "signIn":"Sign in",
+            "createAccount":"Don't have an account?",
+            "Or":"or continue with",
+            "phone":"Phone number or email",
+            "password":"Password",
+            "Remember":"Remember me",
+            "Forgot":"Forgot password?",
+            "Passwordplaceholder":"Enter your password",
+            "SignupText":"Sign up here",
+            "EmailFail":"Email or phone number is required!",
+            "passwordFail":"Password is required!",
+            "LoginError":"Invalid credentials"
+        },
+        "signup":{
+            "header":"Join Pharmatrack",
+            "subheader":"Better care starts nearby",
+            "Fullname":"Full name",
+            "Age":"Your age",
+            "Gender":"Gender",
+            "NId":"National ID",
+            "Email":"Email address",
+            "Phone":"Phone number",
+            "password":"Password",
+            "fullnamePlaceholder":"Your full name",
+            "AgePlaceholder":"Your age",
+            "NidPlaceholder":"Your national ID number",
+            "emailPlaceholder":"you@example.com",
+            "passwordPlaceholder":"At least 6 characters",
+            "terms":"By continuing, you agree to our",
+            "button":"Create my account",
+            "genderlabelMale":"Male",
+            "genderlabelFemale":"Female",
+            "termsLabel":"terms",
+            "condition":"privacy policy",
+            "And":"and",
+            "DOB":"Date of birth",
+            "createAccount":"Create an account",
+            "Already":"Already have an account?",
+            "Login":"Login here",
+            "fullnameFail":"Full name is required",
+            "fullnameCount":"Name must be at least 3 characters",
+            "DOBFail":"Date of birth is required",
+            "phoneFail":"Phone number is required",
+            "phoneInternational":"Phone number must be in international format (ex: +25078)",
+            "emailFail":"Please enter a valid email address",
+            "passwordFail":"Password is required",
+            "passwordCount":"password must be of 8 characters with uppercase, lowercase, number & special char",
+            "AccountSuccess":"Account created, Login"
+        },
+        "after":{
+            "header":"You're all set",
+            "subheader":"Let's find your nearest pharmacies",
+            "paragraph":"Turn on location services to see trusted pharmacies, live availability around you.",
+            "button":"Enable current location",
+            "locationRequired":"Location required",
+            "cancel":"Cancel",
+            "openSetting":"Open Settings"
+        }
+    }
+    
 }
