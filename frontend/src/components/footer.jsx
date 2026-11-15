@@ -1,24 +1,33 @@
 import React from 'react';
 import { Phone, Mail, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-import logo from '../assets/logo.png'; 
+import { Link } from 'react-router-dom';
+import logo from '../assets/Green-logo.png'; 
+import logo_white from '../assets/White Logo.png'; 
 
 const Footer = () => {
   const { t } = useTranslation();
 
   return (
     <>
-      <footer className="bg-green-900 text-gray-300 py-16 transition-colors">
+      <footer className="bg-green-900 dark:bg-gray-900 text-gray-300 py-16 transition-colors">
         <div className="container mx-auto px-6 md:px-12">
           
           
           <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-8 mb-16">
             <div className="md:col-span-5 flex flex-col items-start">
-              <div className="flex items-center gap-2 mb-6">
-                <img src={logo} style={{height:40}} />
-                <span className="text-xl font-bold text-white tracking-wide">Pharmatrack</span>
-              </div>
+             <Link to="/" className="flex items-center gap-2 cursor-pointer z-50">
+          <img 
+            src={logo_white} 
+            alt="Pharmatrack" 
+            className="h-10 block dark:hidden" 
+          />
+          <img 
+            src={logo_white} 
+            alt="Pharmatrack" 
+            className="h-10 hidden dark:block" 
+          />
+        </Link>
               
               <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
                 {t('footer.desc')}
@@ -26,11 +35,11 @@ const Footer = () => {
               <div className="space-y-3 text-sm text-gray-300">
                 <a href="tel:+250780946600" className="flex items-center gap-3 hover:text-white transition-colors">
                   <Phone size={18} />
-                  <span>+250 780 000 000</span>
+                  <span>+250 788860610</span>
                 </a>
                 <a href="mailto:support@pharmatrack.rw" className="flex items-center gap-3 hover:text-white transition-colors">
                   <Mail size={18} />
-                  <span>support@pharmatrack.rw</span>
+                  <span>iradufulgence2@gmail.com</span>
                 </a>
               </div>
             </div>
@@ -66,7 +75,7 @@ const Footer = () => {
 
       {/* Floating WhatsApp Button */}
       <a 
-        href="https://wa.me/250780000000" 
+        href="https://wa.me/250788860610" 
         target="_blank" 
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:bg-[#20bd5a] transition-transform hover:scale-105 z-50 flex items-center justify-center"

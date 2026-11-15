@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import ThemeToggle from './themetoggle';
-import logo from '../assets/logo.png';
+import logo from '../assets/Green-logo.png';
+import logo_white from '../assets/White Logo.png';
 import { useTranslation } from 'react-i18next'; 
 import LanguageSwitcher from './LanguageSwitcher';
 import { Link } from 'react-router-dom';
+
 const Navbar = () => {
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const {t} = useTranslation();
+    
   const navLinks = [
     { name: t('nav.home'), href: '/' },
     { name: t('nav.about'), href: '#' },
@@ -18,14 +21,22 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="w-full py-4 px-6 md:px-12 bg-white dark:bg-green-900 shadow-sm sticky top-0 z-50 border-b border-transparent dark:border-gray-800 transition-colors relative">
+    <nav className="w-full py-4 px-6 md:px-12 bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-50 border-b border-transparent dark:border-gray-800 transition-colors relative">
       <div className="flex items-center justify-between">
         
         {/* Logo */}
-        <div className="flex items-center gap-2 cursor-pointer z-50">
-         <img src={logo} style={{height:40}} />
-          <span className="text-xl font-bold text-green-900 dark:text-green-700">Pharmatrack</span>
-        </div>
+        <Link to="/" className="flex items-center gap-2 cursor-pointer z-50">
+          <img 
+            src={logo} 
+            alt="Pharmatrack" 
+            className="h-10 block dark:hidden" 
+          />
+          <img 
+            src={logo_white} 
+            alt="Pharmatrack" 
+            className="h-10 hidden dark:block" 
+          />
+        </Link>
 
         {/* Desktop Navigation Links */}
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600 dark:text-gray-300">
