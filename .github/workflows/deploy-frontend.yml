@@ -1,0 +1,82 @@
+name: Deploy Frontend to Vercel
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'frontend/**' 
+  workflow_dispatch:
+
+jobs:
+  # TEST & BUILD JOB
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests 
+        run: npm run test --if-present
+
+      - name: Build Project
+        run: npm run build
+        env:
+          # Pass the environment variable to Vite during build
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      # Upload the built 'dist' folder so the deploy job can use it
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vite-dist
+          path: ./frontend/dist
+
+  # 2. DEPLOY JOB
+  deploy:
+  #Only runs if the build-and-test job succeeds
+    needs: build-and-test 
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      # Download the built dist folder from the previous job
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vite-dist
+          path: ./frontend/dist
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy Project to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
