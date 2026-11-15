@@ -8,11 +8,12 @@ on:
 
 jobs:
   
+  # 1. TEST & BUILD JOB 
   build-and-test:
     runs-on: ubuntu-latest
-    # defaults:
-    #   run:
-    #     working-directory: ./frontend 
+    defaults:
+      run:
+        working-directory: ./frontend 
 
     steps:
       - name: Checkout Code
@@ -26,7 +27,7 @@ jobs:
           cache-dependency-path: './frontend/package-lock.json'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run Tests
         run: npm run test --if-present
@@ -34,7 +35,6 @@ jobs:
       - name: Build Project
         run: npm run build
         env:
-          
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Upload Build Artifact
@@ -43,13 +43,11 @@ jobs:
           name: vite-dist
           path: ./frontend/dist
 
-  # 2. DEPLOY JOB
+  # 2. DEPLOY JOB 
   deploy:
     needs: build-and-test 
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
+  
 
     steps:
       - name: Checkout Code
@@ -64,20 +62,19 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      # Vercel will read the "Root Directory: frontend" setting from Vercel Dashboard
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      
       - name: Build Project Artifacts
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      
       - name: Deploy Project to Vercel
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
