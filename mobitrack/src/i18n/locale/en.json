@@ -111,7 +111,8 @@
         "Home":"Home",
         "Search":"Search",
         "profile":"Profile",
-        "market":"Marketplace"
+        "market":"Marketplace",
+        "message":"Message"
     },
     "searchScreen":{
         "searchText":"Search Medicine",

@@ -65,6 +65,19 @@ export default function TabLayout(){
           ),
       }}
       />
+      <Tabs.Screen 
+  name="chat/index" 
+  options={{ 
+    title:t('Navbar.message'), 
+    tabBarIcon: ({ color }) => <Ionicons name="chatbubbles" size={24} color={color} /> 
+  }} 
+/>
+     <Tabs.Screen 
+  name="chat/[id]" 
+  options={{ 
+   href:null,
+  }} 
+/>
     </Tabs>
   )
 }

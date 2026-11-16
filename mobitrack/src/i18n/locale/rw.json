@@ -111,7 +111,8 @@
         "Home":"Ahabanza",
         "Search":"Shakisha",
         "profile":"Umwirondoro",
-        "market":"Isoko"
+        "market":"Isoko",
+        "message":"Mesaji"
     },
     "searchScreen":{
         "searchText":"Shaka Umuti",
