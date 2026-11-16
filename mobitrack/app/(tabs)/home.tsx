@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  SafeAreaView, Platform, ActivityIndicator, Image, Alert, ScrollView, Modal
+  SafeAreaView, Platform, ActivityIndicator, Image, Alert, ScrollView, Modal, KeyboardAvoidingView
 } from 'react-native';
 import { Ionicons, FontAwesome5, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,7 +11,6 @@ import { Pharmacy, pharmacyService } from '@/src/api/pharmacy/pharmacyService';
 import { useTranslation } from 'react-i18next';
 
 const logo = require('../../assets/images/Green-logo.png'); 
-
 
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371; 
@@ -24,6 +23,15 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const NEARBY_RADIUS_KM = 5;
 
+// Simulated function for fetching prescription by code
+const mockFetchPrescription = async (code: string) => {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  if (code === 'SMS-123') {
+    return [{ name: 'Paracetamol', quantity: 10 }];
+  }
+  throw new Error("Invalid code. Try 'SMS-123' for testing.");
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -35,18 +43,19 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState('there');
   const [userInitials, setUserInitials] = useState('U');
+  
+  // Modals State
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [isCodeModalVisible, setIsCodeModalVisible] = useState(false);
+  const [prescriptionCode, setPrescriptionCode] = useState('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const token = await SecureStore.getItemAsync('token');
-        //console.log(token);
         const userString = await SecureStore.getItemAsync('user');
         if (userString) {
-
           const user = JSON.parse(userString);
-          
           const name = user.fullName || 'User';
           setUserName(name.split(' ')[0]);
           const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
@@ -100,6 +109,34 @@ export default function HomeScreen() {
     }
   };
 
+  // Handle Code Redemption
+  const handleRedeemCode = async () => {
+    if (!prescriptionCode.trim()) {
+      Alert.alert("Error", "Please enter the code from your SMS.");
+      return;
+    }
+
+    try {
+      setIsVerifyingCode(true);
+      const prescribedMedicines = await mockFetchPrescription(prescriptionCode.trim());
+      
+      setIsCodeModalVisible(false);
+      setPrescriptionCode('');
+
+      // Navigate to Search with the first medicine
+      const firstMedicine = prescribedMedicines[0].name;
+      router.push({
+        pathname: '/search',
+        params: { initialQuery: firstMedicine }
+      });
+
+    } catch (error: any) {
+      Alert.alert("Invalid Code", error.message);
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
+
   const handleLogout = async () => {
     setIsMenuVisible(false);
     await SecureStore.deleteItemAsync('token');
@@ -107,7 +144,6 @@ export default function HomeScreen() {
     router.replace('/auth/login');
   };
 
-  
   const PharmacyCard = ({ item }: { item: Pharmacy & { distanceKm?: number } }) => (
     <TouchableOpacity 
       style={styles.card} 
@@ -128,7 +164,6 @@ export default function HomeScreen() {
       <View style={styles.cardContent}>
         <Text style={styles.cardTitle}>{item.pharmacyName || item.pharmacy_name}</Text>
         <View style={styles.statusRow}>
-          
           <Text style={styles.hoursText}> {item.locationAddress || item.location_address || 'Kigali'}</Text>
         </View>
       </View>
@@ -143,31 +178,20 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       
-     
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          
           <Image source={logo} style={styles.headerLogo} resizeMode="contain" />
-          
-          {/* Avatar */}
           <TouchableOpacity onPress={() => setIsMenuVisible(true)} style={styles.avatar}>
             <Text style={styles.avatarText}>{userInitials}</Text>
           </TouchableOpacity>
         </View>
-
-        
       </View>
 
-     
+      {/* Body */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Greeting */}
-        {/* <View style={styles.greetingSection}>
-          <Text style={styles.greetingTitle}>{t('home.greeting', 'Hello')}, {userName} 👋</Text>
-          <Text style={styles.greetingSubtitle}>{t('home.subGreeting', 'Find your medicine quickly.')}</Text>
-        </View> */}
-
-        {/* Search Bar*/}
+        {/* Search Bar */}
         <TouchableOpacity 
           style={styles.searchContainer}
           onPress={() => router.push('/search')}
@@ -177,25 +201,25 @@ export default function HomeScreen() {
           <Text style={styles.searchPlaceholder}>{t('homescreen.searchPlaceholder')}</Text>
         </TouchableOpacity>
 
-        {/* Upload Prescription */}
+        {/* Redeem Prescription Code */}
         <TouchableOpacity 
           style={styles.uploadCard}
-          onPress={() => Alert.alert("Coming Soon", "Prescription upload will be available shortly.")}
+          onPress={() => setIsCodeModalVisible(true)}
           activeOpacity={0.9}
         >
           <View style={styles.uploadContent}>
             <View style={styles.uploadIconContainer}>
-              <Ionicons name="camera" size={28} color="white" />
+              <FontAwesome5 name="sms" size={24} color="white" />
             </View>
             <View style={styles.uploadTextContainer}>
               <Text style={styles.uploadTitle}>{t('homescreen.havePrescription', 'Have a prescription?')}</Text>
-              <Text style={styles.uploadSubtitle}>{t('homescreen.preMessage', 'Upload it and we will find the medicine for you.')}</Text>
+              <Text style={styles.uploadSubtitle}>{t('homescreen.preMessage', 'Enter the SMS code from your hospital.')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#007a55" />
           </View>
         </TouchableOpacity>
 
-        {/* 3. Pharmacies Section */}
+        {/* Pharmacies Section */}
         {isLoading || isLocating ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007a55" />
@@ -203,7 +227,6 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            
             {nearbyPharmacies.length > 0 && (
               <>
                 <View style={styles.sectionHeader}>
@@ -216,7 +239,6 @@ export default function HomeScreen() {
               </>
             )}
 
-            
             {nearbyPharmacies.length === 0 && (
               <View style={styles.noNearbyContainer}>
                 <Ionicons name="information-circle-outline" size={28} color="#F59E0B" />
@@ -226,7 +248,6 @@ export default function HomeScreen() {
               </View>
             )}
 
-            
             {otherPharmacies.length > 0 && (
               <>
                 <View style={[styles.sectionHeader, { marginTop: nearbyPharmacies.length > 0 ? 24 : 0 }]}>
@@ -241,7 +262,6 @@ export default function HomeScreen() {
               </>
             )}
 
-            
             {nearbyPharmacies.length === 0 && otherPharmacies.length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="business-outline" size={48} color="#D0D5DD" />
@@ -252,7 +272,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        
+        {/* Marketplace */}
         <TouchableOpacity 
           style={styles.marketplaceCard}
           onPress={() => Alert.alert("Coming Soon", "Marketplace is being built.")}
@@ -270,15 +290,81 @@ export default function HomeScreen() {
 
       </ScrollView>
 
-      
+      <Modal
+        visible={isCodeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsCodeModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          style={styles.modalOverlay} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalContainer}>
+            
+            {/* Drag Indicator */}
+            <View style={styles.modalIndicator} />
+
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconCircle}>
+                <FontAwesome5 name="sms" size={28} color="#007a55" />
+              </View>
+              <TouchableOpacity onPress={() => setIsCodeModalVisible(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={24} color="#667085" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            <View style={styles.modalContentArea}>
+              <Text style={styles.modalTitle}>{t('searchModel.Smodel', 'Enter SMS Code')}</Text>
+              <Text style={styles.modalSubtitle}>
+                {t('searchModel.SmodelMessage', 'Enter the code from your hospital SMS to find your prescribed medicine.')}
+              </Text>
+
+              <View style={styles.codeInputContainer}>
+                <TextInput
+                  style={styles.codeInput}
+                  placeholder="Code"
+                  placeholderTextColor="#98A2B3"
+                  value={prescriptionCode}
+                  onChangeText={setPrescriptionCode}
+                  autoCapitalize="characters"
+                  autoFocus
+                  maxLength={10}
+                />
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.modalPrimaryButton, isVerifyingCode && { opacity: 0.7 }]} 
+                onPress={handleRedeemCode}
+                disabled={isVerifyingCode}
+              >
+                {isVerifyingCode ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <Text style={styles.modalPrimaryButtonText}>{t('searchModel.Sfind', 'Find Medicine')}</Text>
+                    <Ionicons name="search" size={20} color="white" style={{ marginLeft: 8 }} />
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.helpText}>
+                {t('searchModel.Sfooter', 'Check the SMS sent by your hospital or clinic.')}
+              </Text>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <Modal visible={isMenuVisible} transparent animationType="fade" onRequestClose={() => setIsMenuVisible(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setIsMenuVisible(false)}>
+        <TouchableOpacity style={styles.profileModalOverlay} activeOpacity={1} onPress={() => setIsMenuVisible(false)}>
           <View style={styles.dropdownContainer}>
             <View style={styles.dropdownHeader}>
               <View style={styles.dropdownAvatar}><Text style={styles.dropdownAvatarText}>{userInitials}</Text></View>
               <View>
                 <Text style={styles.dropdownName}>{userName}</Text>
-                
               </View>
             </View>
             <View style={styles.dropdownDivider} />
@@ -328,26 +414,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#D1E7DD',
   },
   avatarText: { fontWeight: '700', color: '#007a55', fontSize: 14 },
-  
-  /* Location Pill */
-  locationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F4F7',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  locationText: { fontSize: 13, fontWeight: '600', color: '#344054' },
 
   /* Body */
   scrollContent: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 },
-  
-  greetingSection: { marginBottom: 20 },
-  greetingTitle: { fontSize: 26, fontWeight: '800', color: '#0F2926', marginBottom: 4 },
-  greetingSubtitle: { fontSize: 15, color: '#667085' },
 
   /* Search */
   searchContainer: {
@@ -368,10 +437,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1E7DD',
   },
-  uploadContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  uploadContent: { flexDirection: 'row', alignItems: 'center' },
   uploadIconContainer: {
     width: 52, height: 52, borderRadius: 14,
     backgroundColor: '#007a55',
@@ -402,8 +468,6 @@ const styles = StyleSheet.create({
   cardContent: { flex: 1 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#0F2926', marginBottom: 4 },
   statusRow: { flexDirection: 'row', alignItems: 'center' },
-  openDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#12B76A', marginRight: 6 },
-  openText: { color: '#007a55', fontSize: 13, fontWeight: '500' },
   hoursText: { color: '#98A2B3', fontSize: 13 },
   distanceBadge: { backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#DCFCE7' },
   distanceText: { fontSize: 12, fontWeight: '700', color: '#166534' },
@@ -434,15 +498,138 @@ const styles = StyleSheet.create({
   marketplaceTitle: { fontSize: 15, fontWeight: '700', color: '#0F2926', marginBottom: 4 },
   marketplaceSubtitle: { fontSize: 12, color: '#667085' },
 
-  /* Profile Modal */
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', paddingTop: Platform.OS === 'android' ? 80 : 60, paddingRight: 24, alignItems: 'flex-end' },
-  dropdownContainer: { backgroundColor: 'white', borderRadius: 16, width: 220, padding: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, elevation: 10 },
+  /* Profile Dropdown Modal */
+  profileModalOverlay: { 
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', 
+    paddingTop: Platform.OS === 'android' ? 80 : 60, 
+    paddingRight: 24, alignItems: 'flex-end' 
+  },
+  dropdownContainer: { 
+    backgroundColor: 'white', borderRadius: 16, width: 220, padding: 8, 
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, elevation: 10 
+  },
   dropdownHeader: { flexDirection: 'row', alignItems: 'center', padding: 10, gap: 12 },
   dropdownAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#e6f4ef', justifyContent: 'center', alignItems: 'center' },
   dropdownAvatarText: { color: '#007a55', fontWeight: '700', fontSize: 13 },
   dropdownName: { fontSize: 15, fontWeight: '700', color: '#0F2926' },
-  dropdownEmail: { fontSize: 11, color: '#667085', marginTop: 2 },
   dropdownDivider: { height: 1, backgroundColor: '#EAECF0', marginVertical: 6 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 10, borderRadius: 8, gap: 10 },
   menuItemText: { fontSize: 14, fontWeight: '500', color: '#344054' },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingTop: 12,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  modalIndicator: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  modalIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#e6f4ef',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeBtn: {
+    padding: 8,
+    backgroundColor: '#F8F9F9',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EAECF0',
+  },
+  modalContentArea: {
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0F2926',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    color: '#667085',
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 22,
+    paddingHorizontal: 10,
+  },
+  codeInputContainer: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#007a55',
+    borderRadius: 16,
+    marginBottom: 24,
+    shadowColor: '#007a55',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  codeInput: {
+    height: 72,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#0F2926',
+    textAlign: 'center',
+    letterSpacing: 6,
+  },
+  modalPrimaryButton: {
+    width: '100%',
+    backgroundColor: '#007a55',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 18,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#007a55',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalPrimaryButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  helpText: {
+    fontSize: 13,
+    color: '#98A2B3',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 20,
+  },
 });

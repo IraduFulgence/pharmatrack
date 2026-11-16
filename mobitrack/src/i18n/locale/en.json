@@ -135,5 +135,11 @@
         "message":"We need your location to find the closest pharmacies.",
         "allow":"Allow location"
 
+    },
+    "searchModel":{
+        "Smodel":"SMS Code",
+        "SmodelMessage":"Enter the code received from hospital to find your prescribed medicine",
+        "Sfind":"Find medicine",
+        "Sfooter":"Check the sms sent by hospital or clinic"
     }
 }

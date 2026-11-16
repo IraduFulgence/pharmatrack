@@ -137,5 +137,11 @@
         "message":"Dukeneye aho uherereye kugira tugushakire farumasi ziri hafi.",
         "allow":"Emeza aho uherereye"
 
+    },
+    "searchModel":{
+        "Smodel":"SMS kode",
+        "SmodelMessage":"Shyiramo kode wahave n'ibitaro tugenzure imiti bakwandikiye",
+        "Sfind":"Shaka imiti",
+        "Sfooter":"Reba mesaje wahawe n'ibitaro"
     }
 }
