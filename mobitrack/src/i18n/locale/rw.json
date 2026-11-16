@@ -98,7 +98,13 @@
         "PhaNear":"Farumasi ziri hafi",
         "Found":"zabonetse",
         "notFound":"Nta farumasi zikwegereye zabonetse",
-        "try":"Ongera ugerageze"
+        "try":"Ongera ugerageze",
+        "havePrescription":"Ufite umuti wandikiwe?",
+        "preMessage":"Shyiramo kode baguhaye wivuza, tugufashe kubona imiti yawe",
+        "explore":"Sura isoko rihuje amafarumasi",
+        "exploreMessage":"ubwiza, ubuzima bw'abana, serivise zitandukanye z'ubuzima",
+        "loadingPharmacies":"Turi gushakisha farumasi ziri hafi",
+        "otherPharmacies":"Izindi farumasi"
 
     },
     "Navbar":{

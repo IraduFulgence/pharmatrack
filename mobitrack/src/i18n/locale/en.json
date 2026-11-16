@@ -98,7 +98,13 @@
         "PhaNear":"Pharmacies near you",
         "Found":"found",
         "notFound":"No nearby pharmacies found",
-        "try":"Try again"
+        "try":"Try again",
+        "havePrescription":"Have a prescription?",
+        "preMessage":"Upload the code given by doctor and we find your medicines",
+        "explore":"Explore pharmacy marketplace",
+        "exploreMessage":"cosmetics, baby care, and health services",
+        "loadingPharmacies":"Finding nearby pharmacies",
+        "otherPharmacies":"Other Pharmacies"
 
     },
     "Navbar":{
