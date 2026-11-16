@@ -110,7 +110,8 @@
     "Navbar":{
         "Home":"Ahabanza",
         "Search":"Shakisha",
-        "profile":"Umwirondoro"
+        "profile":"Umwirondoro",
+        "market":"Isoko"
     },
     "searchScreen":{
         "searchText":"Shaka Umuti",

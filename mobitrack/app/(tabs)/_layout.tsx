@@ -56,6 +56,15 @@ export default function TabLayout(){
           ),
       }}
       />
+       <Tabs.Screen
+      name="marketplace"
+      options={{
+        title:t('Navbar.market'),
+            tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "people" : "people"} size={24} color={color} />
+          ),
+      }}
+      />
     </Tabs>
   )
 }

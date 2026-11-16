@@ -110,7 +110,8 @@
     "Navbar":{
         "Home":"Home",
         "Search":"Search",
-        "profile":"Profile"
+        "profile":"Profile",
+        "market":"Marketplace"
     },
     "searchScreen":{
         "searchText":"Search Medicine",
