@@ -27,10 +27,10 @@ export default function AuthHeader(){
 
                 
                 <View style={styles.headerTextContainer}>
-                    <Text style={styles.overline}>
+                    {/* <Text style={styles.overline}>
                         {t('auth.signup.header')}
-                    </Text>
-                    <Text style={styles.title}>
+                    </Text> */}
+                    <Text style={styles.overline}>
                         {t('auth.signup.subheader')}
                     </Text>
                 </View>
@@ -43,7 +43,7 @@ export default function AuthHeader(){
 const styles = StyleSheet.create({
     header: {
         backgroundColor: '#007a55',
-        height: '32%',
+        height: '16%',
         paddingHorizontal: 20,
         position: 'relative',
         overflow: 'hidden',
@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
     
    
     fullLogo: {
-        width: 140,   
-        height: 35,
+        width: 180,   
+        height: 40,
     },
 
    

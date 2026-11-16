@@ -23,7 +23,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   
-
+  // Validation State
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   
   // UI State
@@ -36,7 +36,7 @@ export default function RegisterScreen() {
     router.replace('/auth/login');
   };
 
-  
+  // Validation Logic
   const validateField = (field: string, value: string): string => {
     switch (field) {
       case 'fullName':
@@ -51,12 +51,11 @@ export default function RegisterScreen() {
       case 'phone':
         if (!value.trim()) return `${t('auth.signup.phoneFail')}`;
         if (!/^\+[1-9]\d{1,14}$/.test(value.trim())) {
-        return `${t('auth.signup.phoneInternational')}`;
+          return `${t('auth.signup.phoneInternational')}`;
         }
         return "";
 
       case 'email':
-        
         if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
           return `${t('auth.signup.emailFail')}`;
         }
@@ -75,15 +74,15 @@ export default function RegisterScreen() {
     }
   };
 
-  
+  // Update Field and Clear Error
   const handleFieldChange = (field: string, setter: (val: string) => void, value: string) => {
     setter(value);
-  
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
+  // Date Picker Handlers
   const handleDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     
@@ -106,25 +105,22 @@ export default function RegisterScreen() {
     setShowDatePicker(false);
   };
 
- 
+  // Submit Handler
   const handleSubmit = async () => {
     const newErrors: {[key: string]: string} = {};
     
-   
     newErrors.fullName = validateField('fullName', fullName);
     newErrors.dateOfBirth = validateField('dateOfBirth', dateOfBirth);
     newErrors.phone = validateField('phone', phone);
     newErrors.email = validateField('email', email);
     newErrors.password = validateField('password', password);
-
-  
+    
     const cleanedErrors = Object.fromEntries(
       Object.entries(newErrors).filter(([_, v]) => v !== "")
     );
 
     if (Object.keys(cleanedErrors).length > 0) {
       setErrors(cleanedErrors);
-
       return;
     }
 
@@ -174,188 +170,192 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <AuthHeader />
-
+       <AuthHeader />
       <KeyboardAvoidingView
-        style={styles.formWrapper} 
+        style={styles.keyboardView} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Welcome Header */}
-          <View style={styles.welcomeHeader}>
-            <Text style={styles.welcomeText}>{t('auth.signup.createAccount')}</Text>
-            <Text style={styles.subText}>
-              {t('auth.signup.Already')}{' '}
-              <Text style={styles.linkText} onPress={handleSwitch}>{t('auth.signup.Login')}</Text>
-            </Text>
-          </View>
+         
+         
 
-
-          {/* Social Login */}
-          <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialButton}>
-              <AntDesign name="google" size={20} color="#DB4437" style={{ marginRight: 8 }} />
-              <Text style={styles.socialText}>Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <FontAwesome5 name="apple" size={20} color="#000" style={{ marginRight: 8 }} />
-              <Text style={styles.socialText}>Apple</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Or sign up with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* FULL NAME */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('auth.signup.Fullname')}</Text>
-            <View style={[styles.inputContainer, errors.fullName && styles.inputContainerError]}>
-              <Ionicons name="person-outline" size={20} color={errors.fullName ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="John Doe"
-                placeholderTextColor="#98A2B3"
-                value={fullName}
-                onChangeText={(v) => handleFieldChange('fullName', setFullName, v)}
-              />
-            </View>
-            {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
-          </View>
-
-          {/* DOB */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('auth.signup.DOB')}</Text>
-            <TouchableOpacity 
-              style={[styles.inputContainer, errors.dateOfBirth && styles.inputContainerError]} 
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="calendar-outline" size={20} color={errors.dateOfBirth ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
-              <Text style={[styles.input, { color: dateOfBirth ? '#101828' : '#98A2B3' }]}>
-                {dateOfBirth || "YYYY-MM-DD"}
+          
+          <View style={styles.formContainer}>
+            
+            {/* Already have an account link */}
+            <View style={styles.welcomeHeader}>
+              <Text style={styles.subText}>
+                {t('auth.signup.Already')}{' '}
+                <Text style={styles.linkText} onPress={handleSwitch}>{t('auth.signup.Login')}</Text>
               </Text>
-            </TouchableOpacity>
-            {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
-          </View>
-
-          {showDatePicker && (
-            <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
-              <DateTimePicker
-                value={tempDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleDateChange}
-                maximumDate={new Date()} 
-                themeVariant="light"
-              />
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity style={styles.iosDoneButton} onPress={confirmIOSDate}>
-                  <Text style={styles.iosDoneText}>Done</Text>
-                </TouchableOpacity>
-              )}
             </View>
-          )}
 
-          {/* gender */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('auth.signup.Gender')}</Text>
-            <View style={styles.radioGroup}>
-              {renderRadioOption(t('auth.signup.genderlabelMale'), "Male")}
-              {renderRadioOption(t('auth.signup.genderlabelFemale'), "Female")}
-            </View>
-          </View>
-
-          {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('auth.signup.Email')} <Text style={{color:'#98A2B3'}}>(Optional)</Text></Text>
-            <View style={[styles.inputContainer, errors.email && styles.inputContainerError]}>
-              <Ionicons name="mail-outline" size={20} color={errors.email ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="you@gmail.com"
-                placeholderTextColor="#98A2B3"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email} 
-                onChangeText={(v) => handleFieldChange('email', setEmail, v)}
-              />
-            </View>
-            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-          </View>
-
-          {/* Phone number */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('auth.signup.Phone')}</Text>
-            <View style={[styles.inputContainer, errors.phone && styles.inputContainerError]}>
-              <Ionicons name="call-outline" size={20} color={errors.phone ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="+250788000003"
-                placeholderTextColor="#98A2B3"
-                keyboardType="phone-pad"
-                value={phone} 
-                onChangeText={(v) => handleFieldChange('phone', setPhone, v)}
-              />
-            </View>
-            {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
-          </View>
-
-          {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('auth.login.password')}</Text>
-            <View style={[styles.inputContainer, errors.password && styles.inputContainerError]}>
-              <Ionicons name="lock-closed-outline" size={20} color={errors.password ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="••••••••"
-                placeholderTextColor="#98A2B3"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={(v) => handleFieldChange('password', setPassword, v)}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons 
-                  name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                  size={20} 
-                  color="#98A2B3" 
-                />
+            {/* Social Login */}
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={styles.socialButton}>
+                <AntDesign name="google" size={20} color="#DB4437" style={{ marginRight: 8 }} />
+                <Text style={styles.socialText}>Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton}>
+                <FontAwesome5 name="apple" size={20} color="#000" style={{ marginRight: 8 }} />
+                <Text style={styles.socialText}>Apple</Text>
               </TouchableOpacity>
             </View>
-            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-          </View>
 
-          {/* Terms */}
-          <View style={styles.optionsRow}>
-             <TouchableOpacity style={{flexDirection:'row'}}>
-              <Text style={styles.forgotText}>{t('auth.signup.terms')} </Text>
-              <Text style={styles.TermsText}>{t('auth.signup.termsLabel')} </Text>
-              <Text style={styles.forgotText}>{t('auth.signup.And')} </Text>
-              <Text style={styles.TermsText}>{t('auth.signup.condition')}</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>{t('auth.login.Or')}</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity 
-            style={[styles.submitButton, isLoading && { opacity: 0.7 }]} 
-            onPress={handleSubmit}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <>
-                <Text style={styles.submitButtonText}>Create Account</Text>
-                <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
-              </>
+            {/* FULL NAME */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.signup.Fullname')}</Text>
+              <View style={[styles.inputContainer, errors.fullName && styles.inputContainerError]}>
+                <Ionicons name="person-outline" size={20} color={errors.fullName ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="John Doe"
+                  placeholderTextColor="#98A2B3"
+                  value={fullName}
+                  onChangeText={(v) => handleFieldChange('fullName', setFullName, v)}
+                />
+              </View>
+              {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+            </View>
+
+            {/* DOB */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.signup.DOB')}</Text>
+              <TouchableOpacity 
+                style={[styles.inputContainer, errors.dateOfBirth && styles.inputContainerError]} 
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={20} color={errors.dateOfBirth ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
+                <Text style={[styles.input, { color: dateOfBirth ? '#101828' : '#98A2B3' }]}>
+                  {dateOfBirth || "YYYY-MM-DD"}
+                </Text>
+              </TouchableOpacity>
+              {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
+            </View>
+
+            {showDatePicker && (
+              <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
+                <DateTimePicker
+                  value={tempDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  maximumDate={new Date()} 
+                  themeVariant="light"
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.iosDoneButton} onPress={confirmIOSDate}>
+                    <Text style={styles.iosDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
-          </TouchableOpacity>
 
+            {/* Gender */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.signup.Gender')}</Text>
+              <View style={styles.radioGroup}>
+                {renderRadioOption(t('auth.signup.genderlabelMale'), "Male")}
+                {renderRadioOption(t('auth.signup.genderlabelFemale'), "Female")}
+              </View>
+            </View>
+
+            {/* Email */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.signup.Email')} <Text style={{color:'#98A2B3'}}>(Optional)</Text></Text>
+              <View style={[styles.inputContainer, errors.email && styles.inputContainerError]}>
+                <Ionicons name="mail-outline" size={20} color={errors.email ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@gmail.com"
+                  placeholderTextColor="#98A2B3"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email} 
+                  onChangeText={(v) => handleFieldChange('email', setEmail, v)}
+                />
+              </View>
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
+
+            {/* Phone number */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.signup.Phone')}</Text>
+              <View style={[styles.inputContainer, errors.phone && styles.inputContainerError]}>
+                <Ionicons name="call-outline" size={20} color={errors.phone ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="+250788000003"
+                  placeholderTextColor="#98A2B3"
+                  keyboardType="phone-pad"
+                  value={phone} 
+                  onChangeText={(v) => handleFieldChange('phone', setPhone, v)}
+                />
+              </View>
+              {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+            </View>
+
+            {/* Password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.login.password')}</Text>
+              <View style={[styles.inputContainer, errors.password && styles.inputContainerError]}>
+                <Ionicons name="lock-closed-outline" size={20} color={errors.password ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  placeholderTextColor="#98A2B3"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={(v) => handleFieldChange('password', setPassword, v)}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons 
+                    name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                    size={20} 
+                    color="#98A2B3" 
+                  />
+                </TouchableOpacity>
+              </View>
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            </View>
+
+            {/* Terms */}
+            <View style={styles.optionsRow}>
+              <TouchableOpacity style={{flexDirection:'row', flexWrap: 'wrap'}}>
+                <Text style={styles.forgotText}>{t('auth.signup.terms')} </Text>
+                <Text style={styles.TermsText}>{t('auth.signup.termsLabel')} </Text>
+                <Text style={styles.forgotText}>{t('auth.signup.And')} </Text>
+                <Text style={styles.TermsText}>{t('auth.signup.condition')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity 
+              style={[styles.submitButton, isLoading && { opacity: 0.7 }]} 
+              onPress={handleSubmit}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Text style={styles.submitButtonText}>{t('auth.signup.button')}</Text>
+                  <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
+                </>
+              )}
+            </TouchableOpacity>
+
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -364,74 +364,41 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: {
-     flex: 1,
-      backgroundColor: '#F8F9F9'
-     },
-  formWrapper: { 
     flex: 1,
-     marginTop: -30
-     },
-  scrollContent: { 
-    flexGrow: 1, 
+    backgroundColor: '#F8F9F9',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40, 
+  },
+  
+  formContainer: {
     paddingHorizontal: 20,
-     paddingBottom: 40, 
-     paddingTop: 60 
-    },
+    paddingTop: 20,
+  },
 
   welcomeHeader: { 
-    marginBottom: 24 
-  },
-  welcomeText: {
-     fontSize: 28, 
-     fontWeight: '800', 
-     color: '#0F2926', 
-     marginBottom: 8 
-    },
-  subText: { 
-    fontSize: 14,
-     color: '#667085'
-     },
-  linkText: { 
-    color: '#007a55',
-     fontWeight: '700' 
-    },
-
-  tabContainer: {
-    flexDirection: 'row', 
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12, 
-    padding: 4, 
     marginBottom: 24,
   },
-  tab: { 
-    flex: 1, 
-    paddingVertical: 10, 
-    alignItems: 'center',
-     borderRadius: 8 
-    },
-  activeTab: {
-    backgroundColor: 'white', 
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-     shadowOpacity: 0.05, 
-     shadowRadius: 2, 
-     elevation: 2,
+  subText: { 
+    fontSize: 15,
+    color: '#667085',
+    textAlign: 'center',
   },
-  tabText: {
-     fontSize: 14, 
-    fontWeight: '600',
-     color: '#667085' 
-    },
-  activeTabText: { 
-    color: '#007a55'
-   },
+  linkText: { 
+    color: '#007a55',
+    fontWeight: '700' 
+  },
 
   socialRow: {
-     flexDirection: 'row',
-      justifyContent: 'space-between', 
-      gap: 12, 
-      marginBottom: 24
-     },
+    flexDirection: 'row',
+    justifyContent: 'space-between', 
+    gap: 12, 
+    marginBottom: 24
+  },
   socialButton: {
     flex: 1, 
     flexDirection: 'row', 
@@ -444,50 +411,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   socialText: { 
-    fontSize: 14, 
+    fontSize: 15, 
     fontWeight: '600', 
     color: '#344054' 
   },
 
   dividerRow: { 
     flexDirection: 'row',
-     alignItems: 'center', 
-     marginBottom: 24 
-    },
+    alignItems: 'center', 
+    marginBottom: 24 
+  },
   dividerLine: { 
     flex: 1, 
     height: 1,
-     backgroundColor: '#EAECF0'
-
-   },
+    backgroundColor: '#EAECF0'
+  },
   dividerText: { 
     marginHorizontal: 12, 
-    fontSize: 12, 
+    fontSize: 13, 
     color: '#98A2B3',
-     fontWeight: '500'
-
-   },
+    fontWeight: '500'
+  },
 
   inputGroup: { 
     marginBottom: 20
-   },
+  },
   inputLabel: { 
-    fontSize: 13,
-     fontWeight: '600', 
-     color: '#344054', 
-     marginBottom: 8 
-    },
+    fontSize: 15,
+    fontWeight: '600', 
+    color: '#344054', 
+    marginBottom: 8 
+  },
   inputContainer: {
     flexDirection: 'row', 
     alignItems: 'center',
     borderWidth: 1, 
     borderColor: '#D0D5DD',
-     borderRadius: 12,
+    borderRadius: 12,
     paddingHorizontal: 14, 
     height: 52, 
     backgroundColor: 'white',
   },
-  
   inputContainerError: {
     borderColor: '#EF4444',
     backgroundColor: '#FEF2F2',
@@ -497,11 +461,9 @@ const styles = StyleSheet.create({
   },
   input: { 
     flex: 1,
-     fontSize: 15, 
-     color: '#101828' 
-    },
-  
-
+    fontSize: 15, 
+    color: '#101828' 
+  },
   errorText: {
     fontSize: 12,
     color: '#EF4444',
@@ -513,27 +475,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     gap: 8 
   },
-
   radioOption: {
     flexDirection: 'row',
-     alignItems: 'center',
+    alignItems: 'center',
     paddingVertical: 10, 
     paddingHorizontal: 14,
     borderWidth: 1, 
     borderColor: '#EAECF0',
-     borderRadius: 12,
+    borderRadius: 12,
     backgroundColor: 'white', 
     flex: 1,
   },
   radioOptionSelected: {
-     borderColor: '#007a55', 
-     backgroundColor: '#e6f4ef' 
-    },
+    borderColor: '#007a55', 
+    backgroundColor: '#e6f4ef' 
+  },
   radioCircle: {
     width: 20,
-     height: 20, 
-     borderRadius: 10, 
-     borderWidth: 2,
+    height: 20, 
+    borderRadius: 10, 
+    borderWidth: 2,
     borderColor: '#D0D5DD', 
     alignItems: 'center', 
     justifyContent: 'center', 
@@ -543,16 +504,16 @@ const styles = StyleSheet.create({
     borderColor: '#007a55' 
   },
   radioInnerCircle: {
-     width: 10, 
-     height: 10,
-      borderRadius: 5, 
-      backgroundColor: '#007a55'
-     },
+    width: 10, 
+    height: 10,
+    borderRadius: 5, 
+    backgroundColor: '#007a55'
+  },
   radioLabel: { 
-    fontSize: 14,
-     color: '#667085', 
-     fontWeight: '500' 
-    },
+    fontSize: 15,
+    color: '#667085', 
+    fontWeight: '500' 
+  },
   radioLabelSelected: { 
     color: '#0F2926', 
     fontWeight: '600' 
@@ -565,14 +526,14 @@ const styles = StyleSheet.create({
     marginBottom: 24 
   },
   forgotText: { 
-    fontSize: 12,
-     color: '#667085' 
-    },
+    fontSize: 13,
+    color: '#667085' 
+  },
   TermsText: {
-     fontSize: 12, 
-     fontWeight: '700',
-      color: '#007a55' 
-    },
+    fontSize: 13, 
+    fontWeight: '700',
+    color: '#007a55' 
+  },
 
   submitButton: {
     backgroundColor: '#007a55', 
@@ -583,13 +544,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     shadowColor: '#007a55', 
     shadowOffset: { width: 0, height: 4 },
-     shadowOpacity: 0.2, 
-     shadowRadius: 8, 
-     elevation: 4,
+    shadowOpacity: 0.2, 
+    shadowRadius: 8, 
+    elevation: 4,
   },
   submitButtonText: { 
     color: 'white', 
-    fontSize: 16, 
+    fontSize: 18, 
     fontWeight: '700' 
   },
 
@@ -602,16 +563,16 @@ const styles = StyleSheet.create({
     shadowColor: '#000', 
     shadowOffset: { width: 0, height: 2 }, 
     shadowOpacity: 0.1,
-     shadowRadius: 4,
+    shadowRadius: 4,
   },
   iosDoneButton: { 
     alignSelf: 'flex-end',
-     paddingVertical: 10,
-      paddingHorizontal: 20
-     },
+    paddingVertical: 10,
+    paddingHorizontal: 20
+  },
   iosDoneText: {
-     color: '#007a55',
-      fontSize: 16, 
-      fontWeight: '600'
-     },
+    color: '#007a55',
+    fontSize: 16, 
+    fontWeight: '600'
+  },
 });
