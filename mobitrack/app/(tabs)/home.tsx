@@ -40,9 +40,13 @@ export default function HomeScreen() {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        const token = await SecureStore.getItemAsync('token');
+        //console.log(token);
         const userString = await SecureStore.getItemAsync('user');
         if (userString) {
+
           const user = JSON.parse(userString);
+          
           const name = user.fullName || 'User';
           setUserName(name.split(' ')[0]);
           const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
@@ -280,16 +284,16 @@ export default function HomeScreen() {
             <View style={styles.dropdownDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={() => { setIsMenuVisible(false); router.push('/profile'); }}>
               <Ionicons name="person-outline" size={20} color="#344054" />
-              <Text style={styles.menuItemText}>My Profile</Text>
+              <Text style={styles.menuItemText}>{t('dropdown.Myprofile')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => { setIsMenuVisible(false); router.push('/orders'); }}>
               <Ionicons name="receipt-outline" size={20} color="#344054" />
-              <Text style={styles.menuItemText}>My Orders</Text>
+              <Text style={styles.menuItemText}>{t('dropdown.MyOrders')}</Text>
             </TouchableOpacity>
             <View style={styles.dropdownDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-              <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Sign Out</Text>
+              <Text style={[styles.menuItemText, { color: '#EF4444' }]}>{t('dropdown.Signout')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

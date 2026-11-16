@@ -118,7 +118,9 @@
         "NotFound":"nta farumasi ikwegereye ifite uwo muti",
         "inStock":"Ibihari",
         "noresult":"nta gisubizo cyabonetse",
-        "tryMessage":"Reba neza uko wanditse umuti"
+        "tryMessage":"Reba neza uko wanditse umuti",
+        "startTitle":"Shakisha imiti yawe",
+        "startMessage":"Andika izina ry’umuti kugira ngo umenye za farumasi ziwufite."
 
 
     },

@@ -118,7 +118,9 @@
         "NotFound":"Not available in any nearby pharmacy.",
         "inStock":"In Stock",
         "noresult":"No results found",
-        "tryMessage":"Try a different spelling or medicine name."
+        "tryMessage":"Try a different spelling or medicine name.",
+        "startTitle":"Find your medicine",
+        "startMessage":"Type the name of the medicine to see which pharmacies have it in stock."
     },
     "dropdown":{
         "Myprofile":"My Profile",
