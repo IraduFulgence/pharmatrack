@@ -47,6 +47,15 @@ export default function TabLayout(){
           ),
       }}
       />
+      <Tabs.Screen
+      name="profile"
+      options={{
+        title:t('Navbar.profile'),
+            tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "people" : "people"} size={24} color={color} />
+          ),
+      }}
+      />
     </Tabs>
   )
 }

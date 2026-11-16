@@ -88,7 +88,7 @@ export default function SearchScreen() {
     }
   };
 
-  // Location Permission Block
+ 
   if (!hasPermission) {
     return (
       <SafeAreaView style={styles.container}>
@@ -114,6 +114,7 @@ export default function SearchScreen() {
   }
 
   // Render each medicine result
+  
   const renderResult = ({ item }: { item: any }) => {
     const pharmacies = item.pharmacies || [];
     

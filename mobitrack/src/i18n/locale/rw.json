@@ -109,7 +109,8 @@
     },
     "Navbar":{
         "Home":"Ahabanza",
-        "Search":"Shakisha"
+        "Search":"Shakisha",
+        "profile":"Umwirondoro"
     },
     "searchScreen":{
         "searchText":"Shaka Umuti",
@@ -143,5 +144,26 @@
         "SmodelMessage":"Shyiramo kode wahave n'ibitaro tugenzure imiti bakwandikiye",
         "Sfind":"Shaka imiti",
         "Sfooter":"Reba mesaje wahawe n'ibitaro"
+    },
+    "profile":{
+        "pSignout":"Sohoka",
+        "pSignoutMessage":"Ushaka gusohoka?",
+        "textCancel":"Hagarika",
+        "textSignout":"Sohoka",
+        "textLoading":"Turi kuzana umwirondoro...",
+        "title":"Umwirondoro wanjye",
+        "personalInfo":"Amakuru y'ingenzi",
+        "fullName":"Izina ryuzuye",
+        "phone":"Nimero ya telefoni",
+        "email":"Imeyili",
+        "dob":"Itariki y'amavuko",
+        "gender":"Igitsina",
+        "insurance":"Ubwishingizi",
+        "notRegistered":"Ntabwishingizi ufite",
+        "addInsurance":"Shyiraho ubwishingizi bwawe",
+        "myOrders":"Ibyatumijwe",
+        "settings":"Igenamiterere"
+
+
     }
 }

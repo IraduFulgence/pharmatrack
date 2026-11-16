@@ -109,7 +109,8 @@
     },
     "Navbar":{
         "Home":"Home",
-        "Search":"Search"
+        "Search":"Search",
+        "profile":"Profile"
     },
     "searchScreen":{
         "searchText":"Search Medicine",
@@ -141,5 +142,26 @@
         "SmodelMessage":"Enter the code received from hospital to find your prescribed medicine",
         "Sfind":"Find medicine",
         "Sfooter":"Check the sms sent by hospital or clinic"
+    },
+    "profile":{
+        "pSignout":"Sign out",
+        "pSignoutMessage":"Are you sure you want to log out?",
+        "textCancel":"Cancel",
+        "textSignout":"Sign Out",
+        "textLoading":"Loading profile...",
+        "title":"My Profile",
+        "personalInfo":"Personal Information",
+        "fullName":"Full Name",
+        "phone":"Phone Number",
+        "email":"Email Address",
+        "dob":"Date of Birth",
+        "gender":"Gender",
+        "insurance":"Health Insurance",
+        "notRegistered":"Not Registerd",
+        "addInsurance":"Add your insurance to get coverage",
+        "myOrders":"My Orders",
+        "settings":"Settings"
+
+
     }
 }

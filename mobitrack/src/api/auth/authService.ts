@@ -54,6 +54,10 @@ export const AuthService = {
     return userString ? JSON.parse(userString) : null;
   },
 
+  getProfile: async () => {
+    return ApiRequest('/auth/profile', { method: 'GET' });
+  },
+
   // Helper to log out
   logout: async () => {
     await SecureStore.deleteItemAsync('token');
