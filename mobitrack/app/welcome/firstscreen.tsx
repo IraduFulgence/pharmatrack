@@ -1,266 +1,109 @@
-import { View, Text, StyleSheet, Image,TouchableOpacity, SafeAreaView,Dimensions,Platform } from "react-native";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { LanguageSwitcher } from "@/components/language/languageswitche";
-import { useTranslation } from "react-i18next";
-import { router, useRouter } from "expo-router";
-import { useOnboardingStore } from "@/hooks/onBoarding";
-import GuestHeader from "@/components/topheader/header";
-const {width, height} = Dimensions.get('window');
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Image, Platform } from 'react-native';
+import Animated, { 
+  FadeIn, FadeInDown, FadeInUp, 
+  useSharedValue, useAnimatedStyle, withTiming, withDelay 
+} from 'react-native-reanimated';
+import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '@/components/language/languageswitche';
 
+const logo = require('../../assets/images/Green-logo.png'); 
 
+export default function SplashScreen() {
+  const { t } = useTranslation();
+  const opacity = useSharedValue(1);
 
-export default function FirstScreen(){
-const rwanda = require('../../assets/images/rwanda.webp');
-const completeOnboarding = useOnboardingStore((state) =>state.completeOnboarding);
+  useEffect(() => {
+    // Fade out animation
+    opacity.value = withDelay(3500, withTiming(0, { duration: 500 }));
 
-const handleContinue = async () =>{
-  router.replace('/welcome/secondscreen');
-}
-const {t} = useTranslation();
-    return (
-        <SafeAreaView style={styles.container}>
-      {/* --- header --- */}
-        <GuestHeader />
-      {/* end of header section */}
+    const timer = setTimeout(async () => {
+      // Check if user is already logged in
+      const token = await SecureStore.getItemAsync('token');
+      
+      if (token) {
+        // Logged in
+        router.replace('/(tabs)/home');
+      } else {
+        // Not logged in
+        router.replace('/auth/login');
+      }
+    }, 4000);
 
-      {/* --- map section --- */}
-        <View style={styles.mapSection}>
-              <View style={styles.mapContainer}>
-       
-        <Image 
-          source={rwanda} 
-          style={styles.mapImage} 
-        />
-        
-        {/* Map Pin */}
-        <View style={styles.pinContainer}>
-          <View style={styles.pinShadow} />
-          <View style={styles.pin}>
-            <Ionicons name="location" size={24} color="white" />
-          </View>
-        </View>
+    return () => clearTimeout(timer);
+  }, []);
 
-        {/* Floating Pharmacy Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardIconContainer}>
-              <FontAwesome5 name="plus" size={16} color="white" />
-            </View>
-            <View style={styles.cardHeaderText}>
-              <Text style={styles.pharmacyName}>Ineza Pharmacy</Text>
-              <View style={styles.statusRow}>
-                <Text style={styles.openText}>{t('welcome.Open')}</Text>
-                <Text style={styles.closesText}> • {t('welcome.Close')} 9 PM</Text>
-              </View>
-            </View>
-          </View>
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statText}>4.8 <Text style={{color: '#FFC107'}}>★</Text></Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statText}>0.4 km</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statText}>5 min</Text>
-            </View>
-          </View>
-        </View>
+  return (
+    <Animated.View style={[styles.container, animatedContainerStyle]}>
+      
+      <Animated.View entering={FadeIn.delay(200)} style={styles.topBar}>
+        <View style={{ flex: 1 }} /> 
+        <LanguageSwitcher variant="light" textColor="#0F172A" />
+      </Animated.View>
+
+      <View style={styles.centerContent}>
+        <Animated.View entering={FadeInDown.delay(400).springify().damping(15)}>
+          <Image source={logo} style={styles.brandLogo} resizeMode="contain" />
+        </Animated.View>
+
+        <Animated.View entering={FadeInUp.delay(1000).springify()}>
+          <Text style={styles.slogan}>
+            {t('welcome.slogan', 'The pharmacy is in your palm.')}
+          </Text>
+        </Animated.View>
       </View>
-        </View>
 
-      {/* --- TEXT CONTENT SECTION --- */}
-      <View style={styles.contentContainer}>
-        <Text style={styles.overline}>{t('welcome.nearYou')}</Text>
-        <Text style={styles.title}>{t('welcome.heading')}</Text>
-        <Text style={styles.subtitle}>
-          {t('welcome.paragraph')}
-        </Text>
+      <Animated.View entering={FadeIn.delay(1500)} style={styles.footer}>
+        <Text style={styles.footerText}>{t('welcome.powered')}</Text>
+      </Animated.View>
 
-        {/* Bottom Button */}
-        <TouchableOpacity onPress={handleContinue} style={styles.button}>
-          <Text style={styles.buttonText}>{t('welcome.button')}</Text>
-          <Ionicons name="arrow-forward" size={18} color="white" style={styles.buttonIcon} />
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9F9', 
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
   },
-  
-  mapSection:{
-    flex:1.2,
-    paddingHorizontal:20,
-  },
-  mapContainer: {
-    minHeight: 300,
-   
-    borderRadius: 30,
-    overflow: 'hidden',
-    backgroundColor: '#E8F3F1',
-    position: 'relative',
-  },
-  mapImage: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.4, 
-  },
-  pinContainer: {
-    position: 'absolute',
-    top: '35%',
-    alignSelf: 'center',
-    alignItems: 'center',
-  },
-  pin: {
-    backgroundColor: '#2A7B6F',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  pinShadow: {
-    position: 'absolute',
-    bottom: -10,
-    width: 30,
-    height: 10,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 15,
-    transform: [{ scaleY: 0.5 }],
-  },
-  card: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  cardHeader: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingTop: Platform.OS === 'android' ? 40 : 10,
+    paddingBottom: 10,
   },
-  cardIconContainer: {
-    backgroundColor: '#2A7B6F',
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  cardHeaderText: {
+  centerContent: {
     flex: 1,
-  },
-  pharmacyName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0F2926',
-  },
-  statusRow: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 2,
   },
-  openText: {
-    color: '#2A7B6F',
+  brandLogo: {
+    width: 260,
+    height: 80,
+    marginBottom: 24,
+  },
+  slogan: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#007a55',
+    textAlign: 'center',
+    lineHeight: 32,
+    paddingHorizontal: 20,
+  },
+  footer: {
+    paddingBottom: Platform.OS === 'ios' ? 40 : 30,
+    alignItems: 'center',
+  },
+  footerText: {
     fontSize: 12,
-  },
-  closesText: {
     color: '#98A2B3',
-    fontSize: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statBox: {
-    backgroundColor: '#F8F9F9',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  statText: {
-    fontSize: 12,
-    color: '#667085',
     fontWeight: '500',
   },
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 30,
-  },
-  overline: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#667085',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#0F2926',
-    lineHeight: 40,
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#667085',
-    lineHeight: 22,
-    marginBottom: 30,
-  },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  dot: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D0D5DD',
-    width: 6,
-    marginRight: 6,
-  },
-  activeDot: {
-    width: 24,
-    backgroundColor: '#2A7B6F',
-  },
-  button: {
-    backgroundColor: '#206B5F',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 18,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonIcon: {
-    marginLeft: 8,
-  },
-
-
 });
-

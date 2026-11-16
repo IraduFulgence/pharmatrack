@@ -1,10 +1,18 @@
 FROM node:20-alpine
+
+RUN apk add --no-cache bash
+
 WORKDIR /app
-RUN npm install -g expo-cli
+
+# Copy package files first to cache dependencies
 COPY package*.json ./
-RUN npm ci
+
+RUN npm install
+
+
 COPY . .
-# Expose the ports Expo needs
+
+# Expose Expo ports
 EXPOSE 19000 19001 19002 8081
-# Start Expo in LAN mode
+
 CMD ["npx", "expo", "start", "--lan"]
