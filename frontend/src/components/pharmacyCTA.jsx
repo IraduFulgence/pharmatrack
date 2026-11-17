@@ -7,11 +7,11 @@ export default function PharmacyCTA() {
   const { t } = useTranslation();
 
   return (
-    <section className="bg-gray-50 dark:bg-gray-950 py-8 border-y border-gray-950 dark:border-gray-800 transition-colors">
+    <section className="bg-gray-50 dark:bg-gray-950 py-8  transition-colors">
       <div className="container mx-auto px-6 md:px-12">
         
         {/* Banner Container */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white dark:bg-gray-950 p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white dark:bg-gray-950 p-6 md:p-8 rounded-2xl ">
           
           {/* Text & Icon */}
           <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
