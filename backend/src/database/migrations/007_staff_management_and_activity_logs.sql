@@ -6,7 +6,8 @@
 
 -- 1. pharmacy_users updates
 ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(25);
-ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES public.pharmacy_users(pharmacy_user_id) ON DELETE SET NULL;
+ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS created_by BIGINT;
+ALTER TABLE public.pharmacy_users DROP CONSTRAINT IF EXISTS pharmacy_users_created_by_fkey;
 ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL;
 ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
 

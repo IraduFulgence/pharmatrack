@@ -47,6 +47,10 @@ describe('StaffService', () => {
       mockDb.query.mockResolvedValueOnce({
         rows: [{ pharmacy_name: 'Test Pharmacy' }],
       });
+      // 4. Check creator exists in pharmacy_users
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ pharmacy_user_id: 1 }],
+      });
 
       // Transaction callback execution
       mockDb.transaction.mockImplementation(async (cb: any) => {

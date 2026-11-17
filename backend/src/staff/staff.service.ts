@@ -95,6 +95,18 @@ export class StaffService {
     );
     const pharmacyName = pharmRes.rows[0]?.pharmacy_name || 'Your Pharmacy';
 
+    // Verify if creatorUserId corresponds to an existing pharmacy_users row
+    let validCreatorId: number | null = null;
+    if (creatorUserId) {
+      const creatorCheck = await this.db.query(
+        'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_user_id = $1 LIMIT 1',
+        [creatorUserId],
+      );
+      if (creatorCheck.rows.length > 0) {
+        validCreatorId = Number(creatorCheck.rows[0].pharmacy_user_id);
+      }
+    }
+
     // 4. Generate secure 6-digit activation code and random URL token
     const activationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const activationToken = crypto.randomBytes(24).toString('hex');
@@ -108,7 +120,7 @@ export class StaffService {
           (pharmacy_id, full_name, phone_number, email, role, is_active, created_by, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, false, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING pharmacy_user_id, pharmacy_id, full_name, phone_number, email, role, is_active, created_at`,
-        [pharmacyId, fullName.trim(), cleanPhone, cleanEmail, role, creatorUserId || null],
+        [pharmacyId, fullName.trim(), cleanPhone, cleanEmail, role, validCreatorId],
       );
       const newStaff = userRes.rows[0];
       const newStaffId = Number(newStaff.pharmacy_user_id);
@@ -127,7 +139,7 @@ export class StaffService {
          VALUES ($1, $2, 'STAFF_INVITATION', $3, $4)`,
         [
           pharmacyId,
-          creatorUserId || null,
+          validCreatorId,
           `New Staff Member Registered: ${fullName.trim()}`,
           `${fullName.trim()} was registered as ${role}. Temporary activation code generated: ${activationCode}.`,
         ],
@@ -139,7 +151,7 @@ export class StaffService {
     // 6. Log activity
     await this.activityLogger.log(
       pharmacyId,
-      creatorUserId || null,
+      validCreatorId,
       'STAFF_REGISTERED',
       'STAFF',
       Number(result.pharmacy_user_id),
