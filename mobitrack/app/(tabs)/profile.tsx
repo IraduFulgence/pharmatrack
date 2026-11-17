@@ -171,7 +171,7 @@ export default function ProfileScreen() {
 
         {/* Actions */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/orders')}>
+          <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/orders')}>
             <View style={styles.actionLeft}>
               <Ionicons name="receipt-outline" size={20} color="#344054" />
               <Text style={styles.actionText}>{t('profile.myOrders', 'My Orders')}</Text>

@@ -1,97 +1,108 @@
-import { useState, useEffect, useCallback } from "react";
-import * as Location from 'expo-location';
-import { Alert, Linking, AppState } from "react-native";
+import { useState, useEffect, useCallback, useRef } from "react";
+import * as Location from "expo-location";
+import { Linking, AppState } from "react-native";
 
-export function useLocation(){
-    const [location, setLocation] = useState<Location.LocationObject | null>(null);
-    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+export function useLocation() {
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-    // request location permission
+  // Prevent overlapping requests (mount effect + AppState effect + manual retry)
+  const inFlightRef = useRef(false);
 
-    const requestlocation = useCallback(async () =>{
-        setIsLoading(true);
-        setErrorMessage(null);
+  const requestlocation = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    setIsLoading(true);
+    setErrorMessage(null);
 
-        try {
-            // we check if location services are enabled on the device
-            const servicesEnabled = await Location.hasServicesEnabledAsync();
-            if (!servicesEnabled) {
-                setHasPermission(false);
-                setErrorMessage('Location is disabled. Please enable it in settings.');
-                setIsLoading(false);
-                return;
-            }
+    try {
+      // Location services (GPS) enabled?
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        setHasPermission(false);
+        setLocation(null);
+        setErrorMessage("Location is disabled. Please enable it in settings.");
+        return;
+      }
 
-            // request foreground permissions
-            const {status} = await Location.requestForegroundPermissionsAsync();
-            if(status !== 'granted'){
-                setHasPermission(false);
-                setErrorMessage('Permission on location was denied!');
-                setIsLoading(false);
-                return;
-            }
-            setHasPermission(true);
+      // Foreground permission — will prompt the user if not yet decided
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setHasPermission(false);
+        setLocation(null);
+        setErrorMessage("Permission on location was denied!");
+        return;
+      }
+      setHasPermission(true);
 
-            // get current location
-            const currentlocation = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-            });
-            setLocation(currentlocation);
-        
-        } catch (error) {
-            setErrorMessage('Failed to get location. Please try again.');
-            setHasPermission(false);
-        }
-        finally{
-            setIsLoading(false);
-        }
-    }, []);
+      // Get current location
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setLocation(currentLocation);
+      setHasPermission(true);
+      setErrorMessage(null);
+    } catch (error) {
+      console.error("useLocation.requestlocation error:", error);
+      setErrorMessage("Failed to get location. Please try again.");
+      setHasPermission(false);
+    } finally {
+      setIsLoading(false);
+      inFlightRef.current = false;
+    }
+  }, []);
 
-    // check permission status on app starting
-    useEffect(() =>{
-        (async () =>{
-            const {status} = await Location.getForegroundPermissionsAsync();
-            setHasPermission(status === 'granted');
-            if(status ==='granted'){
-                requestlocation();
-            }
-        })();
-    },[requestlocation]);
+  // On mount: check current permission, then ALWAYS attempt to request.
+  // requestlocation() will prompt the user if permission has not been granted yet,
+  // and will fetch the location if it already has been.
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      setHasPermission(status === "granted");
+      await requestlocation();
+    })();
+  }, [requestlocation]);
 
-    // always check if the location is off while using the app
-    useEffect(()=>{
-        const sub = AppState.addEventListener('change',async (nextAppState) =>{
-            if (nextAppState === 'active'){
-                // whenever app is on foreground,check if location is on
-                 const servicesEnabled = await Location.hasServicesEnabledAsync();
-                 const { status } = await Location.getForegroundPermissionsAsync();
-                if (!servicesEnabled || status !== 'granted') {
+  // Re-check when app returns to foreground (e.g. user enabled location in Settings)
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", async (nextAppState) => {
+      if (nextAppState !== "active") return;
+
+      try {
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        const { status } = await Location.getForegroundPermissionsAsync();
+
+        if (!servicesEnabled || status !== "granted") {
           setHasPermission(false);
-        } else if (hasPermission && !location) {
-          // If they turned it back on and we don't have a location yet, fetch it
-          requestlocation();
+          setLocation(null);
+          return;
         }
-            }
-        });
-        return () =>{
-            sub.remove();
+
+        // Permission is now granted. If we don't have a location yet, fetch it.
+        setHasPermission(true);
+        if (!location) {
+          await requestlocation();
         }
-    },[hasPermission,location, requestlocation]);
+      } catch (e) {
+        console.error("AppState location check failed:", e);
+      }
+    });
 
-    // helper to open device settings
+    return () => sub.remove();
+  }, [location, requestlocation]);
 
-    const openSetting = () =>{
-        Linking.openSettings();
-    };
+  const openSetting = useCallback(() => {
+    Linking.openSettings();
+  }, []);
 
-    return {
-        location,
-        hasPermission,
-        errorMessage,
-        isLoading,
-        requestlocation,
-        openSetting,
-    };
-}   
+  return {
+    location,
+    hasPermission,
+    errorMessage,
+    isLoading,
+    requestlocation,
+    openSetting,
+  };
+}

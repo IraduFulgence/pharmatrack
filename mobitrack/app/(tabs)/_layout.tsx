@@ -77,7 +77,26 @@ export default function TabLayout(){
   options={{ 
    href:null,
   }} 
-/>
+   />
+   <Tabs.Screen
+      name="orders/index"
+      options={{
+        href:null,
+      }}
+   />
+    <Tabs.Screen
+      name="orders/[id]"
+      options={{
+        href:null,
+      }}
+   />
+   <Tabs.Screen
+      name="pharmacy/[id]"
+      options={{
+        href:null,
+      }}
+   />
+
     </Tabs>
   )
 }
