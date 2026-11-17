@@ -494,6 +494,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE public.pharmacy_users ALTER COLUMN email DROP NOT NULL;
         ALTER TABLE public.pharmacy_users ALTER COLUMN password_hash DROP NOT NULL;
 
+        -- Drop old check constraint on role to allow new RBAC roles
+        ALTER TABLE public.pharmacy_users DROP CONSTRAINT IF EXISTS pharmacy_users_role_check;
+        ALTER TABLE public.pharmacy_users ADD CONSTRAINT pharmacy_users_role_check 
+          CHECK (role IN ('PHARMACY_ADMIN', 'PHARMACIST', 'SALES_OFFICER', 'OWNER', 'CASHIER', 'PHARMACY'));
+
         UPDATE public.pharmacy_users 
         SET role = 'PHARMACY_ADMIN' 
         WHERE role = 'OWNER' OR role = 'PHARMACY';
