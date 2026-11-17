@@ -47,7 +47,6 @@ const calculateDistance = (
 
 const NEARBY_RADIUS_KM = 5;
 
-// Simulated function for fetching prescription by code
 const mockFetchPrescription = async (code: string) => {
   await new Promise((resolve) => setTimeout(resolve, 1000));
   if (code === "SMS-123") {
@@ -84,7 +83,6 @@ export default function HomeScreen() {
   const [prescriptionCode, setPrescriptionCode] = useState("");
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
-  // Guard against duplicate fetches (mount + AppState re-trigger)
   const fetchingRef = useRef(false);
 
   useEffect(() => {
@@ -123,7 +121,7 @@ export default function HomeScreen() {
 
         const pharmacyList =
           response.data?.pharmacies || response.pharmacies || [];
-
+         console.log(pharmacyList);
         const sortedPharmacies = pharmacyList
           .filter(
             (p: Pharmacy) =>
@@ -164,14 +162,12 @@ export default function HomeScreen() {
     []
   );
 
-  // Fetch pharmacies whenever we have permission + location
   useEffect(() => {
-    if (hasPermission === null) return; // still determining
+    if (hasPermission === null) return; 
 
     if (hasPermission && location) {
       fetchNearbyPharmacies(location.coords.latitude, location.coords.longitude);
     } else {
-      // No permission OR no location yet — don't leave the spinner hanging
       setNearbyPharmacies([]);
       setOtherPharmacies([]);
       setIsLoading(false);
@@ -223,7 +219,7 @@ export default function HomeScreen() {
       activeOpacity={0.7}
       onPress={() =>
         router.push({
-          pathname: `/pharmacy/${item.pharnacy_id}`,
+          pathname: `/pharmacy/${item.pharmacy_id}`,
           params: {
             name: item.pharmacyName || item.pharmacy_name,
             address: item.locationAddress || item.location_address,
@@ -381,7 +377,7 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 {nearbyPharmacies.map((pharmacy) => (
-                  <PharmacyCard key={pharmacy.id} item={pharmacy} />
+                  <PharmacyCard key={pharmacy.pharmacy_id} item={pharmacy} />
                 ))}
               </>
             )}
