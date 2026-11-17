@@ -58,5 +58,15 @@
     "privacy": "Politique de confidentialité",
     "cookie": "Politique relative aux cookies",
     "rights": "© 2026 Pharmatrack. Tous droits réservés."
+  },
+   "cta":{
+    "title":"Prêt à trouver votre remède ?",
+    "subtitle":"Rejoignez des milliers d’utilisateurs qui consultent les disponibilités en temps réel et gagnent du temps dans les pharmacies près de chez eux.",
+    "primaryBtn":"Commencez dès maintenant",
+    "secondaryBtn":"Contacter nous",
+     "pharmacy_title":"Êtes-vous une pharmacie ?",
+    "pharmacy_subtitle":"Collaborez avec nous pour toucher davantage de patients et numériser votre inventaire.",
+    "pharmacy_btn":"devenir partenaire"
+
   }
 }

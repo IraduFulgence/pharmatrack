@@ -58,5 +58,15 @@
     "privacy": "Politiki y'ibanga",
     "cookie": "Politiki y'ama-cookies",
     "rights": "© 2026 Pharmatrack. Uburenganzira bwose burafitwe."
+  },
+   "cta":{
+    "title":"Witeguye gushakisha farumasi?",
+    "subtitle":"Iyunge ku bantu ibihumbi babasha kumenya niba imiti ihari ako kanya, bityo bakizigamira igihe muri za farumasi zibegereye.",
+    "primaryBtn":"Tangira nonaha",
+    "secondaryBtn":"Saba ubufasha",
+    "pharmacy_title":"Uri farumasi?",
+    "pharmacy_subtitle":"Dufatanye kugira ngo mugere ku barwayi benshi kandi mukoreshe ikoranabuhanga mu micungire y’ibicuruzwa byanyu.",
+    "pharmacy_btn":"Ba umufatanyabikorwa"
+
   }
 }

@@ -64,5 +64,15 @@
   "back": "Back",
   "continue": "Continue",
   "createAccountBtn": "Create Account"
+  },
+  "cta":{
+    "title":"Ready to find your medicine?",
+    "subtitle":"Join thousands of users finding real-time availability, and saving time at pharmacies near them.",
+    "primaryBtn":"Get started now",
+    "secondaryBtn":"Contact support",
+    "pharmacy_title":"Are you a pharmacy?",
+    "pharmacy_subtitle":"Partner with us to reach more patients and digitize your inventory.",
+    "pharmacy_btn":"Become a partner"
+
   }
 }
