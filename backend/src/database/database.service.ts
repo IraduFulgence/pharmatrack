@@ -484,6 +484,44 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       `);
 
       // ============================================================
+      // Migration 007: Staff Management, RBAC, and Activity Logs
+      // ============================================================
+      await this.pool.query(`
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(25);
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES public.pharmacy_users(pharmacy_user_id) ON DELETE SET NULL;
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL;
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE public.pharmacy_users ALTER COLUMN email DROP NOT NULL;
+        ALTER TABLE public.pharmacy_users ALTER COLUMN password_hash DROP NOT NULL;
+
+        UPDATE public.pharmacy_users 
+        SET role = 'PHARMACY_ADMIN' 
+        WHERE role = 'OWNER' OR role = 'PHARMACY';
+
+        ALTER TABLE public.password_resets ADD COLUMN IF NOT EXISTS purpose VARCHAR(30) DEFAULT 'PASSWORD_RESET' NOT NULL;
+        ALTER TABLE public.password_resets ADD COLUMN IF NOT EXISTS code VARCHAR(30);
+
+        CREATE INDEX IF NOT EXISTS idx_password_resets_code ON public.password_resets (code);
+        CREATE INDEX IF NOT EXISTS idx_password_resets_purpose ON public.password_resets (purpose);
+
+        CREATE TABLE IF NOT EXISTS public.pharmacy_user_activity_logs (
+          log_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          pharmacy_id BIGINT NOT NULL REFERENCES public.pharmacies(pharmacy_id) ON DELETE CASCADE,
+          pharmacy_user_id BIGINT REFERENCES public.pharmacy_users(pharmacy_user_id) ON DELETE SET NULL,
+          action VARCHAR(100) NOT NULL,
+          target_type VARCHAR(50),
+          target_id BIGINT,
+          details JSONB,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_pharmacy ON public.pharmacy_user_activity_logs (pharmacy_id);
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_user ON public.pharmacy_user_activity_logs (pharmacy_user_id);
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_action ON public.pharmacy_user_activity_logs (action);
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_created_at ON public.pharmacy_user_activity_logs (created_at);
+      `);
+
+      // ============================================================
       // Seed: Initial admin account from env vars
       // ============================================================
       const adminEmail = process.env.INITIAL_ADMIN_EMAIL;
