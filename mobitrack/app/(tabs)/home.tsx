@@ -88,6 +88,8 @@ export default function HomeScreen() {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        const token = await SecureStore.getItemAsync('token');
+        console.log(token);
         const userString = await SecureStore.getItemAsync("user");
         if (userString) {
           const user = JSON.parse(userString);
