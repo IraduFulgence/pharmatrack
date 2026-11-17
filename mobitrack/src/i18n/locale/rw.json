@@ -164,7 +164,13 @@
         "notRegistered":"Ntabwishingizi ufite",
         "addInsurance":"Shyiraho ubwishingizi bwawe",
         "myOrders":"Ibyatumijwe",
-        "settings":"Igenamiterere"
+        "settings":"Igenamiterere",
+        "healthWallet":"UBWISHINGIZI",
+        "view":"Reba ifoto yose",
+        "replace":"Hindura ifoto",
+        "upmessage":"Shyiramo ifoto y'ikarita cg indangamuntu",
+        "messInsurance":"Farumasi zizakoresha ubu bwishingizi mu kugenzura "
+
 
 
     }

@@ -162,7 +162,12 @@
         "notRegistered":"Not Registerd",
         "addInsurance":"Add your insurance to get coverage",
         "myOrders":"My Orders",
-        "settings":"Settings"
+        "settings":"Settings",
+        "healthWallet":"Health Wallet",
+        "view":"View Full",
+        "replace":"Replace image",
+        "upmessage":"Upload national ID or Insurance card",
+        "messInsurance":"Pharmacies will securely view this card during your chat to process insurance."
 
 
     }
