@@ -88,22 +88,31 @@ export class StaffService {
       }
     }
 
-    // 3. Retrieve pharmacy name for notifications and emails
+    // Retrieve pharmacy name for notifications and emails; ensure pharmacy exists
     const pharmRes = await this.db.query(
       'SELECT pharmacy_name FROM public.pharmacies WHERE pharmacy_id = $1',
       [pharmacyId],
     );
+    if (pharmRes.rows.length === 0) {
+      throw new NotFoundException('Pharmacy not found.');
+    }
     const pharmacyName = pharmRes.rows[0]?.pharmacy_name || 'Your Pharmacy';
 
     // Verify if creatorUserId corresponds to an existing pharmacy_users row
     let validCreatorId: number | null = null;
     if (creatorUserId) {
-      const creatorCheck = await this.db.query(
-        'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_user_id = $1 LIMIT 1',
-        [creatorUserId],
-      );
-      if (creatorCheck.rows.length > 0) {
-        validCreatorId = Number(creatorCheck.rows[0].pharmacy_user_id);
+      let creatorRows: any[] = [];
+      try {
+        const creatorCheckResult = await this.db.query(
+          'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_user_id = $1 LIMIT 1',
+          [creatorUserId],
+        );
+        creatorRows = creatorCheckResult?.rows ?? [];
+      } catch (err) {
+        creatorRows = [];
+      }
+      if (creatorRows.length > 0) {
+        validCreatorId = Number(creatorRows[0].pharmacy_user_id);
       }
     }
 
@@ -136,7 +145,7 @@ export class StaffService {
       // Add notification for staff invitation
       await client.query(
         `INSERT INTO public.notifications (pharmacy_id, pharmacy_user_id, notification_type, title, message)
-         VALUES ($1, $2, 'STAFF_INVITATION', $3, $4)`,
+         VALUES ($1, $2, 'GENERAL', $3, $4)`,
         [
           pharmacyId,
           validCreatorId,
@@ -282,7 +291,7 @@ export class StaffService {
       // Notification
       await client.query(
         `INSERT INTO public.notifications (pharmacy_id, pharmacy_user_id, notification_type, title, message)
-         VALUES ($1, $2, 'STAFF_ACTIVATED', $3, $4)`,
+         VALUES ($1, $2, 'GENERAL', $3, $4)`,
         [
           pharmacyId,
           staffId,

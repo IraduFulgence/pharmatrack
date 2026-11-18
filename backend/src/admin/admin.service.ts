@@ -8,7 +8,10 @@ import {
 import bcrypt from 'bcryptjs';
 import { DatabaseService } from '../database/database.service.js';
 import type { CreateAdminDto } from './dto/create-admin.dto.js';
+import type { UpdateAdminDto } from './dto/update-admin.dto.js';
+
 import type { UpdatePatientDto } from './dto/update-patient.dto.js';
+import type { UpdateSalesOfficerDto } from './dto/update-sales-officer.dto.js';
 import type { RejectPharmacyDto } from './dto/reject-pharmacy.dto.js';
 import type { CreatePharmacyDto } from './dto/create-pharmacy.dto.js';
 import type { UpdatePharmacyDto } from './dto/update-pharmacy.dto.js';
@@ -42,7 +45,7 @@ export class AdminService {
     }
   }
 
-  // ───────────── Dashboard ─────────────
+// ───────────── Dashboard ─────────────
 
   async getDashboardStats(): Promise<ApiResponse> {
     const patientsCount = await this.db.query('SELECT COUNT(*) AS count FROM public.patients');
@@ -830,6 +833,77 @@ export class AdminService {
     };
   }
 
+  async updateOwnProfile(adminId: number, dto: UpdateAdminDto): Promise<ApiResponse> {
+    // Verify admin exists
+    const existing = await this.db.query('SELECT admin_id, email, phone_number FROM public.admins WHERE admin_id = $1', [adminId]);
+    if (existing.rows.length === 0) {
+      throw new NotFoundException('Administrator not found.');
+    }
+    const updates: string[] = [];
+    const params: any[] = [];
+    let idx = 1;
+    if (dto.fullName !== undefined) {
+      updates.push(`full_name = $${idx++}`);
+      params.push(dto.fullName.trim());
+    }
+    if (dto.email !== undefined) {
+      const cleanEmail = dto.email.trim().toLowerCase();
+      // check duplicate across admins, patients, pharmacies
+      const dup = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE LOWER(email) = $1 AND admin_id != $2
+        UNION ALL SELECT 1 FROM public.patients WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE LOWER(email) = $1
+        LIMIT 1`, [cleanEmail, adminId]);
+      if (dup.rows.length > 0) {
+        throw new ConflictException('An account with this email already exists.');
+      }
+      updates.push(`email = $${idx++}`);
+      params.push(cleanEmail);
+    }
+    if (dto.phoneNumber !== undefined) {
+      const cleanPhone = dto.phoneNumber.trim();
+      const dupPhone = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE phone_number = $1 AND admin_id != $2
+        UNION ALL SELECT 1 FROM public.patients WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE phone_number = $1
+        LIMIT 1`, [cleanPhone, adminId]);
+      if (dupPhone.rows.length > 0) {
+        throw new ConflictException('An account with this phone number already exists.');
+      }
+      updates.push(`phone_number = $${idx++}`);
+      params.push(cleanPhone);
+    }
+    if (dto.password !== undefined) {
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+      updates.push(`password_hash = $${idx++}`);
+      params.push(passwordHash);
+    }
+    if (updates.length === 0) {
+      return { success: true, message: 'No fields to update.' };
+    }
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(adminId);
+    await this.db.query(`UPDATE public.admins SET ${updates.join(', ')} WHERE admin_id = $${idx}`, params);
+    await this.logActivity(adminId, 'UPDATE_ADMIN_SELF', 'ADMIN', adminId, dto);
+    // return fresh data
+    const refreshed = await this.db.query('SELECT admin_id, full_name, phone_number, email, is_active, must_change_password, role, created_at FROM public.admins WHERE admin_id = $1', [adminId]);
+    const a = refreshed.rows[0];
+    return {
+      success: true,
+      message: 'Administrator profile updated.',
+      data: {
+        id: Number(a.admin_id),
+        fullName: a.full_name,
+        phoneNumber: a.phone_number,
+        email: a.email,
+        isActive: a.is_active,
+        mustChangePassword: a.must_change_password,
+        role: a.role,
+        createdAt: a.created_at,
+      },
+    };
+  }
+
   async toggleAdminStatus(id: number, currentAdminId: number): Promise<ApiResponse> {
     if (id === currentAdminId) {
       return {
@@ -853,8 +927,119 @@ export class AdminService {
       data: { isActive: result.rows[0].is_active },
     };
   }
+  // ───────────── Sales Officer Management ─────────────
+  async updateSalesOfficerProfile(
+    salesOfficerId: number,
+    dto: UpdateSalesOfficerDto,
+    performedByAdminId: number,
+  ): Promise<ApiResponse> {
+    // Verify sales officer exists
+    const existing = await this.db.query(
+      'SELECT sales_officer_id, full_name, email, phone_number FROM public.sales_officers WHERE sales_officer_id = $1',
+      [salesOfficerId],
+    );
+    if (existing.rows.length === 0) {
+      throw new NotFoundException('Sales officer not found.');
+    }
 
-  // ───────────── System-Wide Reports & Activity Monitoring ─────────────
+    const updates: string[] = [];
+    const params: any[] = [];
+    let idx = 1;
+
+    if (dto.fullName !== undefined) {
+      updates.push(`full_name = $${idx++}`);
+      params.push(dto.fullName.trim());
+    }
+    if (dto.email !== undefined) {
+      const cleanEmail = dto.email.trim().toLowerCase();
+      const dup = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.patients WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.sales_officers WHERE LOWER(email) = $1 AND sales_officer_id != $2
+        LIMIT 1
+      `, [cleanEmail, salesOfficerId]);
+      if (dup.rows.length > 0) {
+        throw new ConflictException('An account with this email already exists.');
+      }
+      updates.push(`email = $${idx++}`);
+      params.push(cleanEmail);
+    }
+    if (dto.phoneNumber !== undefined) {
+      const cleanPhone = dto.phoneNumber.trim();
+      const dupPhone = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.patients WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.sales_officers WHERE phone_number = $1 AND sales_officer_id != $2
+        LIMIT 1
+      `, [cleanPhone, salesOfficerId]);
+      if (dupPhone.rows.length > 0) {
+        throw new ConflictException('An account with this phone number already exists.');
+      }
+      updates.push(`phone_number = $${idx++}`);
+      params.push(cleanPhone);
+    }
+
+    if (updates.length === 0) {
+      return { success: true, message: 'No fields to update.' };
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(salesOfficerId);
+    await this.db.query(
+      `UPDATE public.sales_officers SET ${updates.join(', ')} WHERE sales_officer_id = $${idx}`,
+      params,
+    );
+
+    await this.logActivity(performedByAdminId, 'UPDATE_SALES_OFFICER_PROFILE', 'SALES_OFFICER', salesOfficerId, dto);
+
+    const refreshed = await this.db.query(
+      'SELECT sales_officer_id, full_name, email, phone_number FROM public.sales_officers WHERE sales_officer_id = $1',
+      [salesOfficerId],
+    );
+    const so = refreshed.rows[0];
+    return {
+      success: true,
+      message: 'Sales officer profile updated.',
+      data: {
+        id: Number(so.sales_officer_id),
+        fullName: so.full_name,
+        email: so.email,
+        phoneNumber: so.phone_number,
+      },
+    };
+  }
+
+  async transferSalesOfficer(
+    salesOfficerId: number,
+    targetPharmacyId: number,
+    performedByAdminId: number,
+  ): Promise<ApiResponse> {
+    const soCheck = await this.db.query('SELECT sales_officer_id FROM public.sales_officers WHERE sales_officer_id = $1', [salesOfficerId]);
+    if (soCheck.rows.length === 0) {
+      throw new NotFoundException('Sales officer not found.');
+    }
+    const phCheck = await this.db.query('SELECT pharmacy_id FROM public.pharmacies WHERE pharmacy_id = $1', [targetPharmacyId]);
+    if (phCheck.rows.length === 0) {
+      throw new NotFoundException('Target pharmacy not found.');
+    }
+
+    await this.db.query(
+      'UPDATE public.sales_officers SET pharmacy_id = $1, updated_at = CURRENT_TIMESTAMP WHERE sales_officer_id = $2',
+      [targetPharmacyId, salesOfficerId],
+    );
+
+    await this.logActivity(performedByAdminId, 'TRANSFER_SALES_OFFICER', 'SALES_OFFICER', salesOfficerId, { targetPharmacyId });
+
+    return {
+      success: true,
+      message: 'Sales officer transferred successfully.',
+      data: { id: salesOfficerId, targetPharmacyId },
+    };
+  }
+
+  // ───────────── System-Wide Reports \u0026 Activity Monitoring ─────────────
 
   async getSystemOverviewReport(): Promise<ApiResponse> {
     const pharmaciesStats = await this.db.query(`
