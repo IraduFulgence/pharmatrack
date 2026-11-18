@@ -28,17 +28,21 @@
     "card3_title": "Gagnez du temps et de l'argent",
     "card3_desc": "Évitez les déplacements inutiles et obtenez ce dont vous avez besoin plus rapidement."
   },
-   "how": {
-    "title": "COMMENT CA FONCTIONNE",
-    "subtitle": "Vérifiez la disponibilité des médicaments en quelques étapes simples",
-    "step1_title": "Recherche",
-    "step1_desc": "Saisissez le nom du médicament dont vous avez besoin.",
-    "step2_title": "Trouver",
-    "step2_desc": "Localisez les pharmacies à proximité qui l'ont en stock.",
-    "step3_title": "Vérifier",
-    "step3_desc": "Vérifiez la disponibilité et les tarifs en temps réel.",
-    "step4_title": "Visiter",
-    "step4_desc": "Va à la pharmacie et prends tes médicaments."
+    "how": {
+    "title": "Comment ça marche",
+    "subtitle": "Obtenez la disponibilité des médicaments en quelques étapes simples.",
+    "step1_title": "Recherchez votre médicament",
+    "step1_desc": "Tapez le nom de votre médicament. Nous vous montrons instantanément quelles pharmacies à proximité l'ont en stock.",
+    "step1_feature": "Visibilité des stocks en temps réel",
+    "step2_title": "Naviguez facilement",
+    "step2_desc": "Vous l'avez trouvé ? Appuyez pour voir l'emplacement sur notre carte. Obtenez des itinéraires sans quitter l'application.",
+    "step2_feature": "Carte GPS intégrée",
+    "step3_title": "Utilisez le SMS de l'hôpital",
+    "step3_desc": "Vous avez reçu un code de l'hôpital ? Entrez-le ici. Nous vous montrerons instantanément la pharmacie la plus proche qui peut le fournir.",
+    "step3_feature": "Échange instantané d'ordonnance",
+    "step4_title": "Récupérez et discutez",
+    "step4_desc": "Entrez pour récupérer votre médicament. Vous avez une question ? Envoyez un message au pharmacien directement via l'application.",
+    "step4_feature": "Chat direct avec la pharmacie"
   },
   "footer1": {
     "title": "Votre santé compte. Trouvez votre médicament dès aujourd’hui.",
@@ -68,5 +72,24 @@
     "pharmacy_subtitle":"Collaborez avec nous pour toucher davantage de patients et numériser votre inventaire.",
     "pharmacy_btn":"devenir partenaire"
 
+  },
+    "about":{
+    "quote":"J'ai l'ordonnance, mais je ne sais pas quelle pharmacie l'a effectivement en stock.",
+    "label":"POURQUOI PHAMATRACK?",
+    "p1":"Au Rwanda, obtenir une ordonnance n’est que la moitié du chemin. L’autre moitié consiste à aller de pharmacie en pharmacie, dans l’espoir que l’une d’elles dispose du médicament précis prescrit par votre médecin.",
+    "p2":"Nous avons conçu Pharmatrack pour que les patients et leurs proches n’aient plus à se poser de questions. Vous pouvez voir précisément qui détient vos médicaments et à quelle distance cette personne se trouve, avant même de quitter l’hôpital."
+
+  },
+  "contact": {
+    "title": "Besoin d'aide ?",
+    "subtitle": "Envoyez-nous un message rapide et nous vous répondrons instantanément.",
+    "call": "Appelez-nous",
+    "email": "Envoyez-nous un email",
+    "name": "Votre nom",
+    "phone": "Numéro de téléphone",
+    "emailAddress": "Adresse email",
+    "message": "Comment pouvons-nous vous aider ?",
+    "send": "Envoyer le message"
   }
+
 }

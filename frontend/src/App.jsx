@@ -19,6 +19,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PendingVerification from './pages/PendingVerification';
 import CTA from './components/Cta';
 import PharmacyCTA from './components/pharmacyCTA';
+import AboutSection from './components/about';
+import FeatureSection from './components/feautures';
+import ContactSection from './components/contact';
 // admin pages
 import AdminDashboardOverView from './pages/admin/dashboardoverview';
 import AdminDashboard from './pages/admin/dashboard';
@@ -51,9 +54,13 @@ const Home = () =>(
 <>
       <Hero />
       <PharmacyCTA />
-      <WhyChooseUs />
-      <HowItWorks />
+      {/* <WhyChooseUs /> */}
+      <AboutSection />
+      {/* <HowItWorks /> */}
+       <FeatureSection />
       <CTA />
+      
+      <ContactSection />
 </>
 );
 function App() {
