@@ -29,16 +29,20 @@
     "card3_desc": "Irinda ingendo zidakenewe kandi ubone ibyo ukeneye vuba."
   },
    "how": {
-    "title": "UKO BIKORA",
-    "subtitle": "Menya niba imiti ihari binyuze mu ntambwe zoroshye",
-    "step1_title": "Shakisha",
-    "step1_desc": "Shyiramo izina ry'umuti ushaka.",
-    "step2_title": "Reba",
-    "step2_desc": "Reba farumasi ziri hafi zifite uwo muti.",
-    "step3_title": "Genzura",
-    "step3_desc": "Reba niba umuti uhari n’ibiciro  muri ako kanya.",
-    "step4_title": "Sura",
-    "step4_desc": "Jya muri farumasi ufate imiti yawe."
+    "title": "Uko Bikora",
+    "subtitle": "Bona iboneka ry'imiti mu ntambwe nke zoroshye.",
+    "step1_title": "Shakisha imiti yawe",
+    "step1_desc": "Andika izina ry'imiti yawe. Ako kanya tukwereka amafarumasi ari hafi afite imiti mu bubiko.",
+    "step1_feature": "Kubona ibiri mu bubiko ako kanya",
+    "step2_title": "Genda byoroshye",
+    "step2_desc": "wayibonye? Kanda urebe aho iherereye ku ikarita yacu. Bona icyerekezo utavuye muri porogaramu.",
+    "step2_feature": "Ikarita ya GPS iri muri porogaramu",
+    "step3_title": "Koresha SMS y'ibitaro",
+    "step3_desc": "Ufite kode y'ibitaro? Yandike hano. Ako kanya tukwereke farumasi ikwegereye ifite iyo miti.",
+    "step3_feature": "Kwikoresha inyandiko ako kanya",
+    "step4_title": "Fata & Vugana",
+    "step4_desc": "Jya gufata imiti yawe. Ufite ikibazo? Andikira umufarumasi mu buryo butaziguye muri porogaramu.",
+    "step4_feature": "Ganira na farumasi mu buryo butaziguye"
   },
   "footer1": {
     "title": "Ubuzima bwawe ni ingenzi. Shaka imiti yawe uyu munsi.",
@@ -68,5 +72,23 @@
     "pharmacy_subtitle":"Dufatanye kugira ngo mugere ku barwayi benshi kandi mukoreshe ikoranabuhanga mu micungire y’ibicuruzwa byanyu.",
     "pharmacy_btn":"Ba umufatanyabikorwa"
 
+  },
+   "about":{
+    "quote":"Mfite umuti nandikiwe, ariko sinzi farumasi ifite uwo muti.",
+    "label":"KUKI PHAMATRACK?",
+    "p1":"Mu Rwanda, kubonana na muganga akakwandikira  imiti ni igice kimwe gusa cy’urugendo. Ikindi gice ni ukuzenguruka muri za farumasi zitandukanye, wizeye ko wenda imwe muri zo yaba ifite umuti nyawo muganga wawe yanditse.",
+    "p2":"Twashyizeho Pharmatrack kugira ngo abarwayi n’imiryango yabo badakomeza gukeka aho imiti yabo iri. Ushobora kumenya neza farumasi ifite imiti yawe n’aho iherereye, mbere y’uko uva kwa muganga."
+
+  },
+  "contact": {
+    "title": "Ukeneye ubufasha?",
+    "subtitle": "Duhe ubutumwa bugufi kandi turagusubiza mu gihe gito.",
+    "call": "Duhamagare",
+    "email": "Tuvugishe kuri email",
+    "name": "Izina ryawe",
+    "phone": "Numero ya telefone",
+    "emailAddress": "Aderesi ya email",
+    "message": "Twagufasha gute?",
+    "send": "Ohereza Ubutumwa"
   }
 }
