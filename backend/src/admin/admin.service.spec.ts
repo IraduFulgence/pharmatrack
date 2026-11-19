@@ -202,6 +202,151 @@ describe('AdminService', () => {
       expect(res.success).toBe(true);
       expect(res.data.isActive).toBe(false);
     });
+
+    it('should retrieve pharmacy with associated administrators and staff', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              pharmacy_id: 10,
+              pharmacy_name: 'Test Pharmacy',
+              phone_number: '+250788123456',
+              email: 'test@pharmacy.com',
+              verification_status: 'APPROVED',
+              is_active: true,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              pharmacy_user_id: 1,
+              full_name: 'Admin User',
+              email: 'admin@pharmacy.com',
+              role: 'PHARMACY_ADMIN',
+              is_active: true,
+            },
+            {
+              pharmacy_user_id: 2,
+              full_name: 'Sales User',
+              email: 'sales@pharmacy.com',
+              role: 'SALES_OFFICER',
+              is_active: true,
+            },
+          ],
+        });
+
+      const res = await service.getPharmacy(10);
+      expect(res.success).toBe(true);
+      expect(res.data.pharmacyAdministrators).toHaveLength(1);
+      expect(res.data.pharmacyAdministrators[0].fullName).toBe('Admin User');
+      expect(res.data.staff).toHaveLength(2);
+    });
+
+    it('should toggle pharmacy active/suspended status', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ is_active: false, pharmacy_name: 'Test Pharmacy' }],
+        })
+        .mockResolvedValueOnce({ rows: [] }); // logActivity
+
+      const res = await service.togglePharmacyStatus(10, 1);
+      expect(res.success).toBe(true);
+      expect(res.data.isActive).toBe(false);
+      expect(res.message).toContain('suspended');
+    });
+
+    it('should generate system overview report', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              total_pharmacies: '12',
+              active_pharmacies: '10',
+              suspended_pharmacies: '2',
+              approved_pharmacies: '9',
+              pending_pharmacies: '2',
+              rejected_pharmacies: '1',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              total_pharmacy_users: '30',
+              total_pharmacy_admins: '12',
+              total_pharmacists: '10',
+              total_sales_officers: '8',
+              active_users: '28',
+              inactive_users: '2',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              total_sales: '150',
+              total_revenue: '500000',
+              total_paid: '480000',
+              pharmacies_with_sales: '8',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              total_batches: '80',
+              total_units_in_stock: '4500',
+              low_stock_batches: '5',
+              expired_batches: '2',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              log_id: 1,
+              admin_id: 1,
+              action: 'APPROVE_PHARMACY',
+              created_at: new Date(),
+            },
+          ],
+        });
+
+      const res = await service.getSystemOverviewReport();
+      expect(res.success).toBe(true);
+      expect(res.data.pharmacies.total).toBe(12);
+      expect(res.data.users.total).toBe(30);
+      expect(res.data.sales.totalRevenue).toBe(500000);
+      expect(res.data.inventory.totalBatches).toBe(80);
+      expect(res.data.recentActivities).toHaveLength(1);
+    });
+
+    it('should retrieve pharmacy activity logs for system admin', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_name: 'Test Pharmacy' }] })
+        .mockResolvedValueOnce({ rows: [{ count: '1' }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              log_id: 101,
+              pharmacy_id: 5,
+              pharmacy_user_id: 1,
+              action: 'SALE_TRANSACTION',
+              employee_name: 'Alice Pharmacist',
+              employee_role: 'PHARMACIST',
+              details: { amount: 5000 },
+              created_at: new Date(),
+            },
+          ],
+        });
+
+      const res = await service.getPharmacyActivities(5);
+      expect(res.success).toBe(true);
+      expect(res.data.pharmacyName).toBe('Test Pharmacy');
+      expect(res.data.logs).toHaveLength(1);
+      expect(res.data.logs[0].employeeName).toBe('Alice Pharmacist');
+    });
   });
 });
 
