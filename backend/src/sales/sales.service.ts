@@ -30,10 +30,15 @@ export class SalesService {
    * Enforces strict pharmacy-level tenant isolation.
    */
   async resolvePharmacyId(user: JwtPayload, requestedPharmacyId?: number): Promise<number> {
-    if (user.role === 'PHARMACY') {
-      return Number(user.sub);
+    if (
+      user.role === 'PHARMACY' ||
+      user.role === 'PHARMACY_ADMIN' ||
+      user.role === 'PHARMACIST' ||
+      user.role === 'SALES_OFFICER'
+    ) {
+      return Number(user.pharmacyId || user.sub);
     }
-    if (user.role === 'ADMIN') {
+    if (user.role === 'ADMIN' || user.role === 'SYSTEM_ADMIN') {
       if (requestedPharmacyId) {
         return Number(requestedPharmacyId);
       }

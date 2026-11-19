@@ -12,15 +12,13 @@ export default function HowItWorks () {
   ];
 
   return (
-    // Changed bg-red-500 to bg-white
     <section className="py-16 md:py-24 bg-white dark:bg-gray-950 transition-colors">
       <div className="container mx-auto px-6 md:px-12">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           
-          {/* Connected Steps */}
+          {/* Left Side: Connected Steps */}
           <div>
-            {/* Changed text color to blue-600 so you know it updated */}
-            <h2 className="text-3xl md:text-5xl font-bold text-blue-600 dark:text-white mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               {t('how.title')}
             </h2>
             <p className="text-gray-500 dark:text-gray-400 mb-12 md:mb-16 text-lg">
@@ -29,7 +27,8 @@ export default function HowItWorks () {
 
             {/* List Container */}
             <div className="relative">
-              
+              {/* The Connecting Line (Absolute positioned) */}
+              {/* top-6 aligns with the center of the first circle, bottom-6 with the last */}
               <div className="absolute left-6 top-6 bottom-6 w-0.5 bg-brand-primary/30 dark:bg-brand-primary/50 -z-10"></div>
 
               <div className="flex flex-col gap-10">
@@ -57,6 +56,11 @@ export default function HowItWorks () {
 
           {/* Right Side: Phone Mockup */}
           <div className="relative flex justify-center lg:justify-end">
+            {/* 
+              For the best result, replace this div with an actual image of your app 
+              inside a transparent phone mockup frame (PNG).
+              I am building a CSS-only approximation here.
+            */}
             <div className="relative w-[280px] h-[580px] bg-gray-900 rounded-[3rem] border-[8px] border-gray-800 shadow-2xl overflow-hidden dark:border-gray-700">
                 {/* Phone notch */}
                 <div className="absolute top-0 inset-x-0 h-6 bg-gray-900 flex justify-center z-20">
@@ -96,3 +100,4 @@ export default function HowItWorks () {
     </section>
   );
 };
+

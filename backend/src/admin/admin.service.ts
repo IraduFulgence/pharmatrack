@@ -8,9 +8,13 @@ import {
 import bcrypt from 'bcryptjs';
 import { DatabaseService } from '../database/database.service.js';
 import type { CreateAdminDto } from './dto/create-admin.dto.js';
+import type { UpdateAdminDto } from './dto/update-admin.dto.js';
+
 import type { UpdatePatientDto } from './dto/update-patient.dto.js';
+import type { UpdateSalesOfficerDto } from './dto/update-sales-officer.dto.js';
 import type { RejectPharmacyDto } from './dto/reject-pharmacy.dto.js';
 import type { CreatePharmacyDto } from './dto/create-pharmacy.dto.js';
+import type { UpdatePharmacyDto } from './dto/update-pharmacy.dto.js';
 import type { CreatePatientDto } from './dto/create-patient.dto.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 import { calculateAge, formatDate } from '../auth/auth.service.js';
@@ -41,7 +45,7 @@ export class AdminService {
     }
   }
 
-  // ───────────── Dashboard ─────────────
+// ───────────── Dashboard ─────────────
 
   async getDashboardStats(): Promise<ApiResponse> {
     const patientsCount = await this.db.query('SELECT COUNT(*) AS count FROM public.patients');
@@ -390,6 +394,39 @@ export class AdminService {
       throw new NotFoundException('Pharmacy not found.');
     }
     const ph = result.rows[0];
+
+    const usersResult = await this.db.query(
+      `SELECT pharmacy_user_id, full_name, email, phone_number, role, is_active, last_login_at, created_at
+       FROM public.pharmacy_users
+       WHERE pharmacy_id = $1
+       ORDER BY role = 'PHARMACY_ADMIN' DESC, created_at ASC`,
+      [id],
+    );
+
+    const pharmacyAdministrators = usersResult.rows
+      .filter((u: any) => u.role === 'PHARMACY_ADMIN' || u.role === 'OWNER')
+      .map((u: any) => ({
+        id: Number(u.pharmacy_user_id),
+        fullName: u.full_name,
+        email: u.email,
+        phoneNumber: u.phone_number,
+        role: u.role,
+        isActive: u.is_active,
+        lastLoginAt: u.last_login_at,
+        createdAt: u.created_at,
+      }));
+
+    const staffMembers = usersResult.rows.map((u: any) => ({
+      id: Number(u.pharmacy_user_id),
+      fullName: u.full_name,
+      email: u.email,
+      phoneNumber: u.phone_number,
+      role: u.role,
+      isActive: u.is_active,
+      lastLoginAt: u.last_login_at,
+      createdAt: u.created_at,
+    }));
+
     return {
       success: true,
       message: 'Pharmacy retrieved.',
@@ -400,8 +437,8 @@ export class AdminService {
         email: ph.email,
         tin: ph.tin || null,
         locationAddress: ph.location_address || null,
-        latitude: ph.latitude || null,
-        longitude: ph.longitude || null,
+        latitude: ph.latitude ? Number(ph.latitude) : null,
+        longitude: ph.longitude ? Number(ph.longitude) : null,
         verificationStatus: ph.verification_status || 'PENDING',
         rejectionReason: ph.rejection_reason || null,
         verifiedBy: ph.verified_by ? Number(ph.verified_by) : null,
@@ -410,7 +447,142 @@ export class AdminService {
         hasPharmacyCertificate: !!ph.pharmacy_certificate_path,
         hasRdbCertificate: !!ph.rdb_certificate_path,
         createdAt: ph.created_at,
+        pharmacyAdministrators,
+        staff: staffMembers,
       },
+    };
+  }
+
+  async updatePharmacy(
+    pharmacyId: number,
+    dto: UpdatePharmacyDto,
+    adminId: number,
+  ): Promise<ApiResponse> {
+    const existing = await this.db.query(
+      'SELECT pharmacy_id, pharmacy_name, email, phone_number, tin FROM public.pharmacies WHERE pharmacy_id = $1',
+      [pharmacyId],
+    );
+    if (existing.rows.length === 0) {
+      throw new NotFoundException('Pharmacy not found.');
+    }
+
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramIdx = 1;
+
+    if (dto.pharmacyName !== undefined) {
+      updates.push(`pharmacy_name = $${paramIdx++}`);
+      params.push(dto.pharmacyName.trim());
+    }
+
+    if (dto.phoneNumber !== undefined) {
+      const cleanPhone = dto.phoneNumber.trim();
+      const phoneConflict = await this.db.query(
+        `SELECT 1 FROM public.pharmacies WHERE phone_number = $1 AND pharmacy_id != $2
+         UNION ALL
+         SELECT 1 FROM public.admins WHERE phone_number = $1
+         LIMIT 1`,
+        [cleanPhone, pharmacyId],
+      );
+      if (phoneConflict.rows.length > 0) {
+        throw new ConflictException('A pharmacy or admin with this phone number already exists.');
+      }
+      updates.push(`phone_number = $${paramIdx++}`);
+      params.push(cleanPhone);
+    }
+
+    if (dto.email !== undefined) {
+      const cleanEmail = dto.email.trim().toLowerCase();
+      const emailConflict = await this.db.query(
+        `SELECT 1 FROM public.pharmacies WHERE LOWER(email) = $1 AND pharmacy_id != $2
+         UNION ALL
+         SELECT 1 FROM public.admins WHERE LOWER(email) = $1
+         LIMIT 1`,
+        [cleanEmail, pharmacyId],
+      );
+      if (emailConflict.rows.length > 0) {
+        throw new ConflictException('An account with this email already exists.');
+      }
+      updates.push(`email = $${paramIdx++}`);
+      params.push(cleanEmail);
+    }
+
+    if (dto.tin !== undefined) {
+      const cleanTin = dto.tin.trim();
+      const tinConflict = await this.db.query(
+        'SELECT 1 FROM public.pharmacies WHERE tin = $1 AND pharmacy_id != $2 LIMIT 1',
+        [cleanTin, pharmacyId],
+      );
+      if (tinConflict.rows.length > 0) {
+        throw new ConflictException('A pharmacy with this TIN already exists.');
+      }
+      updates.push(`tin = $${paramIdx++}`);
+      params.push(cleanTin);
+    }
+
+    if (dto.locationAddress !== undefined) {
+      updates.push(`location_address = $${paramIdx++}`);
+      params.push(dto.locationAddress.trim());
+    }
+
+    if (dto.latitude !== undefined) {
+      updates.push(`latitude = $${paramIdx++}`);
+      params.push(dto.latitude);
+    }
+
+    if (dto.longitude !== undefined) {
+      updates.push(`longitude = $${paramIdx++}`);
+      params.push(dto.longitude);
+    }
+
+    if (dto.verificationStatus !== undefined) {
+      updates.push(`verification_status = $${paramIdx++}`);
+      params.push(dto.verificationStatus);
+      if (dto.verificationStatus === 'APPROVED') {
+        updates.push(`verified_by = $${paramIdx++}`);
+        params.push(adminId);
+        updates.push(`verified_at = CURRENT_TIMESTAMP`);
+      }
+    }
+
+    if (dto.isActive !== undefined) {
+      updates.push(`is_active = $${paramIdx++}`);
+      params.push(dto.isActive);
+    }
+
+    if (updates.length === 0) {
+      return this.getPharmacy(pharmacyId);
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(pharmacyId);
+
+    await this.db.query(
+      `UPDATE public.pharmacies SET ${updates.join(', ')} WHERE pharmacy_id = $${paramIdx}`,
+      params,
+    );
+
+    await this.logActivity(adminId, 'UPDATE_PHARMACY', 'PHARMACY', pharmacyId, dto);
+
+    return this.getPharmacy(pharmacyId);
+  }
+
+  async togglePharmacyStatus(pharmacyId: number, adminId: number): Promise<ApiResponse> {
+    const result = await this.db.query(
+      'UPDATE public.pharmacies SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE pharmacy_id = $1 RETURNING is_active, pharmacy_name',
+      [pharmacyId],
+    );
+    if (result.rows.length === 0) {
+      throw new NotFoundException('Pharmacy not found.');
+    }
+    const { is_active: isActive, pharmacy_name: pharmacyName } = result.rows[0];
+
+    await this.logActivity(adminId, isActive ? 'ACTIVATE_PHARMACY' : 'SUSPEND_PHARMACY', 'PHARMACY', pharmacyId);
+
+    return {
+      success: true,
+      message: `Pharmacy "${pharmacyName}" ${isActive ? 'activated' : 'suspended'} successfully.`,
+      data: { isActive },
     };
   }
 
@@ -546,11 +718,11 @@ export class AdminService {
 
       const newPharmacy = pharmRes.rows[0];
 
-      // Insert primary owner into pharmacy_users
+      // Insert primary owner into pharmacy_users as PHARMACY_ADMIN
       await client.query(
         `INSERT INTO public.pharmacy_users 
           (pharmacy_id, full_name, email, password_hash, role, is_active)
-         VALUES ($1, $2, $3, $4, 'OWNER', true)`,
+         VALUES ($1, $2, $3, $4, 'PHARMACY_ADMIN', true)`,
         [newPharmacy.pharmacy_id, pharmacyName.trim(), cleanEmail, passwordHash],
       );
 
@@ -661,6 +833,77 @@ export class AdminService {
     };
   }
 
+  async updateOwnProfile(adminId: number, dto: UpdateAdminDto): Promise<ApiResponse> {
+    // Verify admin exists
+    const existing = await this.db.query('SELECT admin_id, email, phone_number FROM public.admins WHERE admin_id = $1', [adminId]);
+    if (existing.rows.length === 0) {
+      throw new NotFoundException('Administrator not found.');
+    }
+    const updates: string[] = [];
+    const params: any[] = [];
+    let idx = 1;
+    if (dto.fullName !== undefined) {
+      updates.push(`full_name = $${idx++}`);
+      params.push(dto.fullName.trim());
+    }
+    if (dto.email !== undefined) {
+      const cleanEmail = dto.email.trim().toLowerCase();
+      // check duplicate across admins, patients, pharmacies
+      const dup = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE LOWER(email) = $1 AND admin_id != $2
+        UNION ALL SELECT 1 FROM public.patients WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE LOWER(email) = $1
+        LIMIT 1`, [cleanEmail, adminId]);
+      if (dup.rows.length > 0) {
+        throw new ConflictException('An account with this email already exists.');
+      }
+      updates.push(`email = $${idx++}`);
+      params.push(cleanEmail);
+    }
+    if (dto.phoneNumber !== undefined) {
+      const cleanPhone = dto.phoneNumber.trim();
+      const dupPhone = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE phone_number = $1 AND admin_id != $2
+        UNION ALL SELECT 1 FROM public.patients WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE phone_number = $1
+        LIMIT 1`, [cleanPhone, adminId]);
+      if (dupPhone.rows.length > 0) {
+        throw new ConflictException('An account with this phone number already exists.');
+      }
+      updates.push(`phone_number = $${idx++}`);
+      params.push(cleanPhone);
+    }
+    if (dto.password !== undefined) {
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+      updates.push(`password_hash = $${idx++}`);
+      params.push(passwordHash);
+    }
+    if (updates.length === 0) {
+      return { success: true, message: 'No fields to update.' };
+    }
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(adminId);
+    await this.db.query(`UPDATE public.admins SET ${updates.join(', ')} WHERE admin_id = $${idx}`, params);
+    await this.logActivity(adminId, 'UPDATE_ADMIN_SELF', 'ADMIN', adminId, dto);
+    // return fresh data
+    const refreshed = await this.db.query('SELECT admin_id, full_name, phone_number, email, is_active, must_change_password, role, created_at FROM public.admins WHERE admin_id = $1', [adminId]);
+    const a = refreshed.rows[0];
+    return {
+      success: true,
+      message: 'Administrator profile updated.',
+      data: {
+        id: Number(a.admin_id),
+        fullName: a.full_name,
+        phoneNumber: a.phone_number,
+        email: a.email,
+        isActive: a.is_active,
+        mustChangePassword: a.must_change_password,
+        role: a.role,
+        createdAt: a.created_at,
+      },
+    };
+  }
+
   async toggleAdminStatus(id: number, currentAdminId: number): Promise<ApiResponse> {
     if (id === currentAdminId) {
       return {
@@ -682,6 +925,288 @@ export class AdminService {
       success: true,
       message: `Admin "${result.rows[0].full_name}" ${result.rows[0].is_active ? 'activated' : 'deactivated'} successfully.`,
       data: { isActive: result.rows[0].is_active },
+    };
+  }
+  // ───────────── Sales Officer Management ─────────────
+  async updateSalesOfficerProfile(
+    salesOfficerId: number,
+    dto: UpdateSalesOfficerDto,
+    performedByAdminId: number,
+  ): Promise<ApiResponse> {
+    // Verify sales officer exists
+    const existing = await this.db.query(
+      'SELECT sales_officer_id, full_name, email, phone_number FROM public.sales_officers WHERE sales_officer_id = $1',
+      [salesOfficerId],
+    );
+    if (existing.rows.length === 0) {
+      throw new NotFoundException('Sales officer not found.');
+    }
+
+    const updates: string[] = [];
+    const params: any[] = [];
+    let idx = 1;
+
+    if (dto.fullName !== undefined) {
+      updates.push(`full_name = $${idx++}`);
+      params.push(dto.fullName.trim());
+    }
+    if (dto.email !== undefined) {
+      const cleanEmail = dto.email.trim().toLowerCase();
+      const dup = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.patients WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE LOWER(email) = $1
+        UNION ALL SELECT 1 FROM public.sales_officers WHERE LOWER(email) = $1 AND sales_officer_id != $2
+        LIMIT 1
+      `, [cleanEmail, salesOfficerId]);
+      if (dup.rows.length > 0) {
+        throw new ConflictException('An account with this email already exists.');
+      }
+      updates.push(`email = $${idx++}`);
+      params.push(cleanEmail);
+    }
+    if (dto.phoneNumber !== undefined) {
+      const cleanPhone = dto.phoneNumber.trim();
+      const dupPhone = await this.db.query(`
+        SELECT 1 FROM public.admins WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.patients WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.pharmacies WHERE phone_number = $1
+        UNION ALL SELECT 1 FROM public.sales_officers WHERE phone_number = $1 AND sales_officer_id != $2
+        LIMIT 1
+      `, [cleanPhone, salesOfficerId]);
+      if (dupPhone.rows.length > 0) {
+        throw new ConflictException('An account with this phone number already exists.');
+      }
+      updates.push(`phone_number = $${idx++}`);
+      params.push(cleanPhone);
+    }
+
+    if (updates.length === 0) {
+      return { success: true, message: 'No fields to update.' };
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(salesOfficerId);
+    await this.db.query(
+      `UPDATE public.sales_officers SET ${updates.join(', ')} WHERE sales_officer_id = $${idx}`,
+      params,
+    );
+
+    await this.logActivity(performedByAdminId, 'UPDATE_SALES_OFFICER_PROFILE', 'SALES_OFFICER', salesOfficerId, dto);
+
+    const refreshed = await this.db.query(
+      'SELECT sales_officer_id, full_name, email, phone_number FROM public.sales_officers WHERE sales_officer_id = $1',
+      [salesOfficerId],
+    );
+    const so = refreshed.rows[0];
+    return {
+      success: true,
+      message: 'Sales officer profile updated.',
+      data: {
+        id: Number(so.sales_officer_id),
+        fullName: so.full_name,
+        email: so.email,
+        phoneNumber: so.phone_number,
+      },
+    };
+  }
+
+  async transferSalesOfficer(
+    salesOfficerId: number,
+    targetPharmacyId: number,
+    performedByAdminId: number,
+  ): Promise<ApiResponse> {
+    const soCheck = await this.db.query('SELECT sales_officer_id FROM public.sales_officers WHERE sales_officer_id = $1', [salesOfficerId]);
+    if (soCheck.rows.length === 0) {
+      throw new NotFoundException('Sales officer not found.');
+    }
+    const phCheck = await this.db.query('SELECT pharmacy_id FROM public.pharmacies WHERE pharmacy_id = $1', [targetPharmacyId]);
+    if (phCheck.rows.length === 0) {
+      throw new NotFoundException('Target pharmacy not found.');
+    }
+
+    await this.db.query(
+      'UPDATE public.sales_officers SET pharmacy_id = $1, updated_at = CURRENT_TIMESTAMP WHERE sales_officer_id = $2',
+      [targetPharmacyId, salesOfficerId],
+    );
+
+    await this.logActivity(performedByAdminId, 'TRANSFER_SALES_OFFICER', 'SALES_OFFICER', salesOfficerId, { targetPharmacyId });
+
+    return {
+      success: true,
+      message: 'Sales officer transferred successfully.',
+      data: { id: salesOfficerId, targetPharmacyId },
+    };
+  }
+
+  // ───────────── System-Wide Reports \u0026 Activity Monitoring ─────────────
+
+  async getSystemOverviewReport(): Promise<ApiResponse> {
+    const pharmaciesStats = await this.db.query(`
+      SELECT 
+        COUNT(*) AS total_pharmacies,
+        COUNT(*) FILTER (WHERE is_active = true) AS active_pharmacies,
+        COUNT(*) FILTER (WHERE is_active = false) AS suspended_pharmacies,
+        COUNT(*) FILTER (WHERE verification_status = 'APPROVED') AS approved_pharmacies,
+        COUNT(*) FILTER (WHERE verification_status = 'PENDING') AS pending_pharmacies,
+        COUNT(*) FILTER (WHERE verification_status = 'REJECTED') AS rejected_pharmacies
+      FROM public.pharmacies
+    `);
+
+    const usersStats = await this.db.query(`
+      SELECT 
+        COUNT(*) AS total_pharmacy_users,
+        COUNT(*) FILTER (WHERE role IN ('PHARMACY_ADMIN', 'OWNER')) AS total_pharmacy_admins,
+        COUNT(*) FILTER (WHERE role = 'PHARMACIST') AS total_pharmacists,
+        COUNT(*) FILTER (WHERE role = 'SALES_OFFICER') AS total_sales_officers,
+        COUNT(*) FILTER (WHERE is_active = true) AS active_users,
+        COUNT(*) FILTER (WHERE is_active = false) AS inactive_users
+      FROM public.pharmacy_users
+    `);
+
+    const salesStats = await this.db.query(`
+      SELECT 
+        COUNT(*) AS total_sales,
+        COALESCE(SUM(total_amount), 0) AS total_revenue,
+        COALESCE(SUM(paid_amount), 0) AS total_paid,
+        COUNT(DISTINCT pharmacy_id) AS pharmacies_with_sales
+      FROM public.sales
+      WHERE status != 'CANCELLED'
+    `);
+
+    const inventoryStats = await this.db.query(`
+      SELECT 
+        COUNT(*) AS total_batches,
+        COALESCE(SUM(quantity), 0) AS total_units_in_stock,
+        COUNT(*) FILTER (WHERE quantity <= 10) AS low_stock_batches,
+        COUNT(*) FILTER (WHERE expiry_date <= CURRENT_DATE) AS expired_batches
+      FROM public.batches
+    `);
+
+    const recentActivities = await this.db.query(`
+      SELECT log_id, admin_id, action, target_type, target_id, details, created_at
+      FROM public.admin_activity_logs
+      ORDER BY created_at DESC
+      LIMIT 20
+    `);
+
+    return {
+      success: true,
+      message: 'System overview report generated successfully.',
+      data: {
+        pharmacies: {
+          total: Number(pharmaciesStats.rows[0].total_pharmacies),
+          active: Number(pharmaciesStats.rows[0].active_pharmacies),
+          suspended: Number(pharmaciesStats.rows[0].suspended_pharmacies),
+          approved: Number(pharmaciesStats.rows[0].approved_pharmacies),
+          pending: Number(pharmaciesStats.rows[0].pending_pharmacies),
+          rejected: Number(pharmaciesStats.rows[0].rejected_pharmacies),
+        },
+        users: {
+          total: Number(usersStats.rows[0].total_pharmacy_users),
+          admins: Number(usersStats.rows[0].total_pharmacy_admins),
+          pharmacists: Number(usersStats.rows[0].total_pharmacists),
+          salesOfficers: Number(usersStats.rows[0].total_sales_officers),
+          active: Number(usersStats.rows[0].active_users),
+          inactive: Number(usersStats.rows[0].inactive_users),
+        },
+        sales: {
+          totalSales: Number(salesStats.rows[0].total_sales),
+          totalRevenue: Number(salesStats.rows[0].total_revenue),
+          totalPaid: Number(salesStats.rows[0].total_paid),
+          pharmaciesWithSales: Number(salesStats.rows[0].pharmacies_with_sales),
+        },
+        inventory: {
+          totalBatches: Number(inventoryStats.rows[0].total_batches),
+          totalUnitsInStock: Number(inventoryStats.rows[0].total_units_in_stock),
+          lowStockBatches: Number(inventoryStats.rows[0].low_stock_batches),
+          expiredBatches: Number(inventoryStats.rows[0].expired_batches),
+        },
+        recentActivities: recentActivities.rows.map((a: any) => ({
+          logId: Number(a.log_id),
+          adminId: Number(a.admin_id),
+          action: a.action,
+          targetType: a.target_type,
+          targetId: a.target_id ? Number(a.target_id) : null,
+          details: a.details,
+          createdAt: a.created_at,
+        })),
+      },
+    };
+  }
+
+  async getPharmacyActivities(
+    pharmacyId: number,
+    query?: { action?: string; employeeId?: number; startDate?: string; endDate?: string; page?: number; limit?: number },
+  ): Promise<ApiResponse> {
+    const phCheck = await this.db.query('SELECT pharmacy_name FROM public.pharmacies WHERE pharmacy_id = $1', [pharmacyId]);
+    if (phCheck.rows.length === 0) {
+      throw new NotFoundException('Pharmacy not found.');
+    }
+
+    const conditions: string[] = ['l.pharmacy_id = $1'];
+    const params: any[] = [pharmacyId];
+    let paramIdx = 2;
+
+    if (query?.action) {
+      conditions.push(`l.action = $${paramIdx++}`);
+      params.push(query.action);
+    }
+    if (query?.employeeId) {
+      conditions.push(`l.pharmacy_user_id = $${paramIdx++}`);
+      params.push(query.employeeId);
+    }
+    if (query?.startDate) {
+      conditions.push(`l.created_at >= $${paramIdx++}`);
+      params.push(query.startDate);
+    }
+    if (query?.endDate) {
+      conditions.push(`l.created_at <= $${paramIdx++}`);
+      params.push(query.endDate);
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const page = query?.page ? Number(query.page) : 1;
+    const limit = query?.limit ? Number(query.limit) : 20;
+    const offset = (page - 1) * limit;
+
+    const countRes = await this.db.query(
+      `SELECT COUNT(*) AS count FROM public.pharmacy_user_activity_logs l ${whereClause}`,
+      params,
+    );
+
+    const logsRes = await this.db.query(
+      `SELECT l.log_id, l.pharmacy_id, l.pharmacy_user_id, l.action, l.target_type, l.target_id, l.details, l.created_at,
+              u.full_name AS employee_name, u.role AS employee_role
+       FROM public.pharmacy_user_activity_logs l
+       LEFT JOIN public.pharmacy_users u ON l.pharmacy_user_id = u.pharmacy_user_id
+       ${whereClause}
+       ORDER BY l.created_at DESC
+       LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      [...params, limit, offset],
+    );
+
+    return {
+      success: true,
+      message: 'Pharmacy activity logs retrieved.',
+      data: {
+        pharmacyName: phCheck.rows[0].pharmacy_name,
+        logs: logsRes.rows.map((row: any) => ({
+          id: Number(row.log_id),
+          employeeId: row.pharmacy_user_id ? Number(row.pharmacy_user_id) : null,
+          employeeName: row.employee_name || 'System / Unassigned',
+          role: row.employee_role || null,
+          action: row.action,
+          targetType: row.target_type,
+          targetId: row.target_id ? Number(row.target_id) : null,
+          details: row.details,
+          createdAt: row.created_at,
+        })),
+        total: Number(countRes.rows[0].count),
+        page,
+        limit,
+        totalPages: Math.ceil(Number(countRes.rows[0].count) / limit),
+      },
     };
   }
 }

@@ -44,7 +44,7 @@ import type { ApiResponse } from '../common/interfaces/api-response.interface.js
 @ApiBearerAuth()
 @Controller('api/inventory')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('PHARMACY', 'ADMIN')
+@Roles('PHARMACY', 'PHARMACY_ADMIN', 'PHARMACIST', 'SALES_OFFICER', 'ADMIN', 'SYSTEM_ADMIN')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 

@@ -139,5 +139,19 @@ export const inventoryService = {
     } else {
       return await response.json();
     }
+  },
+    previewImport: async (pharmacyId, formData) => {
+    return ApiRequest(`/inventory/import/preview?pharmacyId=${pharmacyId}`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  importStock: async (pharmacyId, formData) => {
+    return ApiRequest(`/inventory/import?pharmacyId=${pharmacyId}`, {
+      method: 'POST',
+      body: formData,
+    });
   }
+
 };
