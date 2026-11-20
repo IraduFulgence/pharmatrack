@@ -26,7 +26,7 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
     { icon: <LayoutGrid size={20} />, label: 'Overview', path: '/pharmacy/dashboard' },
     { icon: <Package size={20} />, label: 'Inventory', path: '/pharmacy/dashboard/inventory' },
     { icon: <ShoppingBag size={20} />, label: 'Sales',  path: '/pharmacy/dashboard/sales/pos' },
-    { icon: <ShoppingBag size={20} />, label: 'Sales History', path: '/pharmacy/dashboard/sales/history' },
+    // { icon: <ShoppingBag size={20} />, label: 'Sales History', path: '/pharmacy/dashboard/sales/history' },
     
     { icon: <Users size={20} />, label: 'Insurance Claims', path: '/pharmacy/dashboard/insurance' },
     { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3', path: '/pharmacy/dashboard/messages' },

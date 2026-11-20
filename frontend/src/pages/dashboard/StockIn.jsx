@@ -165,7 +165,7 @@ const StockIn = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       
       {/* Header */}
       <div>
