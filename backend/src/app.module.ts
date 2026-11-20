@@ -7,7 +7,7 @@ import { AdminModule } from './admin/admin.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { SalesModule } from './sales/sales.module.js';
 import { PatientsModule } from './patients/patients.module.js';
-
+import { PharmacyMessagingModule } from './pharmacy-messaging/pharmacy-messaging.module.js';
 @Module({
   imports: [
     DatabaseModule,
@@ -16,7 +16,9 @@ import { PatientsModule } from './patients/patients.module.js';
     InventoryModule,
     SalesModule,
     PatientsModule,
+    PharmacyMessagingModule,
   ],
+  
   
   controllers: [AppController],
   providers: [AppService],
