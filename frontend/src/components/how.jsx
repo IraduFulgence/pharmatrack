@@ -40,7 +40,7 @@ const HowItWorks = () => {
       <div className="container mx-auto px-6 md:px-12">
 
         <div className="text-center mb-16 md:mb-20">
-          <p className="text-sm font-bold tracking-widest text-brand-primary uppercase mb-3">
+          <p className="text-3xl md:text-4xl font-bold tracking-widest text-brand-primary uppercase mb-3">
             {t('how.title')}
           </p>
 

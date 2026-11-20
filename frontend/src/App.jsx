@@ -17,7 +17,11 @@ import Prescriptions from './pages/dashboard/prescription';
 import Orders from './pages/dashboard/orders';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingVerification from './pages/PendingVerification';
-
+import CTA from './components/Cta';
+import PharmacyCTA from './components/pharmacyCTA';
+import AboutSection from './components/about';
+import FeatureSection from './components/feautures';
+import ContactSection from './components/contact';
 // admin pages
 import AdminDashboardOverView from './pages/admin/dashboardoverview';
 import AdminDashboard from './pages/admin/dashboard';
@@ -49,8 +53,14 @@ const Layout =({children}) =>(
 const Home = () =>(
 <>
       <Hero />
-      <WhyChooseUs />
-      <HowItWorks />
+      <PharmacyCTA />
+      {/* <WhyChooseUs /> */}
+      <AboutSection />
+      {/* <HowItWorks /> */}
+       <FeatureSection />
+      <CTA />
+      
+      <ContactSection />
 </>
 );
 function App() {
