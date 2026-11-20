@@ -80,13 +80,13 @@ const Inventory = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6  mx-auto">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventory Overview</h1>
-          <p className="text-gray-500 dark:text-gray-400">Monitor stock levels, expirations, and alerts.</p>
+          {/* <p className="text-gray-500 dark:text-gray-400">Monitor stock levels, expirations, and alerts.</p> */}
         </div>
         <div className="flex flex-wrap gap-3">
           <button 
