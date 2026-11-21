@@ -1,3 +1,4 @@
+
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -8,6 +9,9 @@ import { InventoryModule } from './inventory/inventory.module.js';
 import { SalesModule } from './sales/sales.module.js';
 import { PatientsModule } from './patients/patients.module.js';
 import { PharmacyMessagingModule } from './pharmacy-messaging/pharmacy-messaging.module.js';
+import { MarketplaceModule } from './marketplace/marketplace.module.js';
+import { PharmacyMarketplaceModule } from './pharmacy-marketplace/pharmacy-marketplace.module.js';
+
 @Module({
   imports: [
     DatabaseModule,
@@ -17,9 +21,9 @@ import { PharmacyMessagingModule } from './pharmacy-messaging/pharmacy-messaging
     SalesModule,
     PatientsModule,
     PharmacyMessagingModule,
+    MarketplaceModule,
+    PharmacyMarketplaceModule,
   ],
-  
-  
   controllers: [AppController],
   providers: [AppService],
 })
