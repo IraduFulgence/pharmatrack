@@ -15,24 +15,37 @@ const Login = () => {
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const handleSubmit = async (e) => {
+    // Prevent default form submission behavior 
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    // Prevent multiple clicks while loading
+    if (isLoading) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await authService.login(identifier, password);
       
-      // Save token and user data
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      if (response?.data?.token) {
+        // Save token and user data
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        // Navigate to the correct dashboard
+        navigate(response.data.redirectTo);
+      } else {
+        throw new Error("Invalid response from server.");
+      }
       
-      
-      navigate(response.data.redirectTo);
     } catch (error) {
-     
+      // Catch the error and update state
+      console.error("Login error:", error);
       setError(error.message || "Failed to login. Please check your credentials.");
     } finally {
+      // Ensure loading state is always turned off
       setIsLoading(false);
     }
   };
