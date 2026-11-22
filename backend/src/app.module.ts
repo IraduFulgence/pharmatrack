@@ -30,11 +30,12 @@ import { ProfileModule } from './profile/profile.module.js';
     PharmacyMessagingModule,
     MarketplaceModule,
     PharmacyMarketplaceModule,
-  ],
     ProfileModule,
     StaffModule,
     InsuranceModule,
   ],
+    
+  
   
   
   controllers: [AppController],
