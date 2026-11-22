@@ -36,7 +36,7 @@ import type { ApiResponse } from '../common/interfaces/api-response.interface.js
 @ApiBearerAuth()
 @Controller('api/sales')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('PHARMACY', 'ADMIN')
+@Roles('PHARMACY', 'PHARMACY_ADMIN', 'PHARMACIST', 'SALES_OFFICER', 'ADMIN', 'SYSTEM_ADMIN')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 

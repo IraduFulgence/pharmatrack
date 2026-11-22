@@ -108,5 +108,86 @@ If you did not request this, please ignore this email.
       return false;
     }
   }
+
+  /**
+   * Send staff invitation email with activation link & verification code
+   */
+  async sendStaffInvitationEmail(
+    to: string,
+    recipientName: string,
+    pharmacyName: string,
+    role: string,
+    activationCode: string,
+    activationToken: string,
+  ): Promise<boolean> {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const activationUrl = `${frontendUrl}/activate-account?code=${encodeURIComponent(activationCode)}&token=${encodeURIComponent(activationToken)}&email=${encodeURIComponent(to)}`;
+    const mailFrom = process.env.MAIL_FROM || `"Pharmatrack" <${process.env.SMTP_USER || 'no-reply@pharmatrack.com'}>`;
+
+    const roleName = role === 'PHARMACIST' ? 'Pharmacist' : role === 'SALES_OFFICER' ? 'Sales Officer' : role;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 24px; color: #1f2937; }
+          .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+          .header { background: #059669; padding: 24px 32px; color: #ffffff; text-align: center; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+          .content { padding: 32px; line-height: 1.6; }
+          .code-box { background: #f3f4f6; border: 2px dashed #059669; padding: 16px; text-align: center; font-size: 28px; font-weight: 800; letter-spacing: 4px; color: #059669; border-radius: 8px; margin: 24px 0; }
+          .btn-container { text-align: center; margin: 28px 0; }
+          .btn { background-color: #059669; color: #ffffff !important; padding: 14px 28px; text-decoration: none; font-weight: 600; border-radius: 8px; display: inline-block; box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2); }
+          .fallback-link { font-size: 13px; color: #6b7280; word-break: break-all; margin-top: 16px; }
+          .footer { padding: 20px 32px; background: #f9fafb; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Pharmatrack</h1>
+          </div>
+          <div class="content">
+            <h2>Welcome to ${pharmacyName || 'PharmTrack'}!</h2>
+            <p>Hello ${recipientName || 'there'},</p>
+            <p>You have been registered as a <strong>${roleName}</strong> at <strong>${pharmacyName}</strong> on the PharmTrack platform.</p>
+            <p>To activate your account and set up your password, use your temporary activation code below:</p>
+            <div class="code-box">${activationCode}</div>
+            <div class="btn-container">
+              <a href="${activationUrl}" class="btn" target="_blank">Activate Account</a>
+            </div>
+            <p class="fallback-link">Or copy and paste this link in your browser:<br><a href="${activationUrl}">${activationUrl}</a></p>
+            <p style="font-size: 13px; color: #6b7280;">This activation code and link will expire in 48 hours. If you did not expect this invitation, please contact your pharmacy administrator.</p>
+          </div>
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} Pharmatrack System. All rights reserved.
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        this.logger.warn(`SMTP credentials not configured. Invitation code for ${to} (${recipientName}): ${activationCode}`);
+        return true;
+      }
+
+      await this.transporter.sendMail({
+        from: mailFrom,
+        to,
+        subject: `Activate your PharmTrack staff account - ${pharmacyName}`,
+        html: htmlContent,
+      });
+
+      this.logger.log(`Staff activation email sent successfully to ${to}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Failed to send staff activation email to ${to}: ${error.message}`);
+      return false;
+    }
+  }
 }
 
