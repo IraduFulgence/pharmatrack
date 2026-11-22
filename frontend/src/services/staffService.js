@@ -50,4 +50,10 @@ export const staffService = {
   getStaffSalesReport: async (filters = {}) => {
     return ApiRequest(`/pharmacy/reports/staff-sales${toQuery(filters)}`, { method: 'GET' });
   },
+   activateAccount: async ({ identifier, activationCode, password, confirmPassword }) => {
+    return ApiRequest('/staff/activate', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, activationCode, password, confirmPassword }),
+    });
+  },
 };

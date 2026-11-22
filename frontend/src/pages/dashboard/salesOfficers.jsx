@@ -434,7 +434,7 @@ const SalesOfficers = () => {
                       </p>
                       {!debouncedSearch && filters.status === 'ALL' && (
                         <button onClick={openCreate} className="text-sm font-semibold text-[#007a55] hover:underline">
-                          Register your first officer →
+                          Register your first officer 
                         </button>
                       )}
                     </div>
@@ -450,9 +450,9 @@ const SalesOfficers = () => {
                           <button onClick={() => openDetail(o)} className="font-semibold text-gray-900 dark:text-white hover:text-[#007a55] text-left transition-colors">
                             {o.full_name}
                           </button>
-                          {o.created_by_name && (
+                          {/* {o.created_by_name && (
                             <p className="text-xs text-gray-400">Added by {o.created_by_name}</p>
-                          )}
+                          )} */}
                         </div>
                       </div>
                     </td>

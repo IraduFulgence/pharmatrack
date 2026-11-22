@@ -41,7 +41,7 @@ import SaleReceipt from './pages/dashboard/SaleReceipt';
 import SalesHistory from './pages/dashboard/SalesHistory';
 import InsuranceClaims from './pages/dashboard/InsuranceClaims';
 import SalesOfficers from './pages/dashboard/salesOfficers';
-
+import ActivateAccount from './pages/activateAccount';
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -74,7 +74,7 @@ function App() {
         <Route path="/register" element={<Layout><Register /></Layout>} />
         
         <Route path="/pending-verification" element={<PendingVerification />} />
-
+        <Route path="/activate-account" element={<Layout><ActivateAccount /></Layout>} />
         {/* protected routes for pharmacy dashboard */}
         <Route element={
           <ProtectedRoute
