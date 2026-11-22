@@ -14,25 +14,35 @@ export class PharmacyMessagingService {
 
   /**
    * Resolve the authenticated staff member and their pharmacy.
-   * Never assume JWT sub is the pharmacy ID.
+   * Staff tokens carry pharmacyUserId (staff may have no email, only a phone),
+   * pharmacy-admin tokens only carry the pharmacy email. Either way the lookup is
+   * scoped to the pharmacy in the token.
    */
   private async getStaff(user: JwtPayload) {
-    if (!user.email) {
-      throw new ForbiddenException('Authenticated staff email is missing.');
+    const pharmacyId = Number(user.pharmacyId || 0);
+    if (!pharmacyId) {
+      throw new ForbiddenException('Your session has no pharmacy attached. Please sign in again.');
     }
 
-    const result = await this.db.query(
-      `SELECT
-         pharmacy_user_id,
-         pharmacy_id,
-         full_name,
-         email
-       FROM public.pharmacy_users
-       WHERE LOWER(email) = LOWER($1)
-         AND is_active = TRUE
-       LIMIT 1`,
-      [user.email],
-    );
+    const result = user.pharmacyUserId
+      ? await this.db.query(
+          `SELECT pharmacy_user_id, pharmacy_id, full_name, email
+           FROM public.pharmacy_users
+           WHERE pharmacy_user_id = $1
+             AND pharmacy_id = $2
+             AND is_active = TRUE
+           LIMIT 1`,
+          [user.pharmacyUserId, pharmacyId],
+        )
+      : await this.db.query(
+          `SELECT pharmacy_user_id, pharmacy_id, full_name, email
+           FROM public.pharmacy_users
+           WHERE LOWER(email) = LOWER($1)
+             AND pharmacy_id = $2
+             AND is_active = TRUE
+           LIMIT 1`,
+          [user.email || '', pharmacyId],
+        );
 
     if (result.rows.length === 0) {
       throw new ForbiddenException(
@@ -57,6 +67,8 @@ export class PharmacyMessagingService {
          c.status,
          c.created_at,
          c.updated_at,
+         p.full_name AS patient_name,
+         p.phone_number AS patient_phone,
          (
            SELECT m.message
            FROM public.patient_chat_messages m
@@ -79,6 +91,7 @@ export class PharmacyMessagingService {
            LIMIT 1
          ) AS last_message_at
        FROM public.patient_chats c
+       LEFT JOIN public.patients p ON p.patient_id = c.patient_user_id
        WHERE c.pharmacy_id = $1
        ORDER BY COALESCE(c.updated_at, c.created_at) DESC`,
       [staff.pharmacy_id],
@@ -109,10 +122,12 @@ export class PharmacyMessagingService {
     const staff = await this.getStaff(user);
 
     const chat = await this.db.query(
-      `SELECT chat_id
-       FROM public.patient_chats
-       WHERE chat_id = $1
-         AND pharmacy_id = $2
+      `SELECT c.chat_id, c.status, c.patient_user_id,
+              p.full_name AS patient_name, p.phone_number AS patient_phone
+       FROM public.patient_chats c
+       LEFT JOIN public.patients p ON p.patient_id = c.patient_user_id
+       WHERE c.chat_id = $1
+         AND c.pharmacy_id = $2
        LIMIT 1`,
       [chatId, staff.pharmacy_id],
     );
@@ -123,16 +138,19 @@ export class PharmacyMessagingService {
 
     const messages = await this.db.query(
       `SELECT
-         message_id,
-         chat_id,
-         sender_user_id,
-         sender_role,
-         sender_email,
-         message,
-         created_at
-       FROM public.patient_chat_messages
-       WHERE chat_id = $1
-       ORDER BY created_at ASC, message_id ASC`,
+         m.message_id,
+         m.chat_id,
+         m.sender_user_id,
+         m.sender_role,
+         m.sender_email,
+         m.message,
+         m.created_at,
+         CASE WHEN m.sender_role = 'PHARMACY' THEN pu.full_name END AS sender_name
+       FROM public.patient_chat_messages m
+       LEFT JOIN public.pharmacy_users pu
+         ON m.sender_role = 'PHARMACY' AND pu.pharmacy_user_id = m.sender_user_id
+       WHERE m.chat_id = $1
+       ORDER BY m.created_at ASC, m.message_id ASC`,
       [chatId],
     );
 
@@ -141,6 +159,7 @@ export class PharmacyMessagingService {
       message: 'Conversation messages retrieved successfully.',
       data: {
         chatId,
+        conversation: chat.rows[0],
         messages: messages.rows,
       },
     };
@@ -222,7 +241,7 @@ export class PharmacyMessagingService {
       return {
         success: true,
         message: 'Message sent successfully.',
-        data: inserted.rows[0],
+        data: { ...inserted.rows[0], sender_name: staff.full_name },
       };
     });
   }

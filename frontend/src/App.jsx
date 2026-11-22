@@ -42,6 +42,16 @@ import SalesHistory from './pages/dashboard/SalesHistory';
 import InsuranceClaims from './pages/dashboard/InsuranceClaims';
 import SalesOfficers from './pages/dashboard/salesOfficers';
 import ActivateAccount from './pages/activateAccount';
+import Messages from './pages/shared/Messages';
+import StaffDashboard from './pages/staff/staffDashboard';
+import StaffOverview from './pages/staff/StaffOverview';
+import { STAFF_ROLES } from './utils/dashboardBase';
+
+
+
+
+
+
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
     <Navbar />
@@ -101,9 +111,20 @@ function App() {
          <Route path="sales/history" element={<SalesHistory />} />
         <Route path='insurance' element={<InsuranceClaims />} />
         <Route path='staffs' element={<SalesOfficers />} />
-        </Route>
-        </Route>
+        <Route path='messages' element={<Messages />} />
 
+        </Route>
+        </Route>
+        {/* staff routes */}
+           <Route element={<ProtectedRoute allowedRoles={STAFF_ROLES} />}>
+          <Route path='/staff/dashboard' element={<StaffDashboard />}>
+            <Route index element={<StaffOverview />} />
+            <Route path='sales/pos' element={<SalesPOS />} />
+            <Route path='sales/history' element={<SalesHistory />} />
+            <Route path='sales/:id/receipt' element={<SaleReceipt />} />
+            <Route path='messages' element={<Messages />} />
+          </Route>
+        </Route>
         {/* admin route */}
        <Route element={
         <ProtectedRoute 

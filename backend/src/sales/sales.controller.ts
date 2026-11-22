@@ -244,6 +244,7 @@ export class SalesController {
   }
 
   @Patch('claims/:id/status')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Update claim status, approval, or insurance payment' })
   @ApiQuery({ name: 'pharmacyId', required: false })
   async updateClaimStatus(

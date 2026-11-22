@@ -20,7 +20,7 @@ export interface LoginResponse {
             fullName: string;
             email: string;
             phoneNumber: string;
-            role: 'PATIENT' | 'PHARMACY' | 'ADMIN';
+            role: 'PATIENT' | 'PHARMACY' | 'ADMIN' |'PHARMACIST';
         };
         redirectTo: string;
     };
