@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useTranslation } from 'react-i18next';
 import { authService } from '../services/authentication';
+
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [identifier, setIdentifier] = useState('');
@@ -14,31 +15,50 @@ const Login = () => {
 
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const handleSubmit = async (e) => {
+    // Prevent default form submission behavior 
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    // Prevent multiple clicks while loading
+    if (isLoading) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await authService.login(identifier,password);
-      // save token on localstrorage
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user',JSON.stringify(response.data.user));
-      navigate(response.data.redirectTo);
+      const response = await authService.login(identifier, password);
+      
+      if (response?.data?.token) {
+        // Save token and user data
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        // Navigate to the correct dashboard
+        navigate(response.data.redirectTo);
+      } else {
+        throw new Error("Invalid response from server.");
+      }
+      
     } catch (error) {
-      setError(error.message);
-    }
-    finally{
+      // Catch the error and update state
+      console.error("Login error:", error);
+      setError(error.message || "Failed to login. Please check your credentials.");
+    } finally {
+      // Ensure loading state is always turned off
       setIsLoading(false);
     }
-    
+  };
+
+  const handleGoogleSuccess = (credentialResponse) => {
+    console.log("Google Login Success:", credentialResponse);
     
   };
 
-  // Handle Google Login Success
-  const handleGoogleSuccess = (credentialResponse) => {
-    console.log("Google Login Success:", credentialResponse);
-   
+  
+  const handleInputChange = (setter) => (e) => {
+    setter(e.target.value);
+    if (error) setError(null);
   };
 
   return (
@@ -57,6 +77,17 @@ const Login = () => {
           </p>
         </div>
 
+        
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+            <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-800">Login Failed</p>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+            </div>
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             
@@ -73,8 +104,8 @@ const Login = () => {
                   type="text"
                   required
                   value={identifier}
-                  onChange={(e)=>setIdentifier(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-900 dark:text-white transition-colors"
+                  onChange={handleInputChange(setIdentifier)}
+                  className={`block w-full pl-10 pr-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-900 dark:text-white transition-colors ${error ? 'border-red-300 dark:border-red-800' : 'border-gray-300 dark:border-gray-700'}`}
                   placeholder="you@example.com or 078..."
                 />
               </div>
@@ -93,8 +124,8 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
-                  onChange={(e)=>setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-900 dark:text-white transition-colors"
+                  onChange={handleInputChange(setPassword)}
+                  className={`block w-full pl-10 pr-10 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent dark:bg-gray-900 dark:text-white transition-colors ${error ? 'border-red-300 dark:border-red-800' : 'border-gray-300 dark:border-gray-700'}`}
                   placeholder="••••••••"
                 />
                 <button
@@ -122,7 +153,7 @@ const Login = () => {
             </div>
           </div>
 
-                    <button
+          <button
             type="submit"
             disabled={isLoading}
             className="w-full flex justify-center items-center py-3 px-4 rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 transition-colors disabled:opacity-70"
@@ -152,6 +183,7 @@ const Login = () => {
               theme="outline"
               size="large"
               width="100%"
+              locale="en"
             />
           </div>
         </div>

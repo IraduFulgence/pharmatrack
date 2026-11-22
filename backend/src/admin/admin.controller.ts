@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiResponse as SwaggerResponse,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import path from 'node:path';
@@ -27,9 +28,15 @@ import { Roles } from '../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { CreateAdminDto } from './dto/create-admin.dto.js';
 import { RejectPharmacyDto } from './dto/reject-pharmacy.dto.js';
+import { UpdateAdminDto } from './dto/update-admin.dto.js';
 import { UpdatePatientDto } from './dto/update-patient.dto.js';
+import { UpdateSalesOfficerDto } from './dto/update-sales-officer.dto.js';
+import { TransferSalesOfficerDto } from './dto/transfer-sales-officer.dto.js';
+
 import { CreatePharmacyDto } from './dto/create-pharmacy.dto.js';
+import { UpdatePharmacyDto } from './dto/update-pharmacy.dto.js';
 import { CreatePatientDto } from './dto/create-patient.dto.js';
+import { QueryActivityDto } from '../staff/dto/query-activity.dto.js';
 import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 
@@ -165,6 +172,40 @@ export class AdminController {
     return this.adminService.createPharmacy(dto, user.sub);
   }
 
+  @Patch('pharmacies/:id')
+  @ApiOperation({ summary: 'Update pharmacy details by System Admin' })
+  async updatePharmacy(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePharmacyDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ApiResponse> {
+    return this.adminService.updatePharmacy(id, dto, user.sub);
+  }
+
+  @Patch('pharmacies/:id/toggle-status')
+  @ApiOperation({ summary: 'Toggle pharmacy active/suspended status' })
+  async togglePharmacyStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ApiResponse> {
+    return this.adminService.togglePharmacyStatus(id, user.sub);
+  }
+
+  @Get('pharmacies/:id/activities')
+  @ApiOperation({ summary: 'Get audit activity logs for a pharmacy' })
+  async getPharmacyActivities(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: QueryActivityDto,
+  ): Promise<ApiResponse> {
+    return this.adminService.getPharmacyActivities(id, query);
+  }
+
+  @Get('reports/system-overview')
+  @ApiOperation({ summary: 'Get comprehensive system overview report' })
+  async getSystemOverviewReport(): Promise<ApiResponse> {
+    return this.adminService.getSystemOverviewReport();
+  }
+
   // ───────────── Administrators ─────────────
 
   @Get('administrators')
@@ -182,13 +223,27 @@ export class AdminController {
     return this.adminService.createAdmin(dto, user.sub);
   }
 
-  @Patch('administrators/:id/toggle-status')
-  @ApiOperation({ summary: 'Toggle admin active/inactive status' })
-  async toggleAdminStatus(
+  @Patch('sales-officers/:id')
+  @ApiOperation({ summary: 'Update sales officer profile (name, email, phone)' })
+  @ApiBody({ type: UpdateSalesOfficerDto })
+  async updateSalesOfficer(
     @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateSalesOfficerDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<ApiResponse> {
-    return this.adminService.toggleAdminStatus(id, user.sub);
+    return this.adminService.updateSalesOfficerProfile(id, dto, user.sub);
   }
+
+  @Patch('sales-officers/:id/transfer')
+  @ApiOperation({ summary: 'Transfer sales officer to another pharmacy' })
+  @ApiBody({ type: TransferSalesOfficerDto })
+  async transferSalesOfficer(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TransferSalesOfficerDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ApiResponse> {
+    return this.adminService.transferSalesOfficer(id, dto.targetPharmacyId, user.sub);
+  }
+
 }
 
