@@ -40,7 +40,7 @@ import SalesPOS from './pages/dashboard/SalesPOS';
 import SaleReceipt from './pages/dashboard/SaleReceipt';
 import SalesHistory from './pages/dashboard/SalesHistory';
 import InsuranceClaims from './pages/dashboard/InsuranceClaims';
-
+import SalesOfficers from './pages/dashboard/salesOfficers';
 
 const Layout =({children}) =>(
   <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
@@ -100,6 +100,7 @@ function App() {
         <Route path="sales/:id/receipt" element={<SaleReceipt />} />
          <Route path="sales/history" element={<SalesHistory />} />
         <Route path='insurance' element={<InsuranceClaims />} />
+        <Route path='staffs' element={<SalesOfficers />} />
         </Route>
         </Route>
 
