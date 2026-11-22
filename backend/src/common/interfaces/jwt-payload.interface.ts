@@ -1,4 +1,11 @@
-export type UserRole = 'PATIENT' | 'PHARMACY' | 'ADMIN';
+export type UserRole =
+  | 'PATIENT'
+  | 'PHARMACY'
+  | 'ADMIN'
+  | 'SYSTEM_ADMIN'
+  | 'PHARMACY_ADMIN'
+  | 'PHARMACIST'
+  | 'SALES_OFFICER';
 
 export interface JwtPayload {
   sub: number;
@@ -6,4 +13,6 @@ export interface JwtPayload {
   role: UserRole;
   phoneNumber?: string;
   mustChangePassword?: boolean;
+  pharmacyId?: number;
+  pharmacyUserId?: number;
 }
