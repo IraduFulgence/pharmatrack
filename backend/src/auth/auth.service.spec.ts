@@ -359,6 +359,7 @@ describe('AuthService', () => {
 
       mockDb.query
         .mockResolvedValueOnce({ rows: [] }) // not patient
+        .mockResolvedValueOnce({ rows: [] }) // not pharmacy_users
         .mockResolvedValueOnce({
           rows: [
             {
@@ -382,6 +383,7 @@ describe('AuthService', () => {
       expect(result.data.token).toBe('mock_jwt_token_123');
       expect(result.data.user).toEqual({
         id: 2,
+        pharmacyId: 2,
         pharmacyName: 'Kigali Central Pharmacy',
         email: 'kigalipharmacy@example.com',
         phoneNumber: '+250788123456',
@@ -391,11 +393,48 @@ describe('AuthService', () => {
       expect(result.data.redirectTo).toBe('/pharmacy/dashboard');
     });
 
+    it('should login a pharmacy administrator using pharmacy_users', async () => {
+      const hashedPassword = await bcrypt.hash('Admin@12345', 10);
+
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [] }) // not patient
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              pharmacy_user_id: '10',
+              pharmacy_id: '2',
+              full_name: 'Pharm Admin Person',
+              email: 'admin@pharmacy.com',
+              phone_number: '+250788999888',
+              password_hash: hashedPassword,
+              role: 'PHARMACY_ADMIN',
+              is_active: true,
+              pharmacy_name: 'Kigali Central Pharmacy',
+              pharmacy_is_active: true,
+              verification_status: 'APPROVED',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [] }); // update last_login_at
+
+      const result = await authService.login({
+        identifier: 'admin@pharmacy.com',
+        password: 'Admin@12345',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data.token).toBe('mock_jwt_token_123');
+      expect(result.data.user.role).toBe('PHARMACY_ADMIN');
+      expect(result.data.user.pharmacyId).toBe(2);
+      expect(result.data.redirectTo).toBe('/pharmacy/dashboard');
+    });
+
     it('should login an admin using email', async () => {
       const hashedPassword = await bcrypt.hash('Admin@12345', 10);
 
       mockDb.query
         .mockResolvedValueOnce({ rows: [] }) // not patient
+        .mockResolvedValueOnce({ rows: [] }) // not pharmacy_users
         .mockResolvedValueOnce({ rows: [] }) // not pharmacy
         .mockResolvedValueOnce({
           rows: [
@@ -443,6 +482,7 @@ describe('AuthService', () => {
           ],
         })
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] });
 
       await expect(
@@ -456,6 +496,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException on nonexistent account', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [] }) // patient
+        .mockResolvedValueOnce({ rows: [] }) // pharmacy_users
         .mockResolvedValueOnce({ rows: [] }) // pharmacy
         .mockResolvedValueOnce({ rows: [] }); // admin
 
@@ -494,6 +535,7 @@ describe('AuthService', () => {
 
       mockDb.query
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({
           rows: [
             {
@@ -508,6 +550,33 @@ describe('AuthService', () => {
       await expect(
         authService.login({
           identifier: 'pharmacy@example.com',
+          password: 'Password@123',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if staff account is inactive', async () => {
+      const hashedPassword = await bcrypt.hash('Password@123', 10);
+
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              pharmacy_user_id: '15',
+              pharmacy_id: '2',
+              email: 'staff_suspended@example.com',
+              password_hash: hashedPassword,
+              role: 'PHARMACIST',
+              is_active: false,
+              pharmacy_is_active: true,
+            },
+          ],
+        });
+
+      await expect(
+        authService.login({
+          identifier: 'staff_suspended@example.com',
           password: 'Password@123',
         }),
       ).rejects.toThrow(ForbiddenException);
