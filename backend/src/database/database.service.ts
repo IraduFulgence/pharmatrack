@@ -105,29 +105,29 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       // ============================================================
       // Migration 001: Patients auth updates and date of birth
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         ALTER TABLE public.patients 
           ADD COLUMN IF NOT EXISTS date_of_birth DATE,
           ADD COLUMN IF NOT EXISTS password_hash TEXT,
           ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL;
-      `);
+      */
 
       // ============================================================
       // Migration 002: Pharmacies auth and registration field updates
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         ALTER TABLE public.pharmacies 
           ALTER COLUMN location_address DROP NOT NULL,
           ALTER COLUMN latitude DROP NOT NULL,
           ALTER COLUMN longitude DROP NOT NULL;
-      `);
+      */
 
-      await this.pool.query(`
+      /* await this.pool.query(`
         ALTER TABLE public.pharmacies 
           ADD COLUMN IF NOT EXISTS password_hash TEXT;
-      `);
+      */
 
-      await this.pool.query(`
+      /* await this.pool.query(`
         DO $$
         BEGIN
           IF NOT EXISTS (
@@ -136,12 +136,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
             ALTER TABLE public.pharmacies ADD CONSTRAINT pharmacies_phone_number_key UNIQUE (phone_number);
           END IF;
         END $$;
-      `);
+      */
 
       // ============================================================
       // Migration 002b: Password resets table
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         CREATE TABLE IF NOT EXISTS public.password_resets (
             reset_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             email character varying(255) NOT NULL,
@@ -154,23 +154,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         );
         CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON public.password_resets (token_hash);
         CREATE INDEX IF NOT EXISTS idx_password_resets_email ON public.password_resets (email);
-      `);
+      */
 
       // ============================================================
       // Migration 003: Make patient email and national_id nullable
       // ============================================================
-      await this.pool.query(`
-        ALTER TABLE public.patients ALTER COLUMN email DROP NOT NULL;
-      `).catch(() => { /* already nullable */ });
-
-      await this.pool.query(`
-        ALTER TABLE public.patients ALTER COLUMN national_id DROP NOT NULL;
-      `).catch(() => { /* already nullable */ });
+      // await this.pool.query(`
+//   ALTER TABLE public.patients ALTER COLUMN email DROP NOT NULL;
+// `);
+// await this.pool.query(`
+//   ALTER TABLE public.patients ALTER COLUMN national_id DROP NOT NULL;
+// `);
 
       // ============================================================
       // Migration 004: Pharmacy extended fields (TIN, docs, verification)
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS tin VARCHAR(9);
         ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS pharmacy_certificate_path TEXT;
         ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS rdb_certificate_path TEXT;
@@ -178,9 +177,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
         ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS verified_by BIGINT;
         ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
-      `);
+      */
 
-      await this.pool.query(`
+      /* await this.pool.query(`
         DO $$
         BEGIN
           IF NOT EXISTS (
@@ -189,12 +188,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
             ALTER TABLE public.pharmacies ADD CONSTRAINT pharmacies_tin_key UNIQUE (tin);
           END IF;
         END $$;
-      `);
+      */
 
       // ============================================================
       // Migration 005: Admins table
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         CREATE TABLE IF NOT EXISTS public.admins (
           admin_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           full_name VARCHAR(150) NOT NULL,
@@ -210,12 +209,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           CONSTRAINT admins_email_key UNIQUE (email),
           CONSTRAINT admins_phone_number_key UNIQUE (phone_number)
         );
-      `);
+      */
 
       // ============================================================
       // Migration 006: Admin activity logs
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         CREATE TABLE IF NOT EXISTS public.admin_activity_logs (
           log_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           admin_id BIGINT NOT NULL,
@@ -225,12 +224,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           details JSONB,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
         );
-      `);
+      */
 
       // ============================================================
       // Migration 007: Inventory Management and Transactions
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         ALTER TABLE public.inventory_batches 
           ADD COLUMN IF NOT EXISTS reorder_level INTEGER DEFAULT 10 NOT NULL,
           ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
@@ -279,12 +278,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           ('Diclofenac Sodium 50mg Tablets', 'Diclofenac Sodium', 'Voltaren', '50mg', 'Tablet', 'NSAID for joint pain, arthritis, and acute musculoskeletal pain.', true)
         ) AS m(medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
         WHERE NOT EXISTS (SELECT 1 FROM public.medicines LIMIT 1);
-      `);
+      */
 
       // ============================================================
       // Migration 008: Sales and Billing Management Schema
       // ============================================================
-      await this.pool.query(`
+      /* await this.pool.query(`
         CREATE TABLE IF NOT EXISTS public.insurance_providers (
           provider_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           provider_name VARCHAR(150) NOT NULL UNIQUE,
@@ -408,80 +407,99 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         CREATE INDEX IF NOT EXISTS idx_insurance_claims_provider ON public.insurance_claims (provider_id);
         CREATE INDEX IF NOT EXISTS idx_insurance_claims_status ON public.insurance_claims (claim_status);
 
-        INSERT INTO public.insurance_providers (provider_name, provider_code, default_coverage_percentage, contact_phone, contact_email)
-        SELECT p.provider_name, p.provider_code, p.default_coverage_percentage, p.contact_phone, p.contact_email
-        FROM (VALUES
-          ('RSSB / RAMA', 'RSSB', 85.00, '+250252598400', 'info@rssb.rw'),
-          ('MMI (Military Medical Insurance)', 'MMI', 85.00, '+250252585250', 'info@mmi.gov.rw'),
-          ('Mutuelle de Santé (CBHI)', 'CBHI', 90.00, '+250252598400', 'cbhi@rssb.rw'),
-          ('Radiant Insurance Company', 'RADIANT', 80.00, '+250788100100', 'info@radiant.rw'),
-          ('Sanlam Vie & Assurance Rwanda', 'SANLAM', 80.00, '+250252575253', 'rwanda@sanlam.com'),
-          ('Britam Insurance Rwanda', 'BRITAM', 75.00, '+250788383800', 'contact@britam.rw'),
-          ('Prime Insurance Ltd', 'PRIME', 75.00, '+250788308444', 'info@prime.rw'),
-          ('UAP Insurance Rwanda', 'UAP', 80.00, '+250252503504', 'uap@uap.co.rw')
-        ) AS p(provider_name, provider_code, default_coverage_percentage, contact_phone, contact_email)
-        WHERE NOT EXISTS (SELECT 1 FROM public.insurance_providers LIMIT 1);
-      `);
+        // ============================================================
+        // Migration 009: Sales Officers and Assignments tables
+        // ============================================================
+                // Migration 009: Sales Officers and Assignments tables
+        await this.pool.query('CREATE TABLE IF NOT EXISTS public.sales_officers (sales_officer_id SERIAL PRIMARY KEY, pharmacy_id INT NOT NULL REFERENCES public.pharmacies (pharmacy_id) ON DELETE CASCADE, full_name VARCHAR(150) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL, phone VARCHAR(50));');
+                await this.pool.query('CREATE TABLE IF NOT EXISTS public.pharmacy_assignments (assignment_id SERIAL PRIMARY KEY, pharmacy_id INT NOT NULL REFERENCES public.pharmacies (pharmacy_id) ON DELETE CASCADE, title VARCHAR(200) NOT NULL, description TEXT, due_date DATE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);');
+        await this.pool.query('INSERT INTO public.insurance_providers (provider_name, provider_code, default_coverage_percentage, contact_phone, contact_email) SELECT p.provider_name, p.provider_code, p.default_coverage_percentage, p.contact_phone, p.contact_email FROM (VALUES (\'RSSB / RAMA\',\'RSSB\',85.00,\'+250252598400\',\'info@rssb.rw\'),(\'MMI (Military Medical Insurance)\',\'MMI\',85.00,\'+250252585250\',\'info@mmi.gov.rw\'),(\'Mutuelle de Santé (CBHI)\',\'CBHI\',90.00,\'+250252598400\',\'cbhi@rssb.rw\'),(\'Radiant Insurance Company\',\'RADIANT\',80.00,\'+250788100100\',\'info@radiant.rw\'),(\'Sanlam Vie & Assurance Rwanda\',\'SANLAM\',80.00,\'+250252575253\',\'rwanda@sanlam.com\'),(\'Britam Insurance Rwanda\',\'BRITAM\',75.00,\'+250788383800\',\'contact@britam.rw\'),(\'Prime Insurance Ltd\',\'PRIME\',75.00,\'+250788308444\',\'info@prime.rw\'),(\'UAP Insurance Rwanda\',\'UAP\',80.00,\'+250252503504\',\'uap@uap.co.rw\')) AS p(provider_name, provider_code, default_coverage_percentage, contact_phone, contact_email) WHERE NOT EXISTS (SELECT 1 FROM public.insurance_providers LIMIT 1)');
 
       // ============================================================
       // Migration 006: System Improvements (Locations, Prices, Packaging, Pharmacy Patients)
       // ============================================================
-      await this.pool.query(`
-        ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS location_address TEXT;
-        ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
-        ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
+      await this.pool.query(
+  'ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS location_address TEXT;' +
+  'ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);' +
+  'ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);' +
+  'ALTER TABLE public.inventory_batches ADD COLUMN IF NOT EXISTS purchase_price NUMERIC(12, 2);' +
+  'ALTER TABLE public.inventory_batches ADD COLUMN IF NOT EXISTS selling_price NUMERIC(12, 2);' +
+  'UPDATE public.inventory_batches SET purchase_price = unit_price WHERE purchase_price IS NULL AND unit_price IS NOT NULL;' +
+  'UPDATE public.inventory_batches SET selling_price = unit_price WHERE selling_price IS NULL AND unit_price IS NOT NULL;' +
+  'CREATE TABLE IF NOT EXISTS public.medicine_packaging (' +
+  'packaging_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,' +
+  'medicine_id BIGINT NOT NULL REFERENCES public.medicines(medicine_id) ON DELETE CASCADE,' +
+  'package_name VARCHAR(100) NOT NULL,' +
+  'package_unit VARCHAR(50) NOT NULL,' +
+  'units_per_package INTEGER NOT NULL CHECK (units_per_package > 0),' +
+  'price_per_package NUMERIC(12, 2),' +
+  'is_default BOOLEAN DEFAULT FALSE NOT NULL,' +
+  'created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,' +
+  'updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,' +
+  'CONSTRAINT uq_medicine_packaging UNIQUE (medicine_id, package_name)' +
+  ');' +
+  'CREATE INDEX IF NOT EXISTS idx_medicine_packaging_med_id ON public.medicine_packaging (medicine_id);' +
+  'CREATE TABLE IF NOT EXISTS public.pharmacy_patients (' +
+  'pharmacy_patient_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,' +
+  'pharmacy_id BIGINT NOT NULL REFERENCES public.pharmacies(pharmacy_id) ON DELETE CASCADE,' +
+  'patient_id BIGINT NOT NULL REFERENCES public.patients(patient_id) ON DELETE CASCADE,' +
+  'registered_by BIGINT REFERENCES public.pharmacy_users(pharmacy_user_id) ON DELETE SET NULL,' +
+  'created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,' +
+  'CONSTRAINT uq_pharmacy_patient UNIQUE (pharmacy_id, patient_id)' +
+  ');' +
+  'CREATE INDEX IF NOT EXISTS idx_pharmacy_patients_pharmacy ON public.pharmacy_patients (pharmacy_id);' +
+  'CREATE INDEX IF NOT EXISTS idx_pharmacy_patients_patient ON public.pharmacy_patients (patient_id);' +
+  'INSERT INTO public.pharmacy_patients (pharmacy_id, patient_id) SELECT DISTINCT pharmacy_id, patient_id FROM public.sales WHERE patient_id IS NOT NULL ON CONFLICT (pharmacy_id, patient_id) DO NOTHING;' +
+  'ALTER TABLE public.patient_insurances ALTER COLUMN card_number DROP NOT NULL;' +
+  'ALTER TABLE public.insurance_claims ALTER COLUMN insurance_card_number DROP NOT NULL;' +
+  'ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS packaging_name VARCHAR(100);' +
+  'ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS package_quantity INTEGER;' +
+  'ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS units_per_package INTEGER DEFAULT 1;'
+);
 
-        ALTER TABLE public.inventory_batches ADD COLUMN IF NOT EXISTS purchase_price NUMERIC(12, 2);
-        ALTER TABLE public.inventory_batches ADD COLUMN IF NOT EXISTS selling_price NUMERIC(12, 2);
+      // ============================================================
+      // Migration 007: Staff Management, RBAC, and Activity Logs
+      // ============================================================
+      /* await this.pool.query(`
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(25);
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS created_by BIGINT;
+        ALTER TABLE public.pharmacy_users DROP CONSTRAINT IF EXISTS pharmacy_users_created_by_fkey;
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL;
+        ALTER TABLE public.pharmacy_users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE public.pharmacy_users ALTER COLUMN email DROP NOT NULL;
+        ALTER TABLE public.pharmacy_users ALTER COLUMN password_hash DROP NOT NULL;
 
-        UPDATE public.inventory_batches
-        SET purchase_price = unit_price
-        WHERE purchase_price IS NULL AND unit_price IS NOT NULL;
+        -- Drop old check constraint on role to allow new RBAC roles
+        ALTER TABLE public.pharmacy_users DROP CONSTRAINT IF EXISTS pharmacy_users_role_check;
+        ALTER TABLE public.pharmacy_users ADD CONSTRAINT pharmacy_users_role_check 
+          CHECK (role IN ('PHARMACY_ADMIN', 'PHARMACIST', 'SALES_OFFICER', 'OWNER', 'CASHIER', 'PHARMACY'));
 
-        UPDATE public.inventory_batches
-        SET selling_price = unit_price
-        WHERE selling_price IS NULL AND unit_price IS NOT NULL;
+        UPDATE public.pharmacy_users 
+        SET role = 'PHARMACY_ADMIN' 
+        WHERE role = 'OWNER' OR role = 'PHARMACY';
 
-        CREATE TABLE IF NOT EXISTS public.medicine_packaging (
-          packaging_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          medicine_id BIGINT NOT NULL REFERENCES public.medicines(medicine_id) ON DELETE CASCADE,
-          package_name VARCHAR(100) NOT NULL,
-          package_unit VARCHAR(50) NOT NULL,
-          units_per_package INTEGER NOT NULL CHECK (units_per_package > 0),
-          price_per_package NUMERIC(12, 2),
-          is_default BOOLEAN DEFAULT FALSE NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-          CONSTRAINT uq_medicine_packaging UNIQUE (medicine_id, package_name)
-        );
+        ALTER TABLE public.password_resets ADD COLUMN IF NOT EXISTS purpose VARCHAR(30) DEFAULT 'PASSWORD_RESET' NOT NULL;
+        ALTER TABLE public.password_resets ADD COLUMN IF NOT EXISTS code VARCHAR(30);
 
-        CREATE INDEX IF NOT EXISTS idx_medicine_packaging_med_id ON public.medicine_packaging (medicine_id);
+        CREATE INDEX IF NOT EXISTS idx_password_resets_code ON public.password_resets (code);
+        CREATE INDEX IF NOT EXISTS idx_password_resets_purpose ON public.password_resets (purpose);
 
-        CREATE TABLE IF NOT EXISTS public.pharmacy_patients (
-          pharmacy_patient_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS public.pharmacy_user_activity_logs (
+          log_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           pharmacy_id BIGINT NOT NULL REFERENCES public.pharmacies(pharmacy_id) ON DELETE CASCADE,
-          patient_id BIGINT NOT NULL REFERENCES public.patients(patient_id) ON DELETE CASCADE,
-          registered_by BIGINT REFERENCES public.pharmacy_users(pharmacy_user_id) ON DELETE SET NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-          CONSTRAINT uq_pharmacy_patient UNIQUE (pharmacy_id, patient_id)
+          pharmacy_user_id BIGINT REFERENCES public.pharmacy_users(pharmacy_user_id) ON DELETE SET NULL,
+          action VARCHAR(100) NOT NULL,
+          target_type VARCHAR(50),
+          target_id BIGINT,
+          details JSONB,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
         );
 
-        CREATE INDEX IF NOT EXISTS idx_pharmacy_patients_pharmacy ON public.pharmacy_patients (pharmacy_id);
-        CREATE INDEX IF NOT EXISTS idx_pharmacy_patients_patient ON public.pharmacy_patients (patient_id);
-
-        INSERT INTO public.pharmacy_patients (pharmacy_id, patient_id)
-        SELECT DISTINCT pharmacy_id, patient_id
-        FROM public.sales
-        WHERE patient_id IS NOT NULL
-        ON CONFLICT (pharmacy_id, patient_id) DO NOTHING;
-
-        ALTER TABLE public.patient_insurances ALTER COLUMN card_number DROP NOT NULL;
-        ALTER TABLE public.insurance_claims ALTER COLUMN insurance_card_number DROP NOT NULL;
-
-        ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS packaging_name VARCHAR(100);
-        ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS package_quantity INTEGER;
-        ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS units_per_package INTEGER DEFAULT 1;
-      `);
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_pharmacy ON public.pharmacy_user_activity_logs (pharmacy_id);
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_user ON public.pharmacy_user_activity_logs (pharmacy_user_id);
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_action ON public.pharmacy_user_activity_logs (action);
+        CREATE INDEX IF NOT EXISTS idx_pharmacy_activity_logs_created_at ON public.pharmacy_user_activity_logs (created_at);
+      */
 
       // ============================================================
       // Seed: Initial admin account from env vars
@@ -496,8 +514,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         if (existing.rows.length === 0) {
           const hash = await bcrypt.hash(adminPassword, 10);
           await this.pool.query(
-            `INSERT INTO public.admins (full_name, phone_number, email, password_hash, is_active, must_change_password, role)
-             VALUES ($1, $2, $3, $4, true, true, 'ADMIN')`,
+            'INSERT INTO public.admins (full_name, phone_number, email, password_hash, is_active, must_change_password, role) VALUES ($1, $2, $3, $4, true, true, \'ADMIN\')',
             ['System Administrator', '+250000000000', adminEmail, hash],
           );
           this.logger.log('Initial admin account seeded successfully.');
@@ -506,7 +523,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log('Database schema verification and migrations verified successfully.');
     } catch (error: any) {
-      this.logger.error(`Error running database migrations: ${error.message}`);
+      this.logger.error('Error running database migrations: ' + error.message);
     }
   }
 }

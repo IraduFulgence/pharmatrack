@@ -12,7 +12,7 @@ const InventoryList = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal State
+  // Main Modal State
   const [selectedMedicine, setSelectedMedicine] = useState(null);
   const [batches, setBatches] = useState([]);
   const [isBatchesLoading, setIsBatchesLoading] = useState(false);
@@ -23,9 +23,29 @@ const InventoryList = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState(null);
 
+  // 🚨 NEW: Adjust Sub-Modal State
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState(null);
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const [adjustError, setAdjustError] = useState(null);
+  const [adjustData, setAdjustData] = useState({
+    adjustmentType: 'DAMAGED',
+    quantity: '',
+    reason: ''
+  });
+
   useEffect(() => {
     fetchMedicines();
   }, []);
+
+  const getPharmacyId = () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      return user?.id || user?.pharmacyId;
+    } catch {
+      return null;
+    }
+  };
 
   const fetchMedicines = async () => {
     try {
@@ -50,7 +70,6 @@ const InventoryList = () => {
     setIsEditing(false);
     setIsBatchesLoading(true);
     
-    // Populate edit state with snake_case (matches backend DTO)
     setEditFormData({
       medicine_name: medicine.medicine_name || medicine.medicineName || '',
       generic_name: medicine.generic_name || medicine.genericName || '',
@@ -96,7 +115,6 @@ const InventoryList = () => {
       const medicineId = selectedMedicine.id || selectedMedicine.medicineId || selectedMedicine.medicine_id;
       await inventoryService.updateMedicine(medicineId, editFormData);
       
-      // Update local list so the table reflects changes immediately
       setMedicines(medicines.map(m => 
         (m.id === medicineId || m.medicineId === medicineId) 
           ? { ...m, ...editFormData } 
@@ -117,16 +135,53 @@ const InventoryList = () => {
     setBatches([]);
     setIsEditing(false);
     setEditError(null);
+    setIsAdjustModalOpen(false);
+    setSelectedBatch(null);
   };
 
-  // Navigate to the Adjust Stock page with batch info
-  const handleAdjustClick = (batch) => {
-    navigate('/pharmacy/dashboard/inventory/adjust', {
-      state: {
-        batch: batch,
-        medicineName: selectedMedicine.medicine_name || selectedMedicine.medicineName || selectedMedicine.name
-      }
-    });
+  // 🚨 NEW: Open Adjust Modal
+  const openAdjustModal = (batch) => {
+    setSelectedBatch(batch);
+    setAdjustData({ adjustmentType: 'DAMAGED', quantity: '', reason: '' });
+    setAdjustError(null);
+    setIsAdjustModalOpen(true);
+  };
+
+  // 🚨 NEW: Submit Adjustment
+  const handleAdjustSubmit = async (e) => {
+    e.preventDefault();
+    if (!adjustData.quantity || Number(adjustData.quantity) <= 0) {
+      setAdjustError("Please enter a valid quantity.");
+      return;
+    }
+    if (!adjustData.reason.trim()) {
+      setAdjustError("Please provide a reason.");
+      return;
+    }
+
+    setIsAdjusting(true);
+    setAdjustError(null);
+
+    try {
+      const pharmacyId = getPharmacyId();
+      const batchId = selectedBatch.id || selectedBatch.inventory_id || selectedBatch.batchId;
+
+      await inventoryService.adjustStock(pharmacyId, {
+        inventoryId: Number(batchId),
+        adjustmentType: adjustData.adjustmentType,
+        quantity: Number(adjustData.quantity),
+        reason: adjustData.reason,
+      });
+
+      setIsAdjustModalOpen(false);
+      // Refresh the batches to show the new quantity
+      await handleViewBatches(selectedMedicine);
+      
+    } catch (err) {
+      setAdjustError(err.message || "Failed to adjust stock.");
+    } finally {
+      setIsAdjusting(false);
+    }
   };
 
   const filteredMedicines = Array.isArray(medicines) ? medicines.filter(med => {
@@ -135,7 +190,7 @@ const InventoryList = () => {
   }) : [];
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 mx-auto">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -235,10 +290,10 @@ const InventoryList = () => {
         </div>
       </div>
 
-      {/* EDIT MODAL */}
+      {/* MAIN EDIT MEDICINE MODAL */}
       {selectedMedicine && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[90vh]">
             
             <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800">
               <div>
@@ -318,7 +373,7 @@ const InventoryList = () => {
                   ) : (
                     <div className="space-y-4">
                       {batches.map((batch) => (
-                        <div key={batch.id || batch.batchId} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 gap-4">
+                        <div key={batch.id || batch.inventory_id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 gap-4">
                           <div className="space-y-1">
                             <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                               <FileText size={16} className="text-gray-400"/> 
@@ -340,7 +395,7 @@ const InventoryList = () => {
                             
                             {/* ADJUST BUTTON */}
                             <button
-                              onClick={() => handleAdjustClick(batch)}
+                              onClick={() => openAdjustModal(batch)}
                               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg transition-colors border border-red-100 dark:border-red-900/50"
                             >
                               <ShieldAlert size={14} /> Adjust
@@ -370,6 +425,76 @@ const InventoryList = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      
+      {isAdjustModalOpen && selectedBatch && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-7xl overflow-hidden">
+            
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-red-50 dark:bg-red-900/10">
+              <h3 className="font-bold text-red-600 flex items-center gap-2">
+                <AlertTriangle size={20} /> Adjust Stock
+              </h3>
+              <p className="text-xs text-red-500 mt-1">Record damages, expiries, or corrections.</p>
+            </div>
+
+            <form onSubmit={handleAdjustSubmit} className="p-6 space-y-4">
+              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Batch: {selectedBatch.batch_number || selectedBatch.batchNumber}</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">Current: {selectedBatch.quantity}</span>
+              </div>
+
+              {adjustError && (
+                <p className="text-sm text-red-500">{adjustError}</p>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adjustment Type</label>
+                <select 
+                  value={adjustData.adjustmentType}
+                  onChange={(e) => setAdjustData({...adjustData, adjustmentType: e.target.value})}
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="DAMAGED">Damaged</option>
+                  <option value="EXPIRED">Expired</option>
+                  <option value="LOST">Lost / Stolen</option>
+                  <option value="PHYSICAL_COUNT">Physical Count Correction</option>
+                  <option value="INCREASE">Increase (Found extra)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+                <input 
+                  type="number" required min="1"
+                  value={adjustData.quantity}
+                  onChange={(e) => setAdjustData({...adjustData, quantity: e.target.value})}
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
+                  placeholder="e.g. 5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason *</label>
+                <textarea 
+                  required rows="2"
+                  value={adjustData.reason}
+                  onChange={(e) => setAdjustData({...adjustData, reason: e.target.value})}
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white resize-none"
+                  placeholder="e.g. Water damage during storage."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setIsAdjustModalOpen(false)} className="flex-1 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-semibold">Cancel</button>
+                <button type="submit" disabled={isAdjusting} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50">
+                  {isAdjusting ? <Loader2 className="animate-spin mx-auto" size={18} /> : 'Confirm Adjustment'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

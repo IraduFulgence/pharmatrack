@@ -17,6 +17,7 @@ import type { LoginDto } from './dto/login.dto.js';
 import type { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import type { ResetPasswordDto } from './dto/reset-password.dto.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
+import type { UserRole } from '../common/interfaces/jwt-payload.interface.js';
 
 export function calculateAge(dob: string | Date): number {
   const birthDate = new Date(dob);
@@ -255,12 +256,12 @@ export class AuthService {
 
         const newPharmacy = pharmResult.rows[0];
 
-        // Also associate an owner in pharmacy_users for existing system consistency
+        // Also associate a PHARMACY_ADMIN in pharmacy_users for existing system consistency
         await client.query(
           `INSERT INTO public.pharmacy_users 
-            (pharmacy_id, full_name, email, password_hash, role, is_active)
-           VALUES ($1, $2, $3, $4, 'OWNER', true)`,
-          [newPharmacy.pharmacy_id, pharmacyName.trim(), cleanEmail, passwordHash],
+            (pharmacy_id, full_name, email, phone_number, password_hash, role, is_active)
+           VALUES ($1, $2, $3, $4, $5, 'PHARMACY_ADMIN', true)`,
+          [newPharmacy.pharmacy_id, pharmacyName.trim(), cleanEmail, cleanPhone, passwordHash],
         );
 
         return newPharmacy;
@@ -352,7 +353,76 @@ export class AuthService {
       }
     }
 
-    // 2. Check pharmacy account
+    // 2. Check pharmacy_users account (Pharmacy Administrator, Pharmacist, Sales Officer)
+    const pharmacyUserResult = await this.db.query(
+      `SELECT pu.pharmacy_user_id, pu.pharmacy_id, pu.full_name, pu.email, pu.phone_number, pu.password_hash, pu.role, pu.is_active,
+              p.pharmacy_name, p.is_active AS pharmacy_is_active, p.verification_status
+       FROM public.pharmacy_users pu
+       JOIN public.pharmacies p ON p.pharmacy_id = pu.pharmacy_id
+       WHERE (pu.email IS NOT NULL AND LOWER(pu.email) = $1) OR (pu.phone_number IS NOT NULL AND pu.phone_number = $2)
+       LIMIT 1`,
+      [cleanEmail, identifier],
+    );
+
+    if (pharmacyUserResult.rows.length > 0) {
+      const pUser = pharmacyUserResult.rows[0];
+
+      if (pUser.password_hash) {
+        const isMatch = await bcrypt.compare(dto.password, pUser.password_hash);
+        if (isMatch) {
+          if (!pUser.is_active) {
+            throw new ForbiddenException('Account not authorized, suspended, or awaiting activation.');
+          }
+          if (!pUser.pharmacy_is_active) {
+            throw new ForbiddenException('Your pharmacy account is suspended or inactive.');
+          }
+
+          // Update last_login_at
+          await this.db.query(
+            'UPDATE public.pharmacy_users SET last_login_at = CURRENT_TIMESTAMP WHERE pharmacy_user_id = $1',
+            [pUser.pharmacy_user_id],
+          );
+
+          const rawRole = pUser.role === 'OWNER' ? 'PHARMACY_ADMIN' : pUser.role;
+          const role = (rawRole || 'PHARMACY_ADMIN') as UserRole;
+
+          const token = this.jwtService.sign({
+            sub: Number(pUser.pharmacy_user_id),
+            pharmacyId: Number(pUser.pharmacy_id),
+            pharmacyUserId: Number(pUser.pharmacy_user_id),
+            email: pUser.email || '',
+            phoneNumber: pUser.phone_number,
+            role,
+          });
+
+          let redirectTo = '/pharmacy/dashboard';
+          if (role === 'PHARMACIST') redirectTo = '/pharmacist/dashboard';
+          else if (role === 'SALES_OFFICER') redirectTo = '/sales/dashboard';
+
+          return {
+            success: true,
+            message: 'Login successful.',
+            data: {
+              token,
+              user: {
+                id: Number(pUser.pharmacy_user_id),
+                pharmacyUserId: Number(pUser.pharmacy_user_id),
+                pharmacyId: Number(pUser.pharmacy_id),
+                pharmacyName: pUser.pharmacy_name,
+                fullName: pUser.full_name,
+                email: pUser.email,
+                phoneNumber: pUser.phone_number,
+                role,
+                verificationStatus: pUser.verification_status || 'PENDING',
+              },
+              redirectTo,
+            },
+          };
+        }
+      }
+    }
+
+    // 3. Fallback: Check direct pharmacy account (from pharmacies table)
     const pharmacyResult = await this.db.query(
       `SELECT pharmacy_id, pharmacy_name, email, phone_number, password_hash, is_active, verification_status 
        FROM public.pharmacies 
@@ -373,6 +443,7 @@ export class AuthService {
 
           const token = this.jwtService.sign({
             sub: Number(pharmacy.pharmacy_id),
+            pharmacyId: Number(pharmacy.pharmacy_id),
             email: pharmacy.email,
             phoneNumber: pharmacy.phone_number,
             role: 'PHARMACY',
@@ -385,6 +456,7 @@ export class AuthService {
               token,
               user: {
                 id: Number(pharmacy.pharmacy_id),
+                pharmacyId: Number(pharmacy.pharmacy_id),
                 pharmacyName: pharmacy.pharmacy_name,
                 email: pharmacy.email,
                 phoneNumber: pharmacy.phone_number,
@@ -603,7 +675,7 @@ export class AuthService {
   /**
    * Helper to retrieve user profile for token verification with updated age
    */
-  async getProfile(userId: number, role: 'PATIENT' | 'PHARMACY' | 'ADMIN'): Promise<ApiResponse> {
+  async getProfile(userId: number, role: UserRole): Promise<ApiResponse> {
     if (role === 'PATIENT') {
       const result = await this.db.query(
         `SELECT patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender, is_active, created_at 
@@ -656,7 +728,39 @@ export class AuthService {
           role: 'ADMIN',
         },
       };
-    }  else {
+    } else if (role === 'PHARMACY_ADMIN' || role === 'PHARMACIST' || role === 'SALES_OFFICER') {
+      const result = await this.db.query(
+        `SELECT pu.pharmacy_user_id, pu.pharmacy_id, pu.full_name, pu.email, pu.phone_number, pu.role, pu.is_active,
+                p.pharmacy_name, p.location_address, p.latitude, p.longitude, p.tin, p.verification_status, p.is_active AS pharmacy_is_active
+         FROM public.pharmacy_users pu
+         JOIN public.pharmacies p ON p.pharmacy_id = pu.pharmacy_id
+         WHERE pu.pharmacy_user_id = $1`,
+        [userId],
+      );
+      if (result.rows.length === 0) {
+        throw new UnauthorizedException('Staff account no longer exists.');
+      }
+      const u = result.rows[0];
+      return {
+        success: true,
+        message: 'Profile retrieved successfully.',
+        data: {
+          id: Number(u.pharmacy_user_id),
+          pharmacyUserId: Number(u.pharmacy_user_id),
+          pharmacyId: Number(u.pharmacy_id),
+          pharmacyName: u.pharmacy_name,
+          fullName: u.full_name,
+          phoneNumber: u.phone_number,
+          email: u.email,
+          role: u.role,
+          isActive: u.is_active,
+          pharmacyAddress: u.location_address,
+          latitude: u.latitude ? Number(u.latitude) : null,
+          longitude: u.longitude ? Number(u.longitude) : null,
+          verificationStatus: u.verification_status,
+        },
+      };
+    } else {
       const result = await this.db.query(
         `SELECT 
            pharmacy_id, 
