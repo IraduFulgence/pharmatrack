@@ -1,18 +1,27 @@
 import { ApiRequest } from "./auth";
 
 export const authService = {
-
-  // Standard Login
+  
   login: async (identifier, password) => {
-    return ApiRequest('/auth/login', {
+    
+    const response = await ApiRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ identifier, password }),
     });
+
+   
+    if (!response || !response.data || !response.data.token) {
+      throw new Error(response?.message || 'Invalid credentials');
+    }
+
+    
+    return response;
   },
- getProfile: async () => {
+
+  getProfile: async () => {
     return ApiRequest('/auth/profile', { method: 'GET' });
   },
-  //  Register Patient
+
   registerPatient: async (patientData) => {
     return ApiRequest('/auth/register/patient', {
       method: 'POST',
@@ -20,27 +29,24 @@ export const authService = {
     });
   },
 
-  // Register Pharmacy 
   registerPharmacy: async (formData) => {
-    
     return ApiRequest('/auth/register/pharmacy', {
       method: 'POST',
       body: formData,
     });
   },
+
   getMyDocument: async (type) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/profile/documents/${type}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pharmatrack-backend-thxw.onrender.com/api'}/auth/profile/documents/${type}`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    //console.log('documents',response);
 
     if (!response.ok) {
       throw new Error('Failed to load document.');
-
     }
+    
     return response.blob();
   }
- 
 };

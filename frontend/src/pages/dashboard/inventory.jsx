@@ -80,13 +80,13 @@ const Inventory = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6  mx-auto">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventory Overview</h1>
-          <p className="text-gray-500 dark:text-gray-400">Monitor stock levels, expirations, and alerts.</p>
+          {/* <p className="text-gray-500 dark:text-gray-400">Monitor stock levels, expirations, and alerts.</p> */}
         </div>
         <div className="flex flex-wrap gap-3">
           <button 
@@ -157,7 +157,7 @@ const Inventory = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="">
         
         {/* Active Alerts Column */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
@@ -165,9 +165,9 @@ const Inventory = () => {
             <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <AlertTriangle size={18} className="text-orange-500" /> Critical Alerts
             </h3>
-            <Link to="/pharmacy/dashboard/inventory/alerts" className="text-xs font-semibold text-[#007a55] hover:underline flex items-center gap-1">
+            {/* <Link to="/pharmacy/dashboard/inventory/alerts" className="text-xs font-semibold text-[#007a55] hover:underline flex items-center gap-1">
               View All <ArrowRight size={12} />
-            </Link>
+            </Link> */}
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800 overflow-y-auto h-[400px]">
             {data.alerts.length === 0 ? (
@@ -204,7 +204,7 @@ const Inventory = () => {
         </div>
 
         {/* Notifications Column */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+        {/* <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
           <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
             <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Bell size={18} className="text-blue-500" /> Recent Notifications
@@ -228,7 +228,7 @@ const Inventory = () => {
               ))
             )}
           </div>
-        </div>
+        </div> */}
       </div>
 
     </div>
