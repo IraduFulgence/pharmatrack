@@ -3,8 +3,8 @@ import { useOutletContext } from 'react-router-dom';
 import {
   Search, Send, Loader2, AlertCircle, MessageSquare, ArrowLeft, Phone, Lock, RefreshCw
 } from 'lucide-react';
+// import { messagingService } from '../../services/messagingService';
 import { messagingService } from '../../services/messagingService';
-
 const LIST_POLL_MS = 30000;
 const THREAD_POLL_MS = 15000;
 const MAX_LENGTH = 5000;
@@ -51,7 +51,7 @@ const Messages = () => {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('ALL'); // ALL | AWAITING
+  const [filter, setFilter] = useState('ALL'); 
 
   const [activeId, setActiveId] = useState(null);
   const [thread, setThread] = useState({ conversation: null, messages: [] });
@@ -69,6 +69,7 @@ const Messages = () => {
     if (!silent) setListLoading(true);
     try {
       const res = await messagingService.getConversations();
+      console.log(res);
       setConversations(res.data?.conversations || []);
       setListError(null);
     } catch (err) {
@@ -144,6 +145,7 @@ const Messages = () => {
     setSendError(null);
     try {
       const res = await messagingService.sendMessage(activeId, text);
+      
       setDraft('');
       setThread((t) => ({ ...t, messages: [...t.messages, res.data] }));
       setConversations((list) =>
@@ -181,7 +183,7 @@ const Messages = () => {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Patient Messages</h1>
-          <p className="text-gray-500 dark:text-gray-400">Read and reply to messages patients send to your pharmacy.</p>
+          {/* <p className="text-gray-500 dark:text-gray-400">Read and reply to messages patients send to your pharmacy.</p> */}
         </div>
         <button
           onClick={() => { loadConversations(); if (activeId) loadThread(activeId); }}

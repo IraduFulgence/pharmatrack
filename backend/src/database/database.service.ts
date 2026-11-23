@@ -226,6 +226,34 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         );
       */
 
+         // ============================================================
+      // Patient <-> pharmacy chat (used by patients and pharmacy-messaging)
+      // ============================================================
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS public.patient_chats (
+          chat_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          patient_user_id BIGINT NOT NULL REFERENCES public.patients(patient_id) ON DELETE CASCADE,
+          pharmacy_id BIGINT NOT NULL REFERENCES public.pharmacies(pharmacy_id) ON DELETE CASCADE,
+          status VARCHAR(20) DEFAULT 'OPEN' NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          CONSTRAINT uq_patient_chat UNIQUE (patient_user_id, pharmacy_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_patient_chats_pharmacy ON public.patient_chats (pharmacy_id, updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS public.patient_chat_messages (
+          message_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          chat_id BIGINT NOT NULL REFERENCES public.patient_chats(chat_id) ON DELETE CASCADE,
+          sender_user_id BIGINT NOT NULL,
+          sender_role VARCHAR(20) NOT NULL CHECK (sender_role IN ('PATIENT', 'PHARMACY')),
+          sender_email VARCHAR(255),
+          message TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          edited_at TIMESTAMP WITH TIME ZONE
+        );
+        CREATE INDEX IF NOT EXISTS idx_patient_chat_messages_chat ON public.patient_chat_messages (chat_id, created_at);
+      `);
+
       // ============================================================
       // Migration 007: Inventory Management and Transactions
       // ============================================================
@@ -456,6 +484,34 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   'ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS package_quantity INTEGER;' +
   'ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS units_per_package INTEGER DEFAULT 1;'
 );
+
+      // ============================================================
+      // Patient <-> pharmacy chat (used by patients and pharmacy-messaging)
+      // ============================================================
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS public.patient_chats (
+          chat_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          patient_user_id BIGINT NOT NULL REFERENCES public.patients(patient_id) ON DELETE CASCADE,
+          pharmacy_id BIGINT NOT NULL REFERENCES public.pharmacies(pharmacy_id) ON DELETE CASCADE,
+          status VARCHAR(20) DEFAULT 'OPEN' NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          CONSTRAINT uq_patient_chat UNIQUE (patient_user_id, pharmacy_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_patient_chats_pharmacy ON public.patient_chats (pharmacy_id, updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS public.patient_chat_messages (
+          message_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          chat_id BIGINT NOT NULL REFERENCES public.patient_chats(chat_id) ON DELETE CASCADE,
+          sender_user_id BIGINT NOT NULL,
+          sender_role VARCHAR(20) NOT NULL CHECK (sender_role IN ('PATIENT', 'PHARMACY')),
+          sender_email VARCHAR(255),
+          message TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          edited_at TIMESTAMP WITH TIME ZONE
+        );
+        CREATE INDEX IF NOT EXISTS idx_patient_chat_messages_chat ON public.patient_chat_messages (chat_id, created_at);
+      `);
 
       // ============================================================
       // Migration 007: Staff Management, RBAC, and Activity Logs

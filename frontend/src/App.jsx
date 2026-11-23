@@ -88,7 +88,7 @@ function App() {
         {/* protected routes for pharmacy dashboard */}
         <Route element={
           <ProtectedRoute
-          allowedRoles={['PHARMACY']}
+          allowedRoles={['PHARMACY','PHARMACY_ADMIN']}
           requireApprovedPharmacy={true}
           />
         }>

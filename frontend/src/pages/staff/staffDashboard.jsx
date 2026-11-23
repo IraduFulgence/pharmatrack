@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import DashboardHeader from '../../components/dashboard/header';
 import StaffSidebar from '../../components/staff/StaffSidebar';
+// import { messagingService } from '../../services/messagingService';
 import { messagingService } from '../../services/messagingService';
-
 const BADGE_POLL_MS = 60000;
 
 // Layout for sales officers and pharmacists: sales and patient messages only.
