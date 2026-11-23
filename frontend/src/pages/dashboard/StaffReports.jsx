@@ -61,8 +61,6 @@ const Spinner = () => (
   <div className="py-16 text-center"><Loader2 className="animate-spin inline text-[#007a55]" /></div>
 );
 
-// ───────────────────────── Sales per staff ─────────────────────────
-
 const SalesReport = ({ staff }) => {
   const [period, setPeriod] = useState('month');
   const [range, setRange] = useState({ startDate: '', endDate: '' });
@@ -200,16 +198,16 @@ const SalesReport = ({ staff }) => {
               </div>
             )}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          {/* <p className="text-xs text-gray-500 dark:text-gray-400">
             Cancelled sales are excluded. Sales made from the main pharmacy account aren't tied to a staff member, so they don't appear here.
-          </p>
+          </p> */}
         </>
       )}
     </div>
   );
 };
 
-// ───────────────────── Inventory operations per staff ─────────────────────
+
 
 const InventoryOpsReport = ({ staff }) => {
   const [filters, setFilters] = useState({ staffId: '', type: '', startDate: '', endDate: '' });
@@ -228,7 +226,7 @@ const InventoryOpsReport = ({ staff }) => {
     return () => { cancelled = true; };
   }, [filters]);
 
-  // Backend returns one row per (type, staff); pivot to one row per staff.
+  
   const byStaff = useMemo(() => {
     const map = new Map();
     rows.forEach((r) => {
@@ -335,8 +333,6 @@ const InventoryOpsReport = ({ staff }) => {
     </div>
   );
 };
-
-// ───────────────────────── Page ─────────────────────────
 
 const TABS = [
   { value: 'sales', label: 'Sales by staff', icon: BarChart3 },

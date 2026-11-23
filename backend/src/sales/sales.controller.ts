@@ -154,8 +154,15 @@ export class SalesController {
 
   @Get('insurance-providers')
   @ApiOperation({ summary: 'Get all active registered insurance providers' })
-  async getInsuranceProviders(): Promise<ApiResponse> {
-    return this.salesService.getInsuranceProviders();
+  async getInsuranceProviders(
+    @CurrentUser() user: JwtPayload,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId = await this.salesService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.salesService.getInsuranceProviders(targetPharmacyId);
   }
 
   // ───────────── 6. Automatic Billing Calculation ─────────────

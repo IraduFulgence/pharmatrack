@@ -252,6 +252,7 @@ export class MarketplaceService {
       `
         SELECT
           p.pharmacy_id,
+          p.pharmacy_name,
           p.phone_number,
           p.location_address,
           p.latitude,
@@ -270,6 +271,7 @@ export class MarketplaceService {
           AND p.verification_status = 'APPROVED'
         GROUP BY
           p.pharmacy_id,
+          p.pharmacy_name,
           p.phone_number,
           p.location_address,
           p.latitude,
@@ -1060,6 +1062,7 @@ export class MarketplaceService {
         SELECT
           o.order_id,
           o.pharmacy_id,
+          p.pharmacy_name,
           p.phone_number AS pharmacy_phone,
           p.location_address AS pharmacy_address,
           o.status,
@@ -1068,6 +1071,7 @@ export class MarketplaceService {
           o.mobile_money_provider,
           o.subtotal,
           o.total,
+          o.rejection_reason,
           o.created_at,
           o.updated_at,
           COUNT(oi.order_item_id)::INTEGER AS item_count
@@ -1080,6 +1084,7 @@ export class MarketplaceService {
         GROUP BY
           o.order_id,
           o.pharmacy_id,
+          p.pharmacy_name,
           p.phone_number,
           p.location_address
         ORDER BY o.created_at DESC, o.order_id DESC
@@ -1117,6 +1122,7 @@ export class MarketplaceService {
           o.order_id,
           o.patient_id,
           o.pharmacy_id,
+          p.pharmacy_name,
           p.phone_number AS pharmacy_phone,
           p.location_address AS pharmacy_address,
           o.status,
@@ -1126,6 +1132,7 @@ export class MarketplaceService {
           o.payment_phone_number,
           o.subtotal,
           o.total,
+          o.rejection_reason,
           o.created_at,
           o.updated_at
         FROM public.marketplace_orders o

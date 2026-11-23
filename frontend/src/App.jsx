@@ -14,7 +14,9 @@ import Inventory from './pages/dashboard/inventory';
 import PharmacyProfile from './pages/dashboard/profile';
 import CreatePharmacyProfile from './pages/dashboard/create-profile';
 import Prescriptions from './pages/dashboard/prescription';
-import Orders from './pages/dashboard/orders';
+import OnlineOrders from './pages/shared/OnlineOrders';
+import OnlineCatalogue from './pages/dashboard/OnlineCatalogue';
+import InsuranceSettings from './pages/dashboard/InsuranceSettings';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingVerification from './pages/PendingVerification';
 import CTA from './components/Cta';
@@ -101,7 +103,8 @@ function App() {
         <Route path="profile" element={<PharmacyProfile />} />
         <Route path="createprofile" element={<CreatePharmacyProfile/>}/>
         <Route path="prescriptions" element={<Prescriptions/>}/>
-        <Route path="orders" element={<Orders/>}/>
+        <Route path="orders" element={<OnlineOrders />} />
+        <Route path='online-catalogue' element={<OnlineCatalogue />} />
         <Route path="inventory/list" element={<InventoryList />} />
         <Route path="inventory/stock-in" element={<StockIn />} /> 
         <Route path='inventory/adjust' element={<AdjustStock />} />
@@ -114,6 +117,7 @@ function App() {
         <Route path="sales/:id/receipt" element={<SaleReceipt />} />
          <Route path="sales/history" element={<SalesHistory />} />
         <Route path='insurance' element={<InsuranceClaims />} />
+        <Route path='insurers' element={<InsuranceSettings />} />
         <Route path='staffs' element={<SalesOfficers />} />
         <Route path='staff/activity' element={<StaffActivity />} />
         <Route path='staff/reports' element={<StaffReports />} />
@@ -129,6 +133,7 @@ function App() {
             <Route path='sales/history' element={<SalesHistory />} />
             <Route path='sales/:id/receipt' element={<SaleReceipt />} />
             <Route path='messages' element={<Messages />} />
+            <Route path='orders' element={<OnlineOrders />} />
           </Route>
         </Route>
         {/* admin route */}

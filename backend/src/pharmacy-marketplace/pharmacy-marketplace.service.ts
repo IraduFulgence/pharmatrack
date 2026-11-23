@@ -197,21 +197,31 @@ export class PharmacyMarketplaceService {
         SELECT
           o.order_id,
           o.patient_id,
+          pt.full_name AS patient_name,
+          pt.phone_number AS patient_phone,
           o.pharmacy_id,
           o.status,
           o.payment_method,
           o.payment_status,
+          o.mobile_money_provider,
           o.subtotal,
           o.total,
+          o.rejection_reason,
+          o.sale_id,
           o.created_at,
           o.updated_at,
-          COUNT(oi.order_item_id)::INTEGER AS item_count
+          COUNT(oi.order_item_id)::INTEGER AS item_count,
+          COALESCE(BOOL_OR(m.requires_prescription), FALSE) AS requires_prescription
         FROM public.marketplace_orders o
+        LEFT JOIN public.patients pt
+          ON pt.patient_id = o.patient_id
         LEFT JOIN public.marketplace_order_items oi
           ON oi.order_id = o.order_id
+        LEFT JOIN public.medicines m
+          ON m.medicine_id = oi.medicine_id
         WHERE o.pharmacy_id = $1
           ${statusCondition}
-        GROUP BY o.order_id
+        GROUP BY o.order_id, pt.full_name, pt.phone_number
         ORDER BY
           CASE
             WHEN o.status = 'PENDING' THEN 0
@@ -261,6 +271,8 @@ export class PharmacyMarketplaceService {
         SELECT
           o.order_id,
           o.patient_id,
+          pt.full_name AS patient_name,
+          pt.phone_number AS patient_phone,
           o.pharmacy_id,
           o.status,
           o.payment_method,
@@ -269,9 +281,13 @@ export class PharmacyMarketplaceService {
           o.payment_phone_number,
           o.subtotal,
           o.total,
+          o.rejection_reason,
+          o.sale_id,
           o.created_at,
           o.updated_at
         FROM public.marketplace_orders o
+        LEFT JOIN public.patients pt
+          ON pt.patient_id = o.patient_id
         WHERE o.order_id = $1
           AND o.pharmacy_id = $2
         LIMIT 1
@@ -295,6 +311,7 @@ export class PharmacyMarketplaceService {
           m.brand_name,
           m.strength,
           m.dosage_form,
+          m.requires_prescription,
           oi.quantity,
           oi.unit_price,
           oi.subtotal
@@ -307,13 +324,57 @@ export class PharmacyMarketplaceService {
       [orderId],
     );
 
+    // Suggest which batches to sell from (first expiring first), so the
+    // sales point can load the order straight into its cart.
+    const items = [];
+    for (const item of itemsResult.rows) {
+      const batches = await this.databaseService.query(
+        `
+          SELECT
+            ib.inventory_id,
+            ib.batch_number,
+            ib.quantity,
+            COALESCE(ib.selling_price, ib.unit_price) AS unit_price,
+            to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date
+          FROM public.inventory_batches ib
+          WHERE ib.pharmacy_id = $1
+            AND ib.medicine_id = $2
+            AND ib.quantity > 0
+            AND (ib.expiry_date IS NULL OR ib.expiry_date >= CURRENT_DATE)
+          ORDER BY ib.expiry_date ASC NULLS LAST, ib.inventory_id ASC
+        `,
+        [pharmacyId, item.medicine_id],
+      );
+      let remaining = Number(item.quantity);
+      const allocations = [];
+      for (const b of batches.rows) {
+        if (remaining <= 0) break;
+        const take = Math.min(remaining, Number(b.quantity));
+        allocations.push({
+          inventory_id: Number(b.inventory_id),
+          batch_number: b.batch_number,
+          quantity: take,
+          available_quantity: Number(b.quantity),
+          unit_price: Number(b.unit_price),
+          expiry_date: b.expiry_date,
+        });
+        remaining -= take;
+      }
+      items.push({
+        ...item,
+        allocations,
+        short_by: Math.max(0, remaining),
+      });
+    }
+
     return {
       success: true,
       message: 'Order details retrieved successfully.',
       data: {
         order: orderResult.rows[0],
-        items: itemsResult.rows,
-        item_count: itemsResult.rows.length,
+        items,
+        item_count: items.length,
+        all_items_in_stock: items.every((i: any) => i.short_by === 0),
       },
     };
   }
@@ -435,6 +496,7 @@ export class PharmacyMarketplaceService {
         `
           UPDATE public.marketplace_orders
           SET status = 'REJECTED',
+              rejection_reason = $3,
               updated_at = NOW()
           WHERE order_id = $1
             AND pharmacy_id = $2
@@ -444,9 +506,10 @@ export class PharmacyMarketplaceService {
             pharmacy_id,
             status,
             payment_status,
+            rejection_reason,
             updated_at
         `,
-        [orderId, pharmacyId],
+        [orderId, pharmacyId, reason],
       );
 
       if (result.rows.length === 0) {
@@ -515,12 +578,9 @@ export class PharmacyMarketplaceService {
         );
       }
 
-      if (
-        nextStatus === 'COMPLETED' &&
-        order.status !== 'READY_FOR_COLLECTION'
-      ) {
+      if (nextStatus === 'COMPLETED') {
         throw new ConflictException(
-          'Only orders ready for collection can be completed.',
+          'Complete the order from the sales point (Online Requests) so the stock is deducted and the payment recorded.',
         );
       }
 
@@ -699,16 +759,12 @@ export class PharmacyMarketplaceService {
             AS lowest_price,
           MAX(COALESCE(ib.selling_price, ib.unit_price))
             AS highest_price,
-          CASE
-            WHEN COALESCE(SUM(ib.quantity), 0) > 0
-              THEN TRUE
-            ELSE FALSE
-          END AS available
+          BOOL_OR(ib.status = 'ACTIVE') AS available
         FROM public.inventory_batches ib
         INNER JOIN public.medicines m
           ON m.medicine_id = ib.medicine_id
         WHERE ib.pharmacy_id = $1
-          AND ib.status = 'ACTIVE'
+          AND ib.status IN ('ACTIVE', 'INACTIVE')
           AND ib.quantity > 0
           AND (
             ib.expiry_date IS NULL
@@ -808,9 +864,10 @@ export class PharmacyMarketplaceService {
           SET status = $3
           WHERE pharmacy_id = $1
             AND medicine_id = $2
+            AND status = $4
           RETURNING inventory_id
         `,
-        [pharmacyId, medicineId, nextStatus],
+        [pharmacyId, medicineId, nextStatus, input.available ? 'INACTIVE' : 'ACTIVE'],
       );
 
       return {

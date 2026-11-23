@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutGrid, FileText, ShoppingBag, Package, Users, 
-  MessageSquare, Settings, HelpCircle, X, Activity, BarChart3, Bell
+  MessageSquare, Settings, HelpCircle, X, Activity, BarChart3, Bell, ShieldCheck, Globe, ShoppingCart
 } from 'lucide-react';
 import { NavLink, Link } from 'react-router-dom';
 import logo from "../../assets/logo.png";
@@ -27,11 +27,14 @@ const DashboardSidebar = ({ isOpen, setIsOpen }) => {
     { icon: <Package size={20} />, label: 'Inventory', path: '/pharmacy/dashboard/inventory' },
     { icon: <Bell size={20} />, label: 'Inventory Updates', path: '/pharmacy/dashboard/inventory/updates' },
     { icon: <ShoppingBag size={20} />, label: 'Sales',  path: '/pharmacy/dashboard/sales/pos' },
+    { icon: <ShoppingCart size={20} />, label: 'Online Orders', path: '/pharmacy/dashboard/orders' },
+    { icon: <Globe size={20} />, label: 'Online Catalogue', path: '/pharmacy/dashboard/online-catalogue' },
     // { icon: <ShoppingBag size={20} />, label: 'Sales History', path: '/pharmacy/dashboard/sales/history' },
      { icon: <Users size={20} />, label: 'Staff', path: '/pharmacy/dashboard/staffs' },
     { icon: <BarChart3 size={20} />, label: 'Staff Reports', path: '/pharmacy/dashboard/staff/reports' },
     { icon: <Activity size={20} />, label: 'Staff Activity', path: '/pharmacy/dashboard/staff/activity' },
     { icon: <Users size={20} />, label: 'Insurance Claims', path: '/pharmacy/dashboard/insurance' },
+    { icon: <ShieldCheck size={20} />, label: 'Accepted Insurance', path: '/pharmacy/dashboard/insurers' },
     { icon: <MessageSquare size={20} />, label: 'Messages', badge: '3', path: '/pharmacy/dashboard/messages' },
   ];
 

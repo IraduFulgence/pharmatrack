@@ -622,12 +622,43 @@ export class SalesService {
   // 5. INSURANCE PROVIDERS (Section 6 & 12)
   // =========================================================================
 
-  async getInsuranceProviders(): Promise<ApiResponse> {
+  /**
+   * Insurers offered at the POS. If the pharmacy has set up its accepted insurers
+   * (Insurance settings), only those that are switched on are returned, with the
+   * pharmacy's own coverage %. Otherwise every active insurer with its default.
+   */
+  async getInsuranceProviders(pharmacyId?: number): Promise<ApiResponse> {
+    if (!pharmacyId) {
+      const all = await this.db.query(
+        `SELECT provider_id, provider_name, provider_code, default_coverage_percentage, contact_phone, contact_email, is_active
+         FROM public.insurance_providers
+         WHERE is_active = true
+         ORDER BY provider_name ASC`,
+      );
+      return { success: true, message: 'Insurance providers retrieved successfully.', data: all.rows };
+    }
+
     const res = await this.db.query(
-      `SELECT provider_id, provider_name, provider_code, default_coverage_percentage, contact_phone, contact_email, is_active 
-       FROM public.insurance_providers 
-       WHERE is_active = true 
-       ORDER BY provider_name ASC`,
+      `SELECT
+         ip.provider_id,
+         ip.provider_name,
+         ip.provider_code,
+         COALESCE(pi.coverage_percentage, ip.default_coverage_percentage) AS default_coverage_percentage,
+         ip.default_coverage_percentage AS platform_coverage_percentage,
+         ip.contact_phone,
+         ip.contact_email,
+         ip.is_active,
+         (pi.pharmacy_insurance_id IS NOT NULL) AS configured_by_pharmacy
+       FROM public.insurance_providers ip
+       LEFT JOIN public.pharmacy_insurances pi
+         ON pi.insurance_id = ip.provider_id AND pi.pharmacy_id = $1
+       WHERE ip.is_active = true
+         AND (
+           NOT EXISTS (SELECT 1 FROM public.pharmacy_insurances x WHERE x.pharmacy_id = $1)
+           OR pi.is_active = true
+         )
+       ORDER BY ip.provider_name ASC`,
+      [pharmacyId],
     );
 
     return {
@@ -652,13 +683,32 @@ export class SalesService {
     let providerName = '';
     if (paymentCategory === 'INSURANCE') {
       if (providerId) {
+        // The pharmacy's own coverage wins; a pharmacy that has set up its insurers
+        // can only bill the ones it has switched on.
         const provRes = await this.db.query(
-          'SELECT provider_name, default_coverage_percentage FROM public.insurance_providers WHERE provider_id = $1',
-          [providerId],
+          `SELECT
+             ip.provider_name,
+             ip.default_coverage_percentage,
+             pi.coverage_percentage AS pharmacy_coverage,
+             pi.is_active AS pharmacy_accepts,
+             EXISTS (SELECT 1 FROM public.pharmacy_insurances x WHERE x.pharmacy_id = $2) AS pharmacy_has_config
+           FROM public.insurance_providers ip
+           LEFT JOIN public.pharmacy_insurances pi
+             ON pi.insurance_id = ip.provider_id AND pi.pharmacy_id = $2
+           WHERE ip.provider_id = $1`,
+          [providerId, pharmacyId],
         );
         if (provRes.rows.length > 0) {
-          defaultCoverage = Number(provRes.rows[0].default_coverage_percentage);
-          providerName = provRes.rows[0].provider_name;
+          const prov = provRes.rows[0];
+          providerName = prov.provider_name;
+          if (prov.pharmacy_has_config === true && prov.pharmacy_accepts !== true) {
+            throw new BadRequestException(`${prov.provider_name} is not accepted at this pharmacy.`);
+          }
+          defaultCoverage = Number(
+            prov.pharmacy_coverage !== null && prov.pharmacy_coverage !== undefined
+              ? prov.pharmacy_coverage
+              : prov.default_coverage_percentage,
+          );
         }
       }
       if (globalCoveragePercentage !== undefined && globalCoveragePercentage >= 0) {
@@ -803,6 +853,7 @@ export class SalesService {
       customerPhone,
       prescriptionId,
       prescriptionReference,
+      marketplaceOrderId,
       providerId,
       insuranceCardNumber,
       discountAmount = 0,
@@ -831,6 +882,24 @@ export class SalesService {
     });
 
     const { items: validatedItems, financials } = billCalculation.data;
+
+    // An online order being collected: it must be this pharmacy's, accepted, and for this patient.
+    if (marketplaceOrderId) {
+      const orderRes = await this.db.query(
+        `SELECT order_id, patient_id, status FROM public.marketplace_orders WHERE order_id = $1 AND pharmacy_id = $2`,
+        [marketplaceOrderId, pharmacyId],
+      );
+      if (orderRes.rows.length === 0) {
+        throw new NotFoundException('Online order not found for this pharmacy.');
+      }
+      const order = orderRes.rows[0];
+      if (order.status !== 'ACCEPTED' && order.status !== 'READY_FOR_COLLECTION') {
+        throw new BadRequestException(`This online order is ${String(order.status).toLowerCase().replace(/_/g, ' ')} and can't be completed.`);
+      }
+      if (patientId && Number(patientId) !== Number(order.patient_id)) {
+        throw new BadRequestException('This online order belongs to a different patient.');
+      }
+    }
 
     // Prescription-only medicine needs a prescription that fits this patient and cart.
     const rxItems = (validatedItems as any[])
@@ -1094,6 +1163,22 @@ export class SalesService {
             `Claim generated from sale ${receiptNumber}`,
           ],
         );
+      }
+
+      if (marketplaceOrderId) {
+        const done = await client.query(
+          `UPDATE public.marketplace_orders
+           SET status = 'COMPLETED',
+               sale_id = $2,
+               payment_status = CASE WHEN $3 = 'PAID' THEN 'PAID' ELSE payment_status END,
+               updated_at = NOW()
+           WHERE order_id = $1 AND pharmacy_id = $4 AND status IN ('ACCEPTED', 'READY_FOR_COLLECTION')
+           RETURNING order_id`,
+          [marketplaceOrderId, saleId, paymentStatus, pharmacyId],
+        );
+        if (done.rows.length === 0) {
+          throw new BadRequestException('The online order changed while the sale was being saved. Check it and try again.');
+        }
       }
 
       return {

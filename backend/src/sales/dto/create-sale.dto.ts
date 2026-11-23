@@ -166,6 +166,16 @@ export class CreateSaleDto {
   prescriptionReference?: string;
 
   @ApiPropertyOptional({
+    example: 12,
+    description: 'Marketplace order this sale fulfils. The order is marked COMPLETED with the sale.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'marketplaceOrderId must be an integer.' })
+  @Min(1, { message: 'marketplaceOrderId must be a positive integer.' })
+  marketplaceOrderId?: number;
+
+  @ApiPropertyOptional({
     example: 1,
     description: 'Insurance provider ID (required if paymentCategory is INSURANCE)',
   })

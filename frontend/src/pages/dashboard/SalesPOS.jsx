@@ -5,38 +5,31 @@ import {
   Store, History, Inbox, UserPlus, Printer, Pill, MapPin, Phone, Calendar,
   AlertCircle, FileText, UploadCloud, Lock
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { salesService } from '../../services/salesService';
+import { marketplaceService, PAYMENT_LABELS } from '../../services/marketplaceService';
 import PatientSelectorModal from '../../components/sales/PatientSelectorModal';
 import SalesHistory from './SalesHistory';
 
 // MOCK DATA
-const MOCK_ONLINE_ORDERS = [
-  {
-    id: 'ONL-001',
-    patientName: 'Jean Paul',
-    phone: '0788111222',
-    total: 4500,
-    status: 'PENDING',
-    items: [
-      { inventoryId: 101, medicineName: 'Amoxicillin 500mg', batchNumber: 'BATCH-A1', unitPrice: 1500, quantity: 2, availableQuantity: 50, medicineId: 1, requires_prescription: true },
-    ]
-  }
-];
-
 const MOCK_HISTORY = [
   { id: 'ORD-8842', date: '10:30 AM', customer: 'Walk-in', total: 3500, status: 'Completed' },
 ];
 
 const SalesPOS = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // --- NAVIGATION ---
   const [activeTab, setActiveTab] = useState('terminal');
   const [isPOSOpen, setIsPOSOpen] = useState(false);
 
   // Online Orders & History
-  const [onlineOrders, setOnlineOrders] = useState(MOCK_ONLINE_ORDERS);
+  // Online orders accepted or ready for pickup, and the one being collected now.
+  const [onlineOrders, setOnlineOrders] = useState([]);
+  const [onlineOrdersError, setOnlineOrdersError] = useState(null);
+  const [marketplaceOrderId, setMarketplaceOrderId] = useState(null);
+  const [loadingOrderId, setLoadingOrderId] = useState(null);
   const [salesHistory, setSalesHistory] = useState(MOCK_HISTORY);
   
   // Search State
@@ -191,12 +184,81 @@ const SalesPOS = () => {
   };
 
 
-  const loadOnlineOrder = (order) => {
-    setPatient({ id: order.id, full_name: order.patientName, phone_number: order.phone });
-    setCart(order.items);
-    setOnlineOrders(onlineOrders.filter(o => o.id !== order.id));
-    setActiveTab('terminal');
-    setIsPOSOpen(true);
+  const fetchOnlineOrders = async () => {
+    try {
+      const res = await marketplaceService.getOrders();
+      setOnlineOrders((res.data || []).filter(o => o.status === 'ACCEPTED' || o.status === 'READY_FOR_COLLECTION'));
+      setOnlineOrdersError(null);
+    } catch (err) {
+      setOnlineOrdersError(err.message || 'Could not load online orders.');
+    }
+  };
+
+  useEffect(() => {
+    fetchOnlineOrders();
+    const timer = setInterval(fetchOnlineOrders, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Load an online order into the cart: its patient, and the batches to sell from.
+  const loadOnlineOrder = async (orderId) => {
+    setLoadingOrderId(orderId);
+    setError(null);
+    try {
+      const res = await marketplaceService.getOrder(orderId);
+      const { order, items } = res.data;
+      if (order.status !== 'ACCEPTED' && order.status !== 'READY_FOR_COLLECTION') {
+        setError(`Order #${orderId} is ${String(order.status).toLowerCase().replace(/_/g, ' ')} and can't be sold.`);
+        return;
+      }
+      const lines = [];
+      const short = [];
+      items.forEach(it => {
+        (it.allocations || []).forEach(a => {
+          lines.push({
+            medicineId: it.medicine_id,
+            medicineName: [it.medicine_name, it.strength].filter(Boolean).join(' '),
+            strength: it.strength,
+            inventoryId: a.inventory_id,
+            batchNumber: a.batch_number,
+            unitPrice: Number(a.unit_price),
+            availableQuantity: Number(a.available_quantity),
+            quantity: Number(a.quantity),
+            requires_prescription: !!it.requires_prescription,
+          });
+        });
+        if (it.short_by > 0) short.push(`${it.medicine_name} (short by ${it.short_by})`);
+      });
+      setCart(lines);
+      setPatient({ id: order.patient_id, patient_id: order.patient_id, full_name: order.patient_name, phone_number: order.patient_phone });
+      setSelectedInsurance(null);
+      setPaymentMethod(order.payment_method === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH');
+      setMarketplaceOrderId(order.order_id);
+      setActiveTab('terminal');
+      setIsPOSOpen(true);
+      if (short.length > 0) {
+        setError(`Not enough stock for: ${short.join(', ')}. The cart has what is available.`);
+      }
+    } catch (err) {
+      setError(err.message || 'Could not load the online order.');
+    } finally {
+      setLoadingOrderId(null);
+    }
+  };
+
+  // Arriving from the Online Orders page with an order to sell.
+  useEffect(() => {
+    const orderId = location.state?.marketplaceOrderId;
+    if (orderId) {
+      loadOnlineOrder(orderId);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state]);
+
+  const detachOnlineOrder = () => {
+    setMarketplaceOrderId(null);
+    setCart([]);
+    setPatient(null);
   };
 
 
@@ -298,7 +360,8 @@ const SalesPOS = () => {
         providerId: selectedInsurance ? Number(selectedInsurance.provider_id) : undefined,
         insuranceCardNumber: selectedInsurance ? (insuranceCardNumber.trim() || undefined) : undefined,
         discountAmount: 0,
-        prescriptionReference: requiresPrescription ? prescriptionCode.trim() : undefined, 
+        prescriptionReference: requiresPrescription ? prescriptionCode.trim() : undefined,
+        marketplaceOrderId: marketplaceOrderId || undefined, 
       };
 
       const res = await salesService.createSale(payload);
@@ -311,6 +374,10 @@ const SalesPOS = () => {
       setInsuranceCardNumber('');
       setPrescriptionCode('');
       setRxCheck(null);
+      if (marketplaceOrderId) {
+        setMarketplaceOrderId(null);
+        fetchOnlineOrders();
+      }
       setIsPOSOpen(false);
       
       setSalesHistory([{ id: saleId, date: 'Just now', customer: patient.full_name, total: patientAmount, status: 'Completed' }, ...salesHistory]);
@@ -406,6 +473,12 @@ const SalesPOS = () => {
               <div className="bg-white dark:bg-gray-900 border rounded-xl flex-grow flex flex-col overflow-hidden shadow-sm">
                 <div className="p-4 border-b bg-gray-50 dark:bg-gray-800/50 dark:text-white">
                 <h3 className="font-bold">Current Cart ({cart.length} items)</h3>
+                {marketplaceOrderId && (
+                  <div className="mt-2 flex items-center justify-between gap-2 text-xs font-medium text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 px-3 py-2 rounded-lg">
+                    <span>Collecting online order #{marketplaceOrderId}. Completing this sale marks it collected.</span>
+                    <button onClick={detachOnlineOrder} className="underline whitespace-nowrap">Cancel</button>
+                  </div>
+                )}
                 </div>
                 <div className="flex-grow overflow-y-auto p-4 space-y-3 dark:text-white">
                   {cart.map(item => (
@@ -549,12 +622,36 @@ const SalesPOS = () => {
         )}
 
         {activeTab === 'online-orders' && (
-          <div className="max-w-full mx-auto space-y-4">
-            <h2 className="text-xl font-bold mb-4">Incoming Online Requests</h2>
+          <div className="max-w-full mx-auto space-y-4 dark:text-white">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Online orders to collect</h2>
+              <button onClick={fetchOnlineOrders} className="text-sm text-[#007a55] hover:underline">Refresh</button>
+            </div>
+            <p className="text-sm text-gray-500">Accepted orders from the mobile app. New orders are accepted or rejected on the Online Orders page.</p>
+            {onlineOrdersError && <p className="text-sm text-red-600">{onlineOrdersError}</p>}
+            {onlineOrders.length === 0 && !onlineOrdersError && (
+              <div className="text-center py-12 text-gray-500"><Inbox className="mx-auto mb-2 text-gray-300" size={32} />No online orders waiting for pickup.</div>
+            )}
             {onlineOrders.map(order => (
-              <div key={order.id} className="bg-white p-5 rounded-2xl border shadow-sm flex justify-between items-center">
-                <div><p className="font-bold text-lg">{order.id} <span className="text-orange-500 text-xs ml-2">PENDING</span></p><p className="text-sm text-gray-600">{order.patientName} ({order.phone})</p><p className="text-sm font-bold mt-1">{order.total.toLocaleString()} RWF</p></div>
-                <button onClick={() => loadOnlineOrder(order)} className="px-5 py-2.5 bg-[#007a55] text-white font-semibold text-sm rounded-xl flex items-center gap-2">Process in POS <ArrowRight size={16} /></button>
+              <div key={order.order_id} className="bg-white dark:bg-gray-900 p-5 rounded-2xl border shadow-sm flex justify-between items-center gap-4">
+                <div>
+                  <p className="font-bold text-lg">
+                    #{order.order_id}
+                    <span className={`text-xs ml-2 ${order.status === 'READY_FOR_COLLECTION' ? 'text-purple-600' : 'text-blue-600'}`}>
+                      {order.status === 'READY_FOR_COLLECTION' ? 'READY FOR PICKUP' : 'ACCEPTED'}
+                    </span>
+                    {order.requires_prescription && <span className="text-xs ml-2 text-red-600">Rx</span>}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{order.patient_name || `Patient #${order.patient_id}`}{order.patient_phone ? ` (${order.patient_phone})` : ''}</p>
+                  <p className="text-sm mt-1"><span className="font-bold">{Number(order.total).toLocaleString()} RWF</span> · {order.item_count} item{order.item_count === 1 ? '' : 's'} · {PAYMENT_LABELS[order.payment_method] || order.payment_method}</p>
+                </div>
+                <button
+                  onClick={() => loadOnlineOrder(order.order_id)}
+                  disabled={loadingOrderId === order.order_id}
+                  className="px-5 py-2.5 bg-[#007a55] text-white font-semibold text-sm rounded-xl flex items-center gap-2 disabled:opacity-60"
+                >
+                  {loadingOrderId === order.order_id ? <Loader2 size={16} className="animate-spin" /> : <>Sell in POS <ArrowRight size={16} /></>}
+                </button>
               </div>
             ))}
           </div>

@@ -643,4 +643,44 @@ describe('SalesService', () => {
       expect(res.data.prescription.prescriptionId).toBe(3);
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // Completing a marketplace order with a POS sale
+  // ─────────────────────────────────────────────────────────────
+  describe('createSale for an online order', () => {
+    it('refuses an online order that is not accepted yet', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 50, unit_price: '2500.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg' }],
+        }) // bill batch
+        .mockResolvedValueOnce({ rows: [{ order_id: 12, patient_id: 7, status: 'PENDING' }] }); // order
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, marketplaceOrderId: 12, items: [{ inventoryId: 10, quantity: 1 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/pending and can't be completed/);
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses an online order that belongs to another patient', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 50, unit_price: '2500.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg' }],
+        })
+        .mockResolvedValueOnce({ rows: [{ order_id: 12, patient_id: 99, status: 'READY_FOR_COLLECTION' }] });
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, marketplaceOrderId: 12, items: [{ inventoryId: 10, quantity: 1 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/different patient/);
+    });
+  });
 });

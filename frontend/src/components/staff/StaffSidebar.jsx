@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { LayoutGrid, ShoppingBag, History, MessageSquare, X } from 'lucide-react';
+import { LayoutGrid, ShoppingBag, History, MessageSquare, ShoppingCart, X } from 'lucide-react';
 import { NavLink, Link } from 'react-router-dom';
 import logo from '../../assets/logo.png';
 import { STAFF_DASHBOARD } from '../../utils/dashboardBase';
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { icon: <LayoutGrid size={20} />, label: 'Overview', path: STAFF_DASHBOARD, end: true },
   { icon: <ShoppingBag size={20} />, label: 'Point of Sale', path: `${STAFF_DASHBOARD}/sales/pos` },
   { icon: <History size={20} />, label: 'Sales History', path: `${STAFF_DASHBOARD}/sales/history` },
+  { icon: <ShoppingCart size={20} />, label: 'Online Orders', path: `${STAFF_DASHBOARD}/orders` },
   { icon: <MessageSquare size={20} />, label: 'Messages', path: `${STAFF_DASHBOARD}/messages`, badgeKey: 'messages' },
 ];
 

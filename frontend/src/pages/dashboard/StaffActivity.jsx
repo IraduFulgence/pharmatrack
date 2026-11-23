@@ -89,7 +89,7 @@ const StaffActivity = () => {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Staff Activity</h1>
-        <p className="text-gray-500 dark:text-gray-400">Who registered, changed, suspended or activated staff accounts, and pharmacy profile changes.</p>
+        {/* <p className="text-gray-500 dark:text-gray-400">Who registered, changed, suspended or activated staff accounts, and pharmacy profile changes.</p> */}
       </div>
 
       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-wrap items-end gap-3">

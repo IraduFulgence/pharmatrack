@@ -61,7 +61,7 @@ export default function TabLayout(){
       options={{
         title:t('Navbar.market'),
             tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "people" : "people"} size={24} color={color} />
+            <Ionicons name={focused ? "storefront" : "storefront-outline"} size={24} color={color} />
           ),
       }}
       />
@@ -92,6 +92,12 @@ export default function TabLayout(){
    />
    <Tabs.Screen
       name="pharmacy/[id]"
+      options={{
+        href:null,
+      }}
+   />
+   <Tabs.Screen
+      name="cart"
       options={{
         href:null,
       }}

@@ -255,6 +255,61 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       `);
 
       // ============================================================
+      // Marketplace: patient carts and orders placed with a pharmacy
+      // ============================================================
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS public.marketplace_carts (
+          cart_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          patient_id BIGINT NOT NULL UNIQUE REFERENCES public.patients(patient_id) ON DELETE CASCADE,
+          pharmacy_id BIGINT REFERENCES public.pharmacies(pharmacy_id) ON DELETE SET NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS public.marketplace_cart_items (
+          item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          cart_id BIGINT NOT NULL REFERENCES public.marketplace_carts(cart_id) ON DELETE CASCADE,
+          medicine_id BIGINT NOT NULL REFERENCES public.medicines(medicine_id) ON DELETE CASCADE,
+          quantity INTEGER NOT NULL CHECK (quantity > 0),
+          unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          CONSTRAINT uq_marketplace_cart_medicine UNIQUE (cart_id, medicine_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS public.marketplace_orders (
+          order_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          patient_id BIGINT NOT NULL REFERENCES public.patients(patient_id) ON DELETE RESTRICT,
+          pharmacy_id BIGINT NOT NULL REFERENCES public.pharmacies(pharmacy_id) ON DELETE RESTRICT,
+          status VARCHAR(30) DEFAULT 'PENDING' NOT NULL
+            CHECK (status IN ('PENDING', 'ACCEPTED', 'REJECTED', 'READY_FOR_COLLECTION', 'COMPLETED', 'CANCELLED')),
+          payment_method VARCHAR(30) NOT NULL CHECK (payment_method IN ('CASH_ON_COLLECTION', 'MOBILE_MONEY')),
+          payment_status VARCHAR(20) DEFAULT 'PENDING' NOT NULL
+            CHECK (payment_status IN ('PENDING', 'PAID', 'FAILED', 'REFUNDED')),
+          mobile_money_provider VARCHAR(20) CHECK (mobile_money_provider IN ('MTN_MOMO', 'AIRTEL_MONEY')),
+          payment_phone_number VARCHAR(25),
+          subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0,
+          total NUMERIC(12, 2) NOT NULL DEFAULT 0,
+          rejection_reason TEXT,
+          sale_id BIGINT REFERENCES public.sales(sale_id) ON DELETE SET NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_marketplace_orders_pharmacy ON public.marketplace_orders (pharmacy_id, status, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_marketplace_orders_patient ON public.marketplace_orders (patient_id, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS public.marketplace_order_items (
+          order_item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          order_id BIGINT NOT NULL REFERENCES public.marketplace_orders(order_id) ON DELETE CASCADE,
+          medicine_id BIGINT NOT NULL REFERENCES public.medicines(medicine_id) ON DELETE RESTRICT,
+          quantity INTEGER NOT NULL CHECK (quantity > 0),
+          unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
+          subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0)
+        );
+        CREATE INDEX IF NOT EXISTS idx_marketplace_order_items_order ON public.marketplace_order_items (order_id);
+      `);
+
+      // ============================================================
       // Migration 007: Inventory Management and Transactions
       // ============================================================
       /* await this.pool.query(`
@@ -512,6 +567,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         );
         CREATE INDEX IF NOT EXISTS idx_patient_chat_messages_chat ON public.patient_chat_messages (chat_id, created_at);
       `);
+
 
       // ============================================================
       // Migration 007: Staff Management, RBAC, and Activity Logs
