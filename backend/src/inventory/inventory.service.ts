@@ -225,6 +225,7 @@ export class InventoryService {
     requiresPrescription?: boolean;
     page?: number;
     limit?: number;
+    pharmacyId?: number;
   }): Promise<ApiResponse> {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
@@ -233,6 +234,12 @@ export class InventoryService {
     const conditions: string[] = [];
     const params: any[] = [];
     let paramIdx = 1;
+
+    if (query.pharmacyId) {
+      conditions.push(`(pharmacy_id IS NULL OR pharmacy_id = $${paramIdx})`);
+      params.push(query.pharmacyId);
+      paramIdx++;
+    }
 
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
@@ -264,10 +271,10 @@ export class InventoryService {
     const total = Number(countRes.rows[0].count);
 
     const listRes = await this.db.query(
-      `SELECT medicine_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at 
-       FROM public.medicines 
-       ${whereClause} 
-       ORDER BY medicine_name ASC 
+      `SELECT medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at
+       FROM public.medicines
+       ${whereClause}
+       ORDER BY medicine_name ASC
        LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset],
     );
@@ -288,9 +295,9 @@ export class InventoryService {
   }
 
   /**
-   * Register a new medicine in the central catalogue
+   * Register a new medicine scoped to a specific pharmacy or globally (for admin)
    */
-  async createMedicine(dto: CreateMedicineDto): Promise<ApiResponse> {
+  async createMedicine(dto: CreateMedicineDto, pharmacyId?: number): Promise<ApiResponse> {
     const {
       medicineName,
       genericName,
@@ -301,26 +308,80 @@ export class InventoryService {
       requiresPrescription = false,
     } = dto;
 
-    const existing = await this.db.query(
-      'SELECT medicine_id FROM public.medicines WHERE LOWER(medicine_name) = $1 LIMIT 1',
-      [medicineName.trim().toLowerCase()],
+    const cleanName = medicineName.trim();
+    const cleanGeneric = genericName?.trim() || null;
+    const cleanBrand = brandName?.trim() || null;
+    const cleanStrength = strength?.trim() || null;
+    const cleanDosage = dosageForm?.trim() || null;
+    const cleanDesc = description?.trim() || null;
+
+    if (pharmacyId) {
+      // Check if this pharmacy already registered this exact medicine
+      const existing = await this.db.query(
+        `SELECT medicine_id FROM public.medicines
+         WHERE pharmacy_id = $1
+           AND LOWER(medicine_name) = LOWER($2)
+           AND LOWER(COALESCE(strength, '')) = LOWER(COALESCE($3, ''))
+           AND LOWER(COALESCE(dosage_form, '')) = LOWER(COALESCE($4, ''))
+           AND LOWER(COALESCE(brand_name, '')) = LOWER(COALESCE($5, ''))
+         LIMIT 1`,
+        [pharmacyId, cleanName, cleanStrength || '', cleanDosage || '', cleanBrand || ''],
+      );
+      if (existing.rows.length > 0) {
+        throw new BadRequestException('A medicine with these details is already registered for this pharmacy.');
+      }
+
+      const res = await this.db.query(
+        `INSERT INTO public.medicines
+          (pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at`,
+        [
+          pharmacyId,
+          cleanName,
+          cleanGeneric,
+          cleanBrand,
+          cleanStrength,
+          cleanDosage,
+          cleanDesc,
+          Boolean(requiresPrescription),
+        ],
+      );
+
+      return {
+        success: true,
+        message: 'Medicine registered in pharmacy catalogue successfully.',
+        data: res.rows[0],
+      };
+    }
+
+    // Global catalogue registration (pharmacy_id is null, for admin)
+    const existingGlobal = await this.db.query(
+      `SELECT medicine_id FROM public.medicines
+       WHERE pharmacy_id IS NULL
+         AND LOWER(medicine_name) = LOWER($1)
+         AND LOWER(COALESCE(strength, '')) = LOWER(COALESCE($2, ''))
+         AND LOWER(COALESCE(dosage_form, '')) = LOWER(COALESCE($3, ''))
+         AND LOWER(COALESCE(brand_name, '')) = LOWER(COALESCE($4, ''))
+       LIMIT 1`,
+      [cleanName, cleanStrength || '', cleanDosage || '', cleanBrand || ''],
     );
-    if (existing.rows.length > 0) {
+    if (existingGlobal.rows.length > 0) {
       throw new BadRequestException('A medicine with this name already exists in the catalogue.');
     }
 
     const res = await this.db.query(
       `INSERT INTO public.medicines 
-        (medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING medicine_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at`,
+        (pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
+       VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)
+       RETURNING medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at`,
       [
-        medicineName.trim(),
-        genericName?.trim() || null,
-        brandName?.trim() || null,
-        strength?.trim() || null,
-        dosageForm?.trim() || null,
-        description?.trim() || null,
+        cleanName,
+        cleanGeneric,
+        cleanBrand,
+        cleanStrength,
+        cleanDosage,
+        cleanDesc,
         Boolean(requiresPrescription),
       ],
     );
@@ -333,15 +394,29 @@ export class InventoryService {
   }
 
   /**
-   * Edit medicine information in central catalogue
+   * Edit medicine information in catalogue
    */
-  async updateMedicine(medicineId: number, dto: UpdateMedicineDto): Promise<ApiResponse> {
+  async updateMedicine(
+    medicineId: number,
+    dto: UpdateMedicineDto,
+    pharmacyId?: number,
+    userRole?: string,
+  ): Promise<ApiResponse> {
     const check = await this.db.query(
-      'SELECT medicine_id FROM public.medicines WHERE medicine_id = $1',
+      'SELECT medicine_id, pharmacy_id FROM public.medicines WHERE medicine_id = $1',
       [medicineId],
     );
     if (check.rows.length === 0) {
       throw new NotFoundException(`Medicine with ID ${medicineId} not found.`);
+    }
+
+    const med = check.rows[0];
+    const isAdmin = userRole === 'ADMIN' || userRole === 'SYSTEM_ADMIN';
+    if (!isAdmin && pharmacyId && med.pharmacy_id !== null && Number(med.pharmacy_id) !== Number(pharmacyId)) {
+      throw new ForbiddenException('You can only update medicines registered by your own pharmacy.');
+    }
+    if (!isAdmin && med.pharmacy_id === null) {
+      throw new ForbiddenException('Global catalogue medicines can only be updated by administrators.');
     }
 
     const updates: string[] = [];
@@ -513,8 +588,8 @@ export class InventoryService {
    */
   async getMedicineDetails(pharmacyId: number, medicineId: number): Promise<ApiResponse> {
     const medRes = await this.db.query(
-      'SELECT * FROM public.medicines WHERE medicine_id = $1',
-      [medicineId],
+      'SELECT * FROM public.medicines WHERE medicine_id = $1 AND (pharmacy_id IS NULL OR pharmacy_id = $2)',
+      [medicineId, pharmacyId],
     );
     if (medRes.rows.length === 0) {
       throw new NotFoundException(`Medicine with ID ${medicineId} not found.`);
@@ -596,10 +671,10 @@ export class InventoryService {
       throw new BadRequestException('Expiry date must be a valid future date.');
     }
 
-    // 4. Verify medicine exists in central catalogue
+    // 4. Verify medicine exists in catalogue and is accessible to this pharmacy
     const medRes = await this.db.query(
-      'SELECT medicine_id, medicine_name, strength FROM public.medicines WHERE medicine_id = $1',
-      [medicineId],
+      'SELECT medicine_id, medicine_name, strength FROM public.medicines WHERE medicine_id = $1 AND (pharmacy_id IS NULL OR pharmacy_id = $2)',
+      [medicineId, pharmacyId],
     );
     if (medRes.rows.length === 0) {
       throw new NotFoundException(`Medicine with ID ${medicineId} not found in catalogue.`);
@@ -1887,11 +1962,15 @@ export class InventoryService {
       for (const row of validation.preview) {
         if (!row.isValid) continue;
 
-        // 1. Resolve or create medicine in catalogue
+        // 1. Resolve or create medicine in catalogue for this pharmacy
         let medicineId: number;
         const medRes = await client.query(
-          'SELECT medicine_id FROM public.medicines WHERE LOWER(medicine_name) = $1 LIMIT 1',
-          [row.medicineName.trim().toLowerCase()],
+          `SELECT medicine_id FROM public.medicines
+           WHERE (pharmacy_id = $1 OR pharmacy_id IS NULL)
+             AND LOWER(medicine_name) = $2
+           ORDER BY (pharmacy_id IS NOT NULL) DESC
+           LIMIT 1`,
+          [pharmacyId, row.medicineName.trim().toLowerCase()],
         );
 
         if (medRes.rows.length > 0) {
@@ -1899,16 +1978,17 @@ export class InventoryService {
         } else {
           const insertMed = await client.query(
             `INSERT INTO public.medicines 
-              (medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
-             VALUES ($1, $2, $3, $4, $5, $6, false)
+              (pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, false)
              RETURNING medicine_id`,
             [
+              pharmacyId,
               row.medicineName.trim(),
               row.genericName || row.medicineName.trim(),
               row.brandName || null,
               row.strength || null,
               row.dosageForm || 'Tablet',
-              `Auto-registered via bulk inventory import`,
+              `Auto-registered via bulk inventory import for pharmacy ${pharmacyId}`,
             ],
           );
           medicineId = Number(insertMed.rows[0].medicine_id);

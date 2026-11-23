@@ -65,17 +65,25 @@ export class InventoryController {
     return this.inventoryService.getDashboardOverview(targetPharmacyId);
   }
 
-  // ───────────── 2. Central Medicine Catalogue ─────────────
+  // ───────────── 2. Medicine Catalogue ─────────────
 
   @Get('catalogue')
-  @ApiOperation({ summary: 'Search and browse central medicine catalogue' })
+  @ApiOperation({ summary: 'Search and browse medicine catalogue' })
+  @ApiQuery({ name: 'pharmacyId', required: false, description: 'Filter by pharmacy or admin override' })
   async searchCatalogue(
+    @CurrentUser() user: JwtPayload,
     @Query('search') search?: string,
     @Query('dosageForm') dosageForm?: string,
     @Query('requiresPrescription') requiresPrescription?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('pharmacyId') pharmacyId?: string,
   ): Promise<ApiResponse> {
+    const targetPharmacyId =
+      user.role === 'ADMIN' || user.role === 'SYSTEM_ADMIN'
+        ? (pharmacyId ? Number(pharmacyId) : undefined)
+        : await this.inventoryService.resolvePharmacyId(user);
+
     const reqPrescriptionBool =
       requiresPrescription === 'true'
         ? true
@@ -89,22 +97,39 @@ export class InventoryController {
       requiresPrescription: reqPrescriptionBool,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
+      pharmacyId: targetPharmacyId,
     });
   }
 
   @Post('medicines')
-  @ApiOperation({ summary: 'Register a new medicine in the central catalogue' })
-  async createMedicine(@Body() dto: CreateMedicineDto): Promise<ApiResponse> {
-    return this.inventoryService.createMedicine(dto);
+  @ApiOperation({ summary: 'Register a new medicine in pharmacy or central catalogue' })
+  @ApiQuery({ name: 'pharmacyId', required: false, description: 'Admin only tenant override' })
+  async createMedicine(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateMedicineDto,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId =
+      user.role === 'ADMIN' || user.role === 'SYSTEM_ADMIN'
+        ? (pharmacyId ? Number(pharmacyId) : undefined)
+        : await this.inventoryService.resolvePharmacyId(user);
+    return this.inventoryService.createMedicine(dto, targetPharmacyId);
   }
 
   @Patch('medicines/:id')
-  @ApiOperation({ summary: 'Update medicine details in the central catalogue' })
+  @ApiOperation({ summary: 'Update medicine details in the central or pharmacy catalogue' })
+  @ApiQuery({ name: 'pharmacyId', required: false })
   async updateMedicine(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMedicineDto,
+    @Query('pharmacyId') pharmacyId?: string,
   ): Promise<ApiResponse> {
-    return this.inventoryService.updateMedicine(id, dto);
+    const targetPharmacyId = await this.inventoryService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.inventoryService.updateMedicine(id, dto, targetPharmacyId, user.role);
   }
 
   // ───────────── 3. Pharmacy Stocked Medicines ─────────────

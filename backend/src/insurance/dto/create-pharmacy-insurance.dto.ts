@@ -1,9 +1,10 @@
-import { IsNumber, IsInt, IsPositive, Min, Max } from 'class-validator';
+import { IsNumber, IsInt, IsOptional, Min, Max } from 'class-validator';
 
 export class CreatePharmacyInsuranceDto {
+  @IsOptional()
   @IsNumber()
   @IsInt()
-  pharmacyId: number;
+  pharmacyId?: number;
 
   @IsNumber()
   @IsInt()

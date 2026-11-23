@@ -3,30 +3,48 @@
 // Insurance API controller
 // ------------------------------------------------------------
 // All routes are scoped under a specific pharmacy (pharmacyId)
-// and are only accessible to users with the PHARMACY_ADMIN role.
+// and enforce strict tenant isolation.
 
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse as SwaggerResponse } from '@nestjs/swagger';
-import { Controller, Get, Param, Post, Body, Patch } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, Patch, UseGuards, ForbiddenException, ParseIntPipe } from '@nestjs/common';
 import { InsuranceService } from './insurance.service.js';
 import { CreatePharmacyInsuranceDto } from './dto/create-pharmacy-insurance.dto.js';
 import { UpdatePharmacyInsuranceDto } from './dto/update-pharmacy-insurance.dto.js';
-import { Roles } from '../auth/roles.decorator.js';
-import { Role } from '../auth/role.enum.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../common/guards/roles.guard.js';
+import { Roles } from '../common/decorators/roles.decorator.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 
-@Roles(Role.PHARMACY_ADMIN)
+@ApiTags('Insurance')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('PHARMACY', 'PHARMACY_ADMIN', 'PHARMACIST', 'ADMIN', 'SYSTEM_ADMIN')
 @Controller('api/pharmacy/:pharmacyId/insurances')
 export class InsuranceController {
   constructor(private readonly insuranceService: InsuranceService) { }
+
+  private checkPharmacyAccess(user: JwtPayload, pharmacyId: number) {
+    const isAdmin = user.role === 'ADMIN' || user.role === 'SYSTEM_ADMIN';
+    const userPharmacyId = Number(user.pharmacyId || user.sub);
+    if (!isAdmin && userPharmacyId !== Number(pharmacyId)) {
+      throw new ForbiddenException('Access denied. You cannot manage insurance configurations for another pharmacy.');
+    }
+  }
 
   /**
    * GET /api/pharmacy/:pharmacyId/insurances
    * Retrieves all insurance configurations for the given pharmacy.
    */
   @Get()
-  @ApiOperation({ summary: 'Retrieves all insurance Configurations for the given pharmacy' })
+  @ApiOperation({ summary: 'Retrieves all insurance configurations for the given pharmacy' })
   @SwaggerResponse({ status: 200, description: 'Insurance Configurations' })
-  async getAll(@Param('pharmacyId') pharmacyId: number) {
-    return this.insuranceService.getInsurances(+pharmacyId);
+  async getAll(
+    @CurrentUser() user: JwtPayload,
+    @Param('pharmacyId', ParseIntPipe) pharmacyId: number,
+  ) {
+    this.checkPharmacyAccess(user, pharmacyId);
+    return this.insuranceService.getInsurances(pharmacyId);
   }
 
   /**
@@ -34,28 +52,48 @@ export class InsuranceController {
    * Creates a new pharmacy‑insurance association.
    */
   @Post()
-  @ApiOperation({ summary: 'Creates a new pharmacy-insurance association.' })
+  @ApiOperation({ summary: 'Creates a new pharmacy-insurance association' })
   @SwaggerResponse({ status: 200, description: 'Insurance Configuration Created Successfully' })
   async create(
-    @Param('pharmacyId') pharmacyId: number,
+    @CurrentUser() user: JwtPayload,
+    @Param('pharmacyId', ParseIntPipe) pharmacyId: number,
     @Body() dto: CreatePharmacyInsuranceDto,
   ) {
-    return this.insuranceService.createInsurance(+pharmacyId, dto);
+    this.checkPharmacyAccess(user, pharmacyId);
+    return this.insuranceService.createInsurance(pharmacyId, dto);
   }
 
   /**
    * PATCH /api/pharmacy/:pharmacyId/insurances/:id
    * Updates an existing association (coverage %, active flag, etc.).
    */
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update insurance configuration details' })
+  @SwaggerResponse({ status: 200, description: 'Insurance configuration updated successfully.' })
+  async update(
+    @CurrentUser() user: JwtPayload,
+    @Param('pharmacyId', ParseIntPipe) pharmacyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePharmacyInsuranceDto,
+  ) {
+    this.checkPharmacyAccess(user, pharmacyId);
+    return this.insuranceService.updateInsurance(pharmacyId, id, dto);
+  }
+
+  /**
+   * PATCH /api/pharmacy/:pharmacyId/insurances/:id/status
+   * Toggles status of an insurance association.
+   */
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Updates an existing association (Coverage %, active flag, etc)' })
-  @SwaggerResponse({ status: 200, description: 'Insurance Configuration updated Successfully.' })
+  @ApiOperation({ summary: 'Updates an existing association active flag' })
+  @SwaggerResponse({ status: 200, description: 'Insurance Configuration status updated successfully.' })
   async toggleStatus(
-    @Param('pharmacyId') pharmacyId: number,
-    @Param('id') id: number,
+    @CurrentUser() user: JwtPayload,
+    @Param('pharmacyId', ParseIntPipe) pharmacyId: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body('isActive') isActive: boolean,
   ) {
-    return this.insuranceService.toggleInsurance(+id, isActive);
+    this.checkPharmacyAccess(user, pharmacyId);
+    return this.insuranceService.toggleInsurance(pharmacyId, id, isActive);
   }
 }
-
