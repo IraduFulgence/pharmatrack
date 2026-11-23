@@ -92,6 +92,13 @@ export const salesService = {
       body: JSON.stringify(data),
     });
   },
+  // Checks a prescription number / SMS code against the patient and cart.
+  verifyPrescription: async ({ prescriptionReference, patientId, items }) => {
+    return ApiRequest('/sales/prescriptions/verify', {
+      method: 'POST',
+      body: JSON.stringify({ prescriptionReference, patientId, items }),
+    });
+  },
     searchPrescriptions: async (query) => {
     const pharmacyId = getPharmacyId();
     return ApiRequest(`/sales/prescriptions/search?pharmacyId=${pharmacyId}&query=${encodeURIComponent(query)}`, { method: 'GET' });

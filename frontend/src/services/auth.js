@@ -34,14 +34,20 @@ export const ApiRequest = async (endpoint, options = {}) => {
       let errorMessage = 'Something went wrong';
       
       if (data.message) {
-        errorMessage = Array.isArray(data.message) 
-          ? data.message[0] 
+        errorMessage = Array.isArray(data.message)
+          ? data.message[0]
           : data.message;
+      }
+
+      // Validation errors: show the first field problem instead of just "Validation failed."
+      if (data.errors && typeof data.errors === 'object') {
+        const firstFieldError = Object.values(data.errors).find((v) => typeof v === 'string');
+        if (firstFieldError) errorMessage = firstFieldError;
       }
       
       // If the backend returns a generic 500 HTML page, override the message
       if (response.status === 500) {
-        errorMessage = 'Internal Server Error. The backend crashed while loading conversations.';
+        errorMessage = 'Server error. Please try again, or check the backend logs.';
       }
 
       throw new Error(errorMessage);

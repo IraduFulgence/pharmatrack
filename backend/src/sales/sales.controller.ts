@@ -23,7 +23,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
-import { CreateSaleDto } from './dto/create-sale.dto.js';
+import { CreateSaleDto, VerifyPrescriptionDto } from './dto/create-sale.dto.js';
 import { CalculateBillDto } from './dto/calculate-bill.dto.js';
 import { QuerySalesDto } from './dto/query-sales.dto.js';
 import { RefundSaleDto } from './dto/refund-sale.dto.js';
@@ -118,6 +118,21 @@ export class SalesController {
   }
 
   // ───────────── 4. Prescription Integration ─────────────
+
+  @Post('prescriptions/verify')
+  @ApiOperation({ summary: 'Check a prescription number / SMS code against the patient and cart before dispensing' })
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  async verifyPrescription(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: VerifyPrescriptionDto,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId = await this.salesService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.salesService.verifyPrescription(targetPharmacyId, dto);
+  }
 
   @Get('prescriptions/search')
   @ApiOperation({ summary: 'Search prescriptions to dispense at POS' })

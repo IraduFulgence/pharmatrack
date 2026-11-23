@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
-import type { CreateSaleDto } from './dto/create-sale.dto.js';
+import type { CreateSaleDto, VerifyPrescriptionDto } from './dto/create-sale.dto.js';
 import type { CalculateBillDto } from './dto/calculate-bill.dto.js';
 import type { QuerySalesDto } from './dto/query-sales.dto.js';
 import type { RefundSaleDto } from './dto/refund-sale.dto.js';
@@ -455,6 +455,170 @@ export class SalesService {
   }
 
   // =========================================================================
+  // 4b. PRESCRIPTION CHECKING (used by the POS check and by createSale)
+  // =========================================================================
+
+  /**
+   * Checks a prescription reference against the patient and the prescription-only
+   * items being dispensed. A reference that is not in PharmaTrack yet is not an
+   * error: it will be recorded as a new prescription when the sale completes.
+   */
+  private async checkPrescription(params: {
+    prescriptionId?: number | null;
+    reference?: string;
+    patientId?: number | null;
+    rxItems: { medicineId: number; medicineName: string; quantity: number }[];
+  }): Promise<{
+    found: boolean;
+    prescription: any | null;
+    problems: string[];
+  }> {
+    const reference = params.reference?.trim() || '';
+    let res;
+    if (params.prescriptionId) {
+      res = await this.db.query(
+        `SELECT prescription_id, prescription_reference, patient_id, status,
+                to_char(issued_date, 'YYYY-MM-DD') AS issued_date
+         FROM public.prescriptions WHERE prescription_id = $1`,
+        [params.prescriptionId],
+      );
+      if (res.rows.length === 0) {
+        throw new NotFoundException('Prescription not found.');
+      }
+    } else {
+      res = await this.db.query(
+        `SELECT prescription_id, prescription_reference, patient_id, status,
+                to_char(issued_date, 'YYYY-MM-DD') AS issued_date
+         FROM public.prescriptions WHERE LOWER(prescription_reference) = LOWER($1)`,
+        [reference],
+      );
+    }
+
+    if (res.rows.length === 0) {
+      return { found: false, prescription: null, problems: [] };
+    }
+
+    const pr = res.rows[0];
+    const itemsRes = await this.db.query(
+      `SELECT pi.medicine_id, m.medicine_name, m.strength, SUM(pi.quantity) AS prescribed_quantity
+       FROM public.prescription_items pi
+       JOIN public.medicines m ON m.medicine_id = pi.medicine_id
+       WHERE pi.prescription_id = $1
+       GROUP BY pi.medicine_id, m.medicine_name, m.strength`,
+      [pr.prescription_id],
+    );
+
+    const problems: string[] = [];
+    const status = String(pr.status || '').toUpperCase();
+    if (status === 'FULFILLED') problems.push('This prescription has already been dispensed.');
+    else if (status === 'CANCELLED') problems.push('This prescription was cancelled.');
+    else if (status === 'EXPIRED') problems.push('This prescription has expired.');
+
+    if (params.patientId && Number(pr.patient_id) !== Number(params.patientId)) {
+      problems.push('This prescription was issued to a different patient.');
+    }
+
+    // Only check medicines when the prescription lists them; older records may not.
+    if (itemsRes.rows.length > 0) {
+      const prescribed = new Map<number, number>(
+        itemsRes.rows.map((r: any) => [Number(r.medicine_id), Number(r.prescribed_quantity)]),
+      );
+      const wanted = new Map<number, { name: string; quantity: number }>();
+      for (const item of params.rxItems) {
+        const prev = wanted.get(item.medicineId);
+        wanted.set(item.medicineId, {
+          name: item.medicineName,
+          quantity: (prev?.quantity || 0) + item.quantity,
+        });
+      }
+      for (const [medicineId, { name, quantity }] of wanted) {
+        const allowed = prescribed.get(medicineId);
+        if (allowed === undefined) {
+          problems.push(`${name} is not on this prescription.`);
+        } else if (quantity > allowed) {
+          problems.push(`${name}: ${quantity} in the cart but only ${allowed} prescribed.`);
+        }
+      }
+    }
+
+    return {
+      found: true,
+      prescription: {
+        prescriptionId: Number(pr.prescription_id),
+        prescriptionReference: pr.prescription_reference,
+        status: pr.status,
+        issuedDate: pr.issued_date,
+        matchesPatient: params.patientId ? Number(pr.patient_id) === Number(params.patientId) : null,
+        items: itemsRes.rows.map((r: any) => ({
+          medicineId: Number(r.medicine_id),
+          medicineName: r.medicine_name,
+          strength: r.strength,
+          prescribedQuantity: Number(r.prescribed_quantity),
+        })),
+      },
+      problems,
+    };
+  }
+
+  /** Prescription-only medicines among the given cart items (scoped to this pharmacy). */
+  private async getPrescriptionOnlyItems(
+    pharmacyId: number,
+    items: { inventoryId: number; quantity: number; unitsPerPackage?: number; packageQuantity?: number }[],
+  ) {
+    if (!items?.length) return [];
+    const ids = items.map((i) => Number(i.inventoryId));
+    const res = await this.db.query(
+      `SELECT ib.inventory_id, m.medicine_id, m.medicine_name, m.requires_prescription
+       FROM public.inventory_batches ib
+       JOIN public.medicines m ON m.medicine_id = ib.medicine_id
+       WHERE ib.pharmacy_id = $1 AND ib.inventory_id = ANY($2::bigint[])`,
+      [pharmacyId, ids],
+    );
+    const byId = new Map(res.rows.map((r: any) => [Number(r.inventory_id), r]));
+    return items
+      .map((i) => {
+        const row: any = byId.get(Number(i.inventoryId));
+        if (!row || !row.requires_prescription) return null;
+        const quantity = i.packageQuantity && i.unitsPerPackage
+          ? Number(i.packageQuantity) * Number(i.unitsPerPackage)
+          : Number(i.quantity);
+        return { medicineId: Number(row.medicine_id), medicineName: row.medicine_name, quantity };
+      })
+      .filter(Boolean) as { medicineId: number; medicineName: string; quantity: number }[];
+  }
+
+  async verifyPrescription(pharmacyId: number, dto: VerifyPrescriptionDto): Promise<ApiResponse> {
+    const reference = dto.prescriptionReference?.trim();
+    if (!reference) {
+      throw new BadRequestException('Enter the prescription number or SMS code.');
+    }
+    const rxItems = await this.getPrescriptionOnlyItems(pharmacyId, dto.items || []);
+    const check = await this.checkPrescription({ reference, patientId: dto.patientId, rxItems });
+
+    let message: string;
+    if (!check.found) {
+      message = 'Not found in PharmaTrack. It will be recorded as a new prescription for this patient when the sale completes.';
+    } else if (check.problems.length > 0) {
+      message = check.problems.join(' ');
+    } else {
+      message = 'Prescription verified for this patient and cart.';
+    }
+
+    return {
+      success: true,
+      message,
+      data: {
+        reference,
+        found: check.found,
+        valid: check.problems.length === 0,
+        willRecordNew: !check.found,
+        problems: check.problems,
+        prescription: check.prescription,
+      },
+    };
+  }
+
+  // =========================================================================
   // 5. INSURANCE PROVIDERS (Section 6 & 12)
   // =========================================================================
 
@@ -521,7 +685,8 @@ export class SalesService {
           to_char(ib.expiry_date, 'YYYY-MM-DD') AS expiry_date,
           m.medicine_name,
           m.strength,
-          m.dosage_form
+          m.dosage_form,
+          m.requires_prescription
          FROM public.inventory_batches ib
          JOIN public.medicines m ON m.medicine_id = ib.medicine_id
          WHERE ib.inventory_id = $1 AND ib.pharmacy_id = $2`,
@@ -580,6 +745,7 @@ export class SalesService {
         medicineName: batch.medicine_name,
         strength: batch.strength,
         dosageForm: batch.dosage_form,
+        requiresPrescription: !!batch.requires_prescription,
         batchNumber: batch.batch_number,
         expiryDate: batch.expiry_date,
         quantity: dispensedBaseQuantity,
@@ -636,6 +802,7 @@ export class SalesService {
       customerName,
       customerPhone,
       prescriptionId,
+      prescriptionReference,
       providerId,
       insuranceCardNumber,
       discountAmount = 0,
@@ -664,6 +831,40 @@ export class SalesService {
     });
 
     const { items: validatedItems, financials } = billCalculation.data;
+
+    // Prescription-only medicine needs a prescription that fits this patient and cart.
+    const rxItems = (validatedItems as any[])
+      .filter((i) => i.requiresPrescription)
+      .map((i) => ({ medicineId: Number(i.medicineId), medicineName: i.medicineName, quantity: Number(i.quantity) }));
+    const rxReference = prescriptionReference?.trim() || '';
+    let linkedPrescriptionId: number | null = prescriptionId || null;
+    let recordNewPrescription = false;
+
+    if (rxItems.length > 0 || linkedPrescriptionId || rxReference) {
+      if (rxItems.length > 0 && !linkedPrescriptionId && !rxReference) {
+        const names = [...new Set(rxItems.map((i) => i.medicineName))].join(', ');
+        throw new BadRequestException(
+          `A prescription is required for: ${names}. Enter the prescription number or SMS code.`,
+        );
+      }
+      if (!patientId) {
+        throw new BadRequestException('Select the patient the prescription belongs to.');
+      }
+      const check = await this.checkPrescription({
+        prescriptionId: linkedPrescriptionId,
+        reference: rxReference,
+        patientId,
+        rxItems,
+      });
+      if (check.problems.length > 0) {
+        throw new BadRequestException(check.problems.join(' '));
+      }
+      if (check.found) {
+        linkedPrescriptionId = check.prescription.prescriptionId;
+      } else {
+        recordNewPrescription = true;
+      }
+    }
 
     // Resolve customer details
     let finalCustomerName = customerName?.trim() || 'Walk-in Customer';
@@ -702,6 +903,41 @@ export class SalesService {
 
     // Atomic transaction: Insert sale, sale items, deduct inventory, record stock-out, record payment, create claim
     const result = await this.db.transaction(async (client) => {
+      // 0. Record or close out the prescription this sale dispenses.
+      if (recordNewPrescription) {
+        let rxInsert;
+        try {
+          rxInsert = await client.query(
+            `INSERT INTO public.prescriptions (patient_id, prescription_reference, issued_date, status, created_at)
+             VALUES ($1, $2, CURRENT_DATE, 'FULFILLED', CURRENT_TIMESTAMP)
+             RETURNING prescription_id`,
+            [patientId, rxReference],
+          );
+        } catch (err: any) {
+          if (err?.code === '23505') {
+            throw new BadRequestException('This prescription number was just recorded by another sale. Check it again.');
+          }
+          throw err;
+        }
+        linkedPrescriptionId = Number(rxInsert.rows[0].prescription_id);
+        const perMedicine = new Map<number, number>();
+        for (const item of rxItems) {
+          perMedicine.set(item.medicineId, (perMedicine.get(item.medicineId) || 0) + item.quantity);
+        }
+        for (const [medicineId, quantity] of perMedicine) {
+          await client.query(
+            `INSERT INTO public.prescription_items (prescription_id, medicine_id, quantity, dosage_instructions)
+             VALUES ($1, $2, $3, NULL)`,
+            [linkedPrescriptionId, medicineId, quantity],
+          );
+        }
+      } else if (linkedPrescriptionId) {
+        await client.query(
+          `UPDATE public.prescriptions SET status = 'FULFILLED' WHERE prescription_id = $1 AND status = 'ACTIVE'`,
+          [linkedPrescriptionId],
+        );
+      }
+
       // 1. Generate unique receipt number (REC-YYYYMMDD-XXXX)
       const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const randomSuffix = crypto.randomBytes(2).toString('hex').toUpperCase();
@@ -720,7 +956,7 @@ export class SalesService {
           pharmacyId,
           pharmacyUserId,
           patientId || null,
-          prescriptionId || null,
+          linkedPrescriptionId,
           receiptNumber,
           customerType,
           finalCustomerName,

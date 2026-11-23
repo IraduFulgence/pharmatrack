@@ -9,6 +9,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -154,6 +155,17 @@ export class CreateSaleDto {
   prescriptionId?: number;
 
   @ApiPropertyOptional({
+    example: 'RX-2026-000123',
+    description:
+      'Prescription number or hospital SMS code. Required when any item is prescription-only. ' +
+      'If it is not yet in PharmaTrack it is recorded as a new prescription for the patient.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100, { message: 'prescriptionReference cannot exceed 100 characters.' })
+  prescriptionReference?: string;
+
+  @ApiPropertyOptional({
     example: 1,
     description: 'Insurance provider ID (required if paymentCategory is INSURANCE)',
   })
@@ -198,3 +210,22 @@ export class CreateSaleDto {
   notes?: string;
 }
 
+export class VerifyPrescriptionDto {
+  @ApiProperty({ example: 'RX-2026-000123', description: 'Prescription number or hospital SMS code' })
+  @IsNotEmpty({ message: 'prescriptionReference is required.' })
+  @IsString()
+  @MaxLength(100, { message: 'prescriptionReference cannot exceed 100 characters.' })
+  prescriptionReference: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Patient the medicine is being dispensed to' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'patientId must be an integer.' })
+  patientId?: number;
+
+  @ApiProperty({ type: [SaleItemDto], description: 'Cart items to check against the prescription' })
+  @IsArray({ message: 'items must be an array.' })
+  @ValidateNested({ each: true })
+  @Type(() => SaleItemDto)
+  items: SaleItemDto[];
+}

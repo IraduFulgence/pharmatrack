@@ -53,8 +53,10 @@ const SalesPOS = () => {
   const [insuranceCardNumber, setInsuranceCardNumber] = useState('');
   
  
-  const [prescriptionFile, setPrescriptionFile] = useState(null);
   const [prescriptionCode, setPrescriptionCode] = useState('');
+  // Result of the last "Check" of the prescription code (null = not checked yet).
+  const [rxCheck, setRxCheck] = useState(null);
+  const [isCheckingRx, setIsCheckingRx] = useState(false);
 
   // Checkout State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -210,7 +212,46 @@ const SalesPOS = () => {
 
   
   const requiresPrescription = cart.some(item => item.requires_prescription);
-  const hasPrescription = !!(prescriptionFile || prescriptionCode.trim());
+  const patientId = patient ? (Number(patient.id ?? patient.patient_id ?? patient.patientId) || null) : null;
+  const rxSignature = cart
+    .filter(item => item.requires_prescription)
+    .map(item => `${item.inventoryId}:${item.quantity}`)
+    .join(',');
+
+  // Any change to the code, the patient or the prescription-only items needs a fresh check.
+  useEffect(() => {
+    setRxCheck(null);
+  }, [prescriptionCode, patientId, rxSignature]);
+
+  const hasPrescription = !requiresPrescription || !!(rxCheck?.valid && rxCheck.reference === prescriptionCode.trim());
+
+  const handleCheckPrescription = async () => {
+    const reference = prescriptionCode.trim();
+    if (!reference) {
+      setError('Enter the prescription number or SMS code.');
+      return;
+    }
+    if (!patientId) {
+      setError('Select the patient first. The prescription is checked against them.');
+      setIsPatientModalOpen(true);
+      return;
+    }
+    setIsCheckingRx(true);
+    setError(null);
+    try {
+      const res = await salesService.verifyPrescription({
+        prescriptionReference: reference,
+        patientId,
+        items: cart.map(item => ({ inventoryId: Number(item.inventoryId), quantity: Number(item.quantity) || 1 })),
+      });
+      setRxCheck({ ...res.data, message: res.message });
+    } catch (err) {
+      setRxCheck(null);
+      setError(err.message || 'Could not check the prescription.');
+    } finally {
+      setIsCheckingRx(false);
+    }
+  };
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -233,7 +274,7 @@ const SalesPOS = () => {
     }
 
     if (requiresPrescription && !hasPrescription) {
-      setError("This cart contains prescription-only medicine. Please attach a prescription (code or image) before completing the sale.");
+      setError("This cart contains prescription-only medicine. Enter the prescription number or SMS code and check it before completing the sale.");
       return;
     }
 
@@ -251,13 +292,13 @@ const SalesPOS = () => {
           customCoveragePercentage: selectedInsurance ? Number(selectedInsurance.default_coverage_percentage) : 0
         })),
         amountPaid: Math.round(patientAmount),
-        patientId: Number(patient.id || patient.patientId || 1),
+        patientId: patientId || undefined,
         customerName: patient.full_name || patient.name || 'Walk-in',
         customerPhone: patient.phone_number || patient.phone || '',
-        providerId: selectedInsurance ? Number(selectedInsurance.provider_id) : null,
-        insuranceCardNumber: selectedInsurance ? insuranceCardNumber : null,
+        providerId: selectedInsurance ? Number(selectedInsurance.provider_id) : undefined,
+        insuranceCardNumber: selectedInsurance ? (insuranceCardNumber.trim() || undefined) : undefined,
         discountAmount: 0,
-        prescriptionCode: prescriptionCode || undefined, 
+        prescriptionReference: requiresPrescription ? prescriptionCode.trim() : undefined, 
       };
 
       const res = await salesService.createSale(payload);
@@ -269,7 +310,7 @@ const SalesPOS = () => {
       setSelectedInsurance(null);
       setInsuranceCardNumber('');
       setPrescriptionCode('');
-      setPrescriptionFile(null);
+      setRxCheck(null);
       setIsPOSOpen(false);
       
       setSalesHistory([{ id: saleId, date: 'Just now', customer: patient.full_name, total: patientAmount, status: 'Completed' }, ...salesHistory]);
@@ -426,19 +467,55 @@ const SalesPOS = () => {
 
               {/* prescription box */}
               {requiresPrescription && (
-                <div className="bg-red-50 p-4 rounded-xl border border-red-200 shadow-sm animate-in fade-in">
-                  <h3 className="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><FileText size={16}/> Prescription Required</h3>
-                  <p className="text-xs text-red-600 mb-3">Enter the hospital SMS code or upload a valid prescription.</p>
-                  <div className="space-y-2">
-                    <input type="text" placeholder="Enter SMS Code (e.g. SMS-123)" value={prescriptionCode} onChange={(e) => setPrescriptionCode(e.target.value)} className="w-full border border-red-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500" />
-                    {/* <div className="relative border border-red-300 rounded-lg p-3 bg-white text-center hover:bg-gray-50 transition-colors">
-                      <input type="file" onChange={(e) => setPrescriptionFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*,.pdf" />
-                      <div className="flex items-center justify-center gap-2 text-sm text-red-600 font-medium">
-                        {prescriptionFile ? <CheckCircle2 size={16} /> : <UploadCloud size={16} />}
-                        {prescriptionFile ? prescriptionFile.name : 'Upload Image / PDF'}
-                      </div>
-                    </div> */}
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800 shadow-sm animate-in fade-in">
+                  <h3 className="font-bold text-red-700 dark:text-red-400 mb-2 text-sm flex items-center gap-2"><FileText size={16}/> Prescription Required</h3>
+                  <p className="text-xs text-red-600 dark:text-red-300 mb-3">Enter the prescription number or hospital SMS code, then check it against this patient and cart.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. RX-2026-000123"
+                      value={prescriptionCode}
+                      onChange={(e) => setPrescriptionCode(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCheckPrescription(); }}
+                      className="flex-1 min-w-0 border border-red-300 dark:border-red-800 bg-white dark:bg-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCheckPrescription}
+                      disabled={isCheckingRx || !prescriptionCode.trim()}
+                      className="px-4 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {isCheckingRx ? <Loader2 className="animate-spin" size={16} /> : 'Check'}
+                    </button>
                   </div>
+
+                  {rxCheck && rxCheck.reference === prescriptionCode.trim() && (
+                    rxCheck.valid && rxCheck.found ? (
+                      <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-xs text-green-800 dark:text-green-300">
+                        <p className="font-semibold flex items-center gap-1"><CheckCircle2 size={14} /> Prescription verified</p>
+                        <p className="mt-1">Issued {rxCheck.prescription?.issuedDate}. It will be marked as dispensed with this sale.</p>
+                        {rxCheck.prescription?.items?.length > 0 && (
+                          <ul className="mt-1 list-disc list-inside">
+                            {rxCheck.prescription.items.map((it) => (
+                              <li key={it.medicineId}>{it.medicineName} {it.strength} &times; {it.prescribedQuantity}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : rxCheck.valid ? (
+                      <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                        <p className="font-semibold">New prescription</p>
+                        <p className="mt-1">This number isn&apos;t in PharmaTrack yet. It will be recorded for {patient?.full_name || 'this patient'} with the medicines in this cart. Make sure you have seen the original.</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-3 rounded-lg bg-white dark:bg-gray-900 border border-red-300 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+                        <p className="font-semibold flex items-center gap-1"><AlertCircle size={14} /> Can&apos;t dispense with this prescription</p>
+                        <ul className="mt-1 list-disc list-inside">
+                          {(rxCheck.problems || []).map((p) => <li key={p}>{p}</li>)}
+                        </ul>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
 
@@ -449,7 +526,7 @@ const SalesPOS = () => {
                 
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <button onClick={() => setPaymentMethod('CASH')} className={`py-2 rounded-lg font-semibold border ${paymentMethod === 'CASH' ? 'bg-gray-900 text-white' : 'bg-gray-50 dark:bg-gray-800'}`}>Cash</button>
-                  <button onClick={() => setPaymentMethod('MOMO')} className={`py-2 rounded-lg font-semibold border ${paymentMethod === 'MOMO' ? 'bg-gray-900 text-white' : 'bg-gray-50 dark:bg-gray-800'}`}>MoMo</button>
+                  <button onClick={() => setPaymentMethod('MOBILE_MONEY')} className={`py-2 rounded-lg font-semibold border ${paymentMethod === 'MOBILE_MONEY' ?  'bg-gray-900 text-white' : 'bg-gray-50 dark:bg-gray-800'}`}>MoMo</button>
                 </div>
 
                 {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
@@ -464,7 +541,7 @@ const SalesPOS = () => {
                   }`}
                 >
                   {isProcessing ? <Loader2 className="animate-spin" /> : (requiresPrescription && !hasPrescription) ? <Lock /> : <CheckCircle2 />} 
-                  {requiresPrescription && !hasPrescription ? 'Prescription Required' : 'Complete Sale'}
+                  {requiresPrescription && !hasPrescription ? 'Check Prescription First' : 'Complete Sale'}
                 </button>
               </div>
             </div>
