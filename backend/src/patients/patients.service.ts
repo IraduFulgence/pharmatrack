@@ -264,6 +264,7 @@ export class PatientsService {
          c.chat_id,
          c.patient_user_id,
          c.pharmacy_id,
+         c.status,
          p.pharmacy_name,
          p.phone_number,
          c.created_at,
@@ -315,10 +316,11 @@ export class PatientsService {
     chatId: number,
   ) {
     const chat = await this.db.query(
-      `SELECT chat_id
-       FROM public.patient_chats
-       WHERE chat_id = $1
-         AND patient_user_id = $2`,
+      `SELECT c.chat_id, c.status, c.pharmacy_id, p.pharmacy_name, p.phone_number
+       FROM public.patient_chats c
+       JOIN public.pharmacies p ON p.pharmacy_id = c.pharmacy_id
+       WHERE c.chat_id = $1
+         AND c.patient_user_id = $2`,
       [chatId, patientUserId],
     );
 
@@ -330,17 +332,20 @@ export class PatientsService {
 
     const result = await this.db.query(
       `SELECT
-         message_id,
-         chat_id,
-         sender_user_id,
-         sender_role,
-         sender_email,
-         message,
-         created_at,
-         edited_at
-       FROM public.patient_chat_messages
-       WHERE chat_id = $1
-       ORDER BY created_at ASC, message_id ASC`,
+         m.message_id,
+         m.chat_id,
+         m.sender_user_id,
+         m.sender_role,
+         m.sender_email,
+         m.message,
+         m.created_at,
+         m.edited_at,
+         CASE WHEN m.sender_role = 'PHARMACY' THEN pu.full_name END AS sender_name
+       FROM public.patient_chat_messages m
+       LEFT JOIN public.pharmacy_users pu
+         ON m.sender_role = 'PHARMACY' AND pu.pharmacy_user_id = m.sender_user_id
+       WHERE m.chat_id = $1
+       ORDER BY m.created_at ASC, m.message_id ASC`,
       [chatId],
     );
 
@@ -348,6 +353,7 @@ export class PatientsService {
       success: true,
       message: 'Chat messages retrieved successfully.',
       count: result.rows.length,
+      conversation: chat.rows[0],
       data: result.rows,
     };
   }
@@ -376,7 +382,7 @@ export class PatientsService {
     }
 
     const chat = await this.db.query(
-      `SELECT chat_id
+      `SELECT chat_id, status
        FROM public.patient_chats
        WHERE chat_id = $1
          AND patient_user_id = $2`,
@@ -386,6 +392,12 @@ export class PatientsService {
     if (chat.rows.length === 0) {
       throw new NotFoundException(
         'Chat conversation not found.',
+      );
+    }
+
+    if (String(chat.rows[0].status || '').toUpperCase() === 'CLOSED') {
+      throw new BadRequestException(
+        'This conversation is closed.',
       );
     }
 

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  Alert,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
@@ -21,6 +22,7 @@ import {
 } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from '@/hooks/useLocation';
+import { chatService } from '@/src/api/chat/chatService';
 
 
 const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
@@ -70,6 +72,25 @@ export default function PharmacyDetailScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const [showRoute, setShowRoute] = useState(true);
   const [routeError, setRouteError] = useState(false);
+  const [isOpeningChat, setIsOpeningChat] = useState(false);
+
+  // Opens (or reuses) this patient's conversation with the pharmacy, then shows it.
+  const openChat = async () => {
+    const pharmacyId = Number(pharmacy.id);
+    if (!Number.isInteger(pharmacyId) || pharmacyId <= 0 || isOpeningChat) return;
+    setIsOpeningChat(true);
+    try {
+      const res = await chatService.startChat(pharmacyId);
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: String(res.data.chat_id), name: res.data.pharmacy_name || pharmacy.name },
+      });
+    } catch (err: any) {
+      Alert.alert(t('chat.openFailedTitle', 'Could not open chat'), err?.message || '');
+    } finally {
+      setIsOpeningChat(false);
+    }
+  };
 
   const origin = userLocation
     ? {
@@ -264,9 +285,14 @@ export default function PharmacyDetailScreen() {
           </View>
           <TouchableOpacity
             style={styles.chatButton}
-            onPress={() => router.push(`/chat/${pharmacy.id}`)}
+            onPress={openChat}
+            disabled={isOpeningChat}
           >
-            <Feather name="message-circle" size={22} color="#007a55" />
+            {isOpeningChat ? (
+              <ActivityIndicator size="small" color="#007a55" />
+            ) : (
+              <Feather name="message-circle" size={22} color="#007a55" />
+            )}
           </TouchableOpacity>
         </View>
 
