@@ -114,7 +114,7 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.registerWalkinPatient(targetPharmacyId, dto, user.email);
+    return this.salesService.registerWalkinPatient(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 4. Prescription Integration ─────────────
@@ -174,7 +174,7 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.createSale(targetPharmacyId, dto, user.email);
+    return this.salesService.createSale(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 8. Sales History ─────────────
@@ -257,7 +257,7 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.updateClaimStatus(targetPharmacyId, id, dto, user.email);
+    return this.salesService.updateClaimStatus(targetPharmacyId, id, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 10. Single Sale & Receipt ─────────────
@@ -316,7 +316,7 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.refundSale(targetPharmacyId, id, dto, user.email);
+    return this.salesService.refundSale(targetPharmacyId, id, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 }
 

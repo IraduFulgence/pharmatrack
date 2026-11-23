@@ -41,6 +41,9 @@ import SaleReceipt from './pages/dashboard/SaleReceipt';
 import SalesHistory from './pages/dashboard/SalesHistory';
 import InsuranceClaims from './pages/dashboard/InsuranceClaims';
 import SalesOfficers from './pages/dashboard/salesOfficers';
+import StaffActivity from './pages/dashboard/StaffActivity';
+import StaffReports from './pages/dashboard/StaffReports';
+import InventoryUpdates from './pages/dashboard/InventoryUpdates';
 import ActivateAccount from './pages/activateAccount';
 import Messages from './pages/shared/Messages';
 import StaffDashboard from './pages/staff/staffDashboard';
@@ -105,12 +108,15 @@ function App() {
         <Route path='inventory/alerts' element={<InventoryAlerts />} />
         <Route path='inventory/transactions' element={<TransactionHistory />} />
         <Route path='inventory/reports' element={<InventoryReports />} />
+        <Route path='inventory/updates' element={<InventoryUpdates />} />
         <Route path="settings" element={<PharmacySettings />} /> 
         <Route path="sales/pos" element={<SalesPOS />} />
         <Route path="sales/:id/receipt" element={<SaleReceipt />} />
          <Route path="sales/history" element={<SalesHistory />} />
         <Route path='insurance' element={<InsuranceClaims />} />
         <Route path='staffs' element={<SalesOfficers />} />
+        <Route path='staff/activity' element={<StaffActivity />} />
+        <Route path='staff/reports' element={<StaffReports />} />
         <Route path='messages' element={<Messages />} />
 
         </Route>

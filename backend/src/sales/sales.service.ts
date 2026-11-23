@@ -15,6 +15,7 @@ import type { UpdateClaimDto } from './dto/update-claim.dto.js';
 import type { RegisterSalePatientDto } from './dto/register-sale-patient.dto.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
+import type { ActorRef } from '../common/interfaces/actor-ref.interface.js';
 import {
   ReceiptData,
   generateHtmlReceipt,
@@ -56,7 +57,25 @@ export class SalesService {
   /**
    * Find pharmacy_user_id for audit logs from user email or fallback to pharmacy owner
    */
-  private async getPharmacyUserId(pharmacyId: number, email?: string): Promise<number | null> {
+  /**
+   * Helper: Find the pharmacy_user_id that performed an action.
+   * Prefers the staff ID from the token, then the email. Returns null for the
+   * main pharmacy account (or anyone not in pharmacy_users) instead of guessing.
+   */
+  private async getPharmacyUserId(pharmacyId: number, actor?: ActorRef): Promise<number | null> {
+    const email = typeof actor === 'string' ? actor : actor?.email;
+    const staffId = typeof actor === 'object' ? actor?.pharmacyUserId : undefined;
+
+    if (staffId) {
+      const byId = await this.db.query(
+        'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_id = $1 AND pharmacy_user_id = $2 LIMIT 1',
+        [pharmacyId, staffId],
+      );
+      if (byId.rows.length > 0) {
+        return Number(byId.rows[0].pharmacy_user_id);
+      }
+    }
+
     if (email) {
       const userRes = await this.db.query(
         'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_id = $1 AND LOWER(email) = $2 LIMIT 1',
@@ -66,11 +85,8 @@ export class SalesService {
         return Number(userRes.rows[0].pharmacy_user_id);
       }
     }
-    const ownerRes = await this.db.query(
-      'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_id = $1 ORDER BY pharmacy_user_id ASC LIMIT 1',
-      [pharmacyId],
-    );
-    return ownerRes.rows.length > 0 ? Number(ownerRes.rows[0].pharmacy_user_id) : null;
+
+    return null;
   }
 
   // =========================================================================
@@ -330,7 +346,7 @@ export class SalesService {
   async registerWalkinPatient(
     pharmacyId: number,
     dto: RegisterSalePatientDto,
-    userEmail?: string,
+    userEmail?: ActorRef,
   ): Promise<ApiResponse> {
     const { fullName, phoneNumber, nationalId, email, dateOfBirth, gender, address, providerId, insuranceCardNumber } = dto;
     const pharmacyUserId = await this.getPharmacyUserId(pharmacyId, userEmail);
@@ -609,7 +625,7 @@ export class SalesService {
   async createSale(
     pharmacyId: number,
     dto: CreateSaleDto,
-    userEmail?: string,
+    userEmail?: ActorRef,
   ): Promise<ApiResponse> {
     const {
       paymentCategory,
@@ -1188,7 +1204,7 @@ export class SalesService {
     pharmacyId: number,
     saleId: number,
     dto: RefundSaleDto,
-    userEmail?: string,
+    userEmail?: ActorRef,
   ): Promise<ApiResponse> {
     const { reason, items: returnItems, refundAmount, refundMethod = 'CASH', notes } = dto;
 
@@ -1422,7 +1438,7 @@ export class SalesService {
     pharmacyId: number,
     claimId: number,
     dto: UpdateClaimDto,
-    userEmail?: string,
+    userEmail?: ActorRef,
   ): Promise<ApiResponse> {
     const { claimStatus, approvedAmount, paidAmount, rejectionReason, paymentReference, notes } = dto;
 

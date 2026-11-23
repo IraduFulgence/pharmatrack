@@ -156,7 +156,7 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.addStock(targetPharmacyId, dto, user.email);
+    return this.inventoryService.addStock(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   @Post('stock-in')
@@ -171,7 +171,7 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.addStock(targetPharmacyId, dto, user.email);
+    return this.inventoryService.addStock(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 5. Batches Management ─────────────
@@ -240,7 +240,7 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.adjustStock(targetPharmacyId, dto, user.email);
+    return this.inventoryService.adjustStock(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 7. Alerts and Notifications ─────────────
@@ -425,7 +425,7 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.importBulkInventory(targetPharmacyId, file.buffer, user.email);
+    return this.inventoryService.importBulkInventory(targetPharmacyId, file.buffer, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 11. Multi-Format Inventory Export (Module 2.2) ─────────────
