@@ -624,10 +624,10 @@ const SalesPOS = () => {
         {activeTab === 'online-orders' && (
           <div className="max-w-full mx-auto space-y-4 dark:text-white">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold">Online orders to collect</h2>
+              {/* <h2 className="text-xl font-bold">Online orders to collect</h2> */}
               <button onClick={fetchOnlineOrders} className="text-sm text-[#007a55] hover:underline">Refresh</button>
             </div>
-            <p className="text-sm text-gray-500">Accepted orders from the mobile app. New orders are accepted or rejected on the Online Orders page.</p>
+           
             {onlineOrdersError && <p className="text-sm text-red-600">{onlineOrdersError}</p>}
             {onlineOrders.length === 0 && !onlineOrdersError && (
               <div className="text-center py-12 text-gray-500"><Inbox className="mx-auto mb-2 text-gray-300" size={32} />No online orders waiting for pickup.</div>

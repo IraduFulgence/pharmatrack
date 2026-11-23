@@ -4,6 +4,7 @@ import {
   ShoppingBag, Loader2, AlertCircle, X, CheckCircle2, XCircle, PackageCheck,
   Store, RefreshCw, User, Phone, Lock, AlertTriangle,
 } from 'lucide-react';
+// import { marketplaceService, ORDER_STATUS, PAYMENT_LABELS } from '../../services/marketplaceService';
 import { marketplaceService, ORDER_STATUS, PAYMENT_LABELS } from '../../services/marketplaceService';
 import { useDashboardBase } from '../../utils/dashboardBase';
 
@@ -124,11 +125,11 @@ const OnlineOrders = () => {
   const order = detail?.order;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-8xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Online Orders</h1>
-          <p className="text-gray-500 dark:text-gray-400">Orders patients placed from the mobile app for pickup at your pharmacy.</p>
+          {/* <p className="text-gray-500 dark:text-gray-400">Orders patients placed from the mobile app for pickup at your pharmacy.</p> */}
         </div>
         <button
           onClick={() => { setIsLoading(true); load(); }}

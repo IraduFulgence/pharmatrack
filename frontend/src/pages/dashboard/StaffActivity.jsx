@@ -86,7 +86,7 @@ const StaffActivity = () => {
   const hasFilters = Object.values(filters).some(Boolean);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-8xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Staff Activity</h1>
         {/* <p className="text-gray-500 dark:text-gray-400">Who registered, changed, suspended or activated staff accounts, and pharmacy profile changes.</p> */}

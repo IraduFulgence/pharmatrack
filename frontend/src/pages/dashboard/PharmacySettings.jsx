@@ -204,7 +204,7 @@ const PharmacySettings = () => {
   const mapCenter = [formData.latitude, formData.longitude];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-8xl mx-auto space-y-6">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

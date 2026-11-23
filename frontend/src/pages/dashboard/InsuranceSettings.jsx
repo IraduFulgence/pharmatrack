@@ -30,8 +30,8 @@ const InsuranceSettings = () => {
   const [notice, setNotice] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
-  // Add / edit modal
-  const [modal, setModal] = useState(null); // { mode: 'add' } | { mode: 'edit', config }
+  // Add or  edit modal
+  const [modal, setModal] = useState(null); 
   const [form, setForm] = useState({ insuranceId: '', coveragePercentage: '' });
   const [formError, setFormError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -122,11 +122,11 @@ const InsuranceSettings = () => {
   const activeCount = configs.filter((c) => c.is_active).length;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-8xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Accepted Insurance</h1>
-          <p className="text-gray-500 dark:text-gray-400">Choose which insurers your pharmacy accepts and how much of each bill they cover.</p>
+          {/* <p className="text-gray-500 dark:text-gray-400">Choose which insurers your pharmacy accepts and how much of each bill they cover.</p> */}
         </div>
         <button
           onClick={openAdd}

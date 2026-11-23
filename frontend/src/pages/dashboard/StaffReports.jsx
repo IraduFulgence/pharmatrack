@@ -350,10 +350,10 @@ const StaffReports = () => {
   }, []);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-8xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Staff Reports</h1>
-        <p className="text-gray-500 dark:text-gray-400">Sales performance and stock handling for each employee.</p>
+        {/* <p className="text-gray-500 dark:text-gray-400">Sales performance and stock handling for each employee.</p> */}
       </div>
 
       <div className="flex gap-1 border-b border-gray-200 dark:border-gray-800">

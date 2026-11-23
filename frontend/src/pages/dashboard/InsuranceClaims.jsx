@@ -150,12 +150,12 @@ const InsuranceClaims = () => {
   const pendingClaimsCount = claims.filter(c => (c.claim_status || c.status) === 'PENDING').length;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-24">
+    <div className="space-y-6 max-w-8xl mx-auto pb-24">
       
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Insurance Claims</h1>
-        <p className="text-gray-500 dark:text-gray-400">Track, manage, and submit claims to insurance providers.</p>
+        {/* <p className="text-gray-500 dark:text-gray-400">Track, manage, and submit claims to insurance providers.</p> */}
       </div>
 
       {/* Summary Cards */}

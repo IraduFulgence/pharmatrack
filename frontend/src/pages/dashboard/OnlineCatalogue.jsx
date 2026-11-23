@@ -73,12 +73,12 @@ const OnlineCatalogue = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-8xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Online Catalogue</h1>
-        <p className="text-gray-500 dark:text-gray-400">
+        {/* <p className="text-gray-500 dark:text-gray-400">
           Medicines patients can order from you in the mobile app. {medicines.length > 0 && `${onlineCount} of ${medicines.length} are online.`}
-        </p>
+        </p> */}
       </div>
 
       <div className="relative max-w-md">
@@ -181,9 +181,9 @@ const OnlineCatalogue = () => {
         )}
       </div>
 
-      <p className="text-xs text-gray-500 dark:text-gray-400">
+      {/* <p className="text-xs text-gray-500 dark:text-gray-400">
         Changing the online price updates the selling price of all current batches, so it also applies at your sales point. Hiding a medicine online doesn't affect in-store sales.
-      </p>
+      </p> */}
     </div>
   );
 };
