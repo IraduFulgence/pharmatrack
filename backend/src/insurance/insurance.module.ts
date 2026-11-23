@@ -1,9 +1,14 @@
 import { Module } from '@nestjs/common';
 import { InsuranceService } from './insurance.service.js';
 import { InsuranceController } from './insurance.controller.js';
+import { DatabaseModule } from '../database/database.module.js';
+import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
-  providers: [InsuranceService],
+  imports: [DatabaseModule, AuthModule],
   controllers: [InsuranceController],
+  providers: [InsuranceService],
+  exports: [InsuranceService],
 })
 export class InsuranceModule {}
+
