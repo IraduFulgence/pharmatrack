@@ -7,7 +7,7 @@ import { AuthModule } from '../auth/auth.module.js';
   imports: [DatabaseModule, AuthModule],
   providers: [InsuranceService],
   controllers: [InsuranceController],
-  providers: [InsuranceService],
+  
   exports: [InsuranceService],
 })
 export class InsuranceModule {}
