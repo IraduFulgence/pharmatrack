@@ -21,6 +21,12 @@ import {
   ParseIntPipe,
   ForbiddenException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse as SwaggerResponse,
+} from '@nestjs/swagger';
 import { InsuranceService } from './insurance.service.js';
 import { CreatePharmacyInsuranceDto } from './dto/create-pharmacy-insurance.dto.js';
 import { UpdatePharmacyInsuranceDto } from './dto/update-pharmacy-insurance.dto.js';
@@ -33,7 +39,6 @@ import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 @ApiTags('Insurance')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-//@Roles('PHARMACY', 'PHARMACY_ADMIN', 'PHARMACIST', 'ADMIN', 'SYSTEM_ADMIN')
 @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
 @Controller('api/pharmacy/:pharmacyId/insurances')
 export class InsuranceController {
@@ -102,7 +107,7 @@ export class InsuranceController {
   }
 
   /**
-   * PATCH /api/pharmacy/:pharmacyId/insurances/:id/status
+   * PATCH /api/pharmacy/:pharmacyId/insurances/:id
    * Updates an existing association (coverage %, active flag).
    */
   // @Patch(':id')
@@ -123,9 +128,9 @@ export class InsuranceController {
    * Toggles status of an insurance association.
    */
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Updates an existing association (Coverage %, active flag, etc)' })
-  @SwaggerResponse({ status: 200, description: 'Insurance Configuration updated Successfully.' })
-  async update(
+  @ApiOperation({ summary: 'Updates an existing association status' })
+  @SwaggerResponse({ status: 200, description: 'Insurance Configuration status updated successfully.' })
+  async updateStatus(
     @CurrentUser() user: JwtPayload,
     @Param('pharmacyId', ParseIntPipe) pharmacyId: number,
     @Param('id', ParseIntPipe) id: number,
