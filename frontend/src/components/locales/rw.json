@@ -90,5 +90,27 @@
     "emailAddress": "Aderesi ya email",
     "message": "Twagufasha gute?",
     "send": "Ohereza Ubutumwa"
+  },
+  "auth":{
+  "pharmacyDetails": "Amakuru yerekeye Farumasi",
+  "tinNumber": "TIN  ",
+  "uploadDocs": "Inyandiko zo kugenzura ",
+  "uploadLicense": "Shyiraho uruhushya rwa farumasi",
+  "uploadRdb": "Shiraho icyemezo cy'ubucuruzi, RDB",
+  "clickToUpload": "Kanda kugira ngo wohereze",
+  "supportedFormats": "PNG, JPG or PDF",
+  "back": "Subira inyuma",
+  "continue": "Komeza",
+  "createAccountBtn": "Iyandikishe",
+  "loginTitle":"Murakaza neza",
+  "noAccount":"nta konti mufite?",
+  "signUpHere":"Iyandikishe hano",
+  "LoginFails":"Kwinjira byanze",
+  "emailOrPhone":"Imeyi cwangwa telefoni",
+  "password":"Ijambo banga",
+  "forgotPassword":"Wibagiwe ijambo banga?",
+  "loading":"Uri kwinjira...",
+  "Buttonsignin":"Injira",
+  "orContinueWith":"cyangwa ukomeze na"
   }
 }

@@ -90,6 +90,28 @@
     "emailAddress": "Adresse email",
     "message": "Comment pouvons-nous vous aider ?",
     "send": "Envoyer le message"
+  },
+  "auth":{
+  "pharmacyDetails": "Détails de la pharmacie",
+  "tinNumber": "TIN  ",
+  "uploadDocs": "Documents de Verification ",
+  "uploadLicense": "Importer la licence de pharmacie",
+  "uploadRdb": "Importer RDB Certificat",
+  "clickToUpload": "Cliquez pour importer",
+  "supportedFormats": "PNG, JPG or PDF",
+  "back": "Retour",
+  "continue": "Continuer",
+  "createAccountBtn": "Creer un compte",
+  "loginTitle":"Bienvenue",
+  "noAccount":"Vous n'avez pas de compte?",
+  "signUpHere":"Inscrivez-vous ici",
+  "LoginFails":"La connexion a échoué",
+  "emailOrPhone":"Adresse e-mail ou numéro de téléphone",
+  "password":"Mot de passe",
+  "forgotPassword":"Mot de passe oublié ?",
+  "loading":"Connexion en cours...",
+  "Buttonsignin":"Se connecter",
+  "orContinueWith":"ou poursuivre avec"
   }
 
 }

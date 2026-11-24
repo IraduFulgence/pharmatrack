@@ -67,7 +67,17 @@
   "supportedFormats": "PNG, JPG or PDF",
   "back": "Back",
   "continue": "Continue",
-  "createAccountBtn": "Create Account"
+  "createAccountBtn": "Create Account",
+  "loginTitle":"Welcome Back",
+  "noAccount":"Don't have an account?",
+  "signUpHere":"Sign up here",
+  "LoginFails":"Login Failed",
+  "emailOrPhone":"Email or Phone Number",
+  "password":"Password",
+  "forgotPassword":"Forgot password?",
+  "loading":"Signing in...",
+  "Buttonsignin":"Sign in",
+  "orContinueWith":"Or continue with"
   },
   "cta":{
     "title":"Ready to find your medicine?",

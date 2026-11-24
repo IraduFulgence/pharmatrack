@@ -82,7 +82,7 @@ const Login = () => {
           <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
             <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-red-800">Login Failed</p>
+              <p className="text-sm font-semibold text-red-800">{t('auth.LoginFails')}</p>
               <p className="text-sm text-red-700 mt-1">{error}</p>
             </div>
           </div>
@@ -140,12 +140,12 @@ const Login = () => {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            {/* <div className="flex items-center">
               <input id="remember-me" type="checkbox" className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded dark:bg-gray-900 dark:border-gray-700" />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
                 {t('auth.rememberMe', 'Remember me')}
               </label>
-            </div>
+            </div> */}
             <div className="text-sm">
               <a href="#" className="font-medium text-brand-primary hover:text-green-700 transition-colors">
                 {t('auth.forgotPassword', 'Forgot password?')}
@@ -159,7 +159,7 @@ const Login = () => {
             className="w-full flex justify-center items-center py-3 px-4 rounded-lg shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-green-700 transition-colors disabled:opacity-70"
           >
             {isLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
-            {isLoading ? 'Signing in...' : 'Sign in'}
+            {isLoading ? `${t('auth.loading')}` : `${t('auth.Buttonsignin')}`}
           </button>
         </form>
 
