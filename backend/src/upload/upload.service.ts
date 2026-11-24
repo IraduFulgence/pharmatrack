@@ -176,10 +176,61 @@ export class UploadService {
   }
 
   /**
+   * Save a photo of a prescription a patient attached to a marketplace order.
+   * Returns the path stored in the database (relative to the upload dir).
+   */
+  async savePrescriptionImage(
+    patientId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    this.validateMedicineImage(file, 'Prescription photos');
+    const folder = path.join('prescriptions', `patient-${Number(patientId)}`);
+    const directory = path.join(this.uploadDir, folder);
+    await fs.promises.mkdir(directory, { recursive: true });
+    const filename = `${crypto.randomUUID()}${this.medicineImageTypes[file.mimetype]}`;
+    await fs.promises.writeFile(path.join(directory, filename), file.buffer, { flag: 'wx' });
+    return path.join(folder, filename).replace(/\\/g, '/');
+  }
+
+  /**
+   * Absolute path of a stored upload, only if it lies inside `<uploadDir>/<area>`
+   * and exists. Returns null otherwise (never throws for bad paths).
+   */
+  resolveStoredFile(storedPath: string | null | undefined, area: 'medicine-images' | 'prescriptions'): string | null {
+    if (!storedPath) return null;
+    const normalized = storedPath.replace(/\\/g, '/');
+    if (normalized.startsWith('/') || normalized.includes('..') || !normalized.startsWith(`${area}/`)) {
+      return null;
+    }
+    const absolutePath = path.resolve(this.uploadDir, normalized);
+    const allowed = path.resolve(this.uploadDir, area);
+    if (!absolutePath.startsWith(allowed + path.sep) || !fs.existsSync(absolutePath)) {
+      return null;
+    }
+    return absolutePath;
+  }
+
+  /** Delete a stored upload inside `<uploadDir>/<area>` (used to undo a failed order). */
+  async removeStoredFile(storedPath: string, area: 'medicine-images' | 'prescriptions'): Promise<void> {
+    const absolutePath = this.resolveStoredFile(storedPath, area);
+    if (absolutePath) await this.deleteFileIfExists(absolutePath);
+  }
+
+  /** Stored path of a medicine's photo, if it has one. */
+  async getMedicineImagePath(medicineId: number): Promise<string | null> {
+    const res = await this.db.query(
+      'SELECT medicine_image_path FROM public.medicines WHERE medicine_id = $1',
+      [medicineId],
+    );
+    return res.rows[0]?.medicine_image_path || null;
+  }
+
+  /**
    * Validate uploaded medicine images.
    */
   private validateMedicineImage(
     file: Express.Multer.File,
+    label = 'Medicine images',
   ): void {
     if (!file || !file.buffer || file.buffer.length === 0) {
       throw new BadRequestException('Please upload an image.');
@@ -187,7 +238,7 @@ export class UploadService {
 
     if (file.size > this.maxMedicineImageSize) {
       throw new BadRequestException(
-        'Medicine images must not exceed 5 MB.',
+        `${label} must not exceed 5 MB.`,
       );
     }
 

@@ -1,4 +1,5 @@
 import { ApiRequest } from "./auth";
+import { API_BASE_URL } from "../utils/api";
 
 // Pharmacy side of the patient marketplace. The backend takes the pharmacy
 // from the login, so no pharmacyId is sent.
@@ -25,6 +26,21 @@ export const marketplaceService = {
       body: JSON.stringify({ status: 'READY_FOR_COLLECTION' }),
     }),
 
+  // The prescription photo a patient attached, as an object URL for <img>.
+  // Call URL.revokeObjectURL(url) when done with it.
+  getPrescriptionImageUrl: async (orderId) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_BASE_URL}/pharmacy/marketplace/orders/${orderId}/prescription-image`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let message = 'Could not load the prescription photo.';
+      try { message = (await res.json()).message || message; } catch { /* not JSON */ }
+      throw new Error(message);
+    }
+    return URL.createObjectURL(await res.blob());
+  },
+
   confirmStock: async (orderId) =>
     ApiRequest(`/pharmacy/marketplace/orders/${orderId}/confirm-stock`, { method: 'PATCH' }),
 
@@ -36,6 +52,21 @@ export const marketplaceService = {
       method: 'PATCH',
       body: JSON.stringify({ available }),
     }),
+
+  // Photo shown to patients for this medicine (shared by all pharmacies).
+  // JPEG, PNG or WebP, max 5 MB.
+  uploadMedicineImage: async (medicineId, file) => {
+    const form = new FormData();
+    form.append('image', file);
+    return ApiRequest(`/pharmacy/marketplace/medicines/${medicineId}/image`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  // Full URL for an image_url returned by the API; `version` busts the browser cache after an upload.
+  imageSrc: (imageUrl, version) =>
+    imageUrl ? `${API_BASE_URL}${imageUrl}${version ? `?v=${version}` : ''}` : null,
 
   setPrice: async (medicineId, price) =>
     ApiRequest(`/pharmacy/marketplace/medicines/${medicineId}/price`, {

@@ -1,4 +1,4 @@
-import { ApiRequest } from "../config";
+import { API_BASE_URL, ApiRequest } from "../config";
 
 // Patient side of the marketplace: browse, one-pharmacy cart, orders for pickup.
 
@@ -11,6 +11,9 @@ export interface CatalogueMedicine {
   dosage_form?: string | null;
   description?: string | null;
   requires_prescription: boolean;
+  image_url?: string | null;          // e.g. /medicines/12/image (null until a photo is uploaded)
+  lowest_price?: number | string | null;
+  pharmacy_count?: number;
 }
 
 export interface PharmacyOffer {
@@ -35,6 +38,7 @@ export interface CartItem {
   strength?: string | null;
   dosage_form?: string | null;
   requires_prescription: boolean;
+  image_url?: string | null;
 }
 
 export interface Cart {
@@ -72,6 +76,8 @@ export interface OrderSummary {
   mobile_money_provider?: MobileMoneyProvider | null;
   total: number | string;
   rejection_reason?: string | null;
+  prescription_reference?: string | null;
+  has_prescription_image?: boolean;
   created_at: string;
   updated_at: string;
   item_count: number;
@@ -83,21 +89,41 @@ export interface OrderItem {
   medicine_name: string;
   strength?: string | null;
   dosage_form?: string | null;
+  requires_prescription?: boolean;
   quantity: number;
   unit_price: number | string;
   subtotal: number | string;
 }
 
+/** A photo picked on the phone, ready to upload. */
+export interface PickedImage {
+  uri: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+}
+
+export interface PlaceOrderInput {
+  paymentMethod: PaymentMethod;
+  mobileMoneyProvider?: MobileMoneyProvider;
+  paymentPhoneNumber?: string;
+  prescriptionReference?: string;
+  prescriptionImage?: PickedImage | null;
+}
+
+/** Full URL for an image path returned by the API (null when there is no photo). */
+export const imageUri = (path?: string | null) => (path ? `${API_BASE_URL}${path}` : null);
+
 export const marketplaceService = {
-  getMedicines: async (q?: string, limit = 30, offset = 0): Promise<{ data: CatalogueMedicine[]; total?: number }> => {
+  // Only medicines that at least one approved pharmacy has in stock.
+  getMedicines: async (q?: string, limit = 40, offset = 0): Promise<{ data: CatalogueMedicine[]; total?: number }> => {
     const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
     if (q?.trim()) params.set('q', q.trim());
     return ApiRequest(`/marketplace/medicines?${params.toString()}`, { method: 'GET' });
   },
 
-  // Pharmacies that have this medicine in stock, cheapest first.
+  // Medicine details plus the pharmacies that have it in stock, cheapest first.
   getMedicinePharmacies: async (
-    medicineId: number,
+    medicineId: number | string,
   ): Promise<{ data: { medicine: CatalogueMedicine; pharmacies: PharmacyOffer[] } }> => {
     return ApiRequest(`/marketplace/medicines/${medicineId}/pharmacies`, { method: 'GET' });
   },
@@ -119,15 +145,28 @@ export const marketplaceService = {
   removeCartItem: async (itemId: number) =>
     ApiRequest(`/marketplace/cart/items/${itemId}`, { method: 'DELETE' }),
 
-  placeOrder: async (input: {
-    paymentMethod: PaymentMethod;
-    mobileMoneyProvider?: MobileMoneyProvider;
-    paymentPhoneNumber?: string;
-  }): Promise<{ data: { order: OrderSummary; total: number; payment_message: string } }> =>
-    ApiRequest('/marketplace/orders', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    }),
+  // Sends JSON, or multipart when a prescription photo is attached.
+  placeOrder: async (
+    input: PlaceOrderInput,
+  ): Promise<{ data: { order: OrderSummary; total: number; payment_message: string } }> => {
+    const { prescriptionImage, ...fields } = input;
+    if (!prescriptionImage) {
+      return ApiRequest('/marketplace/orders', { method: 'POST', body: JSON.stringify(fields) });
+    }
+    const form = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') form.append(key, String(value));
+    });
+    const type = prescriptionImage.mimeType || 'image/jpeg';
+    const ext = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg';
+    // React Native's FormData takes { uri, name, type } for files.
+    form.append('prescription', {
+      uri: prescriptionImage.uri,
+      name: prescriptionImage.fileName || `prescription.${ext}`,
+      type,
+    } as any);
+    return ApiRequest('/marketplace/orders', { method: 'POST', body: form });
+  },
 
   getOrders: async (): Promise<{ data: OrderSummary[] }> => ApiRequest('/marketplace/orders', { method: 'GET' }),
 
@@ -148,3 +187,23 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, { label: string; color: str
 };
 
 export const formatRwf = (n: number | string | null | undefined) => `${Number(n || 0).toLocaleString()} RWF`;
+
+/** Straight-line distance in km between two coordinates (haversine). */
+export const distanceKm = (
+  from: { latitude: number; longitude: number } | null | undefined,
+  to: { latitude?: number | string | null; longitude?: number | string | null },
+): number | null => {
+  const lat2 = Number(to.latitude);
+  const lon2 = Number(to.longitude);
+  if (!from || !Number.isFinite(lat2) || !Number.isFinite(lon2)) return null;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(lat2 - from.latitude);
+  const dLon = rad(lon2 - from.longitude);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(from.latitude)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+export const formatDistance = (km: number | null) =>
+  km === null ? null : km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;

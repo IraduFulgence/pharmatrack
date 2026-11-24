@@ -10,6 +10,8 @@ import {
   Patch,
   Delete,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 
 import {
@@ -20,6 +22,8 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes } from '@nestjs/swagger';
 import { MarketplaceService } from './marketplace.service.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
@@ -179,7 +183,16 @@ export class MarketplaceController {
   // ---------------------------------------------------------
 
   @Post('orders')
-  @ApiOperation({ summary: 'Place an order from the current cart' })
+  @ApiOperation({
+    summary: 'Place an order from the current cart',
+    description:
+      'JSON, or multipart/form-data with an optional "prescription" photo (JPEG/PNG/WebP, max 5 MB). ' +
+      'Orders with prescription-only medicine need prescriptionReference or the photo.',
+  })
+  @ApiConsumes('application/json', 'multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('prescription', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }),
+  )
   async createOrder(
     @CurrentUser() user: JwtPayload,
     @Body()
@@ -187,11 +200,14 @@ export class MarketplaceController {
       paymentMethod: 'CASH_ON_COLLECTION' | 'MOBILE_MONEY';
       mobileMoneyProvider?: 'MTN_MOMO' | 'AIRTEL_MONEY';
       paymentPhoneNumber?: string;
+      prescriptionReference?: string;
     },
+    @UploadedFile() prescription?: Express.Multer.File,
   ) {
     return this.marketplaceService.createOrder(
       Number(user.sub),
       body,
+      prescription,
     );
   }
 

@@ -307,6 +307,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0)
         );
         CREATE INDEX IF NOT EXISTS idx_marketplace_order_items_order ON public.marketplace_order_items (order_id);
+
+        -- Prescription the patient attaches when ordering prescription-only medicine
+        ALTER TABLE public.marketplace_orders ADD COLUMN IF NOT EXISTS prescription_reference VARCHAR(100);
+        ALTER TABLE public.marketplace_orders ADD COLUMN IF NOT EXISTS prescription_image_path VARCHAR(500);
+
+        -- Product photos (uploaded by system admins, shown in the marketplace)
+        ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS medicine_image_path VARCHAR(500);
       `);
 
       // ============================================================

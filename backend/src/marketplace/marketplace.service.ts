@@ -8,15 +8,33 @@ import {
 
 import { DatabaseService } from '../database/database.service.js';
 import { PatientsService } from '../patients/patients.service.js';
+import { UploadService } from '../upload/upload.service.js';
 
 type PaymentMethod = 'CASH_ON_COLLECTION' | 'MOBILE_MONEY';
 type MobileMoneyProvider = 'MTN_MOMO' | 'AIRTEL_MONEY';
+
+// A batch a patient can order: in stock, switched on online, not expired,
+// at an active approved pharmacy. Used inside correlated subqueries on medicines.
+const STOCK_FILTER = `
+  ib.medicine_id = medicines.medicine_id
+  AND ib.quantity > 0
+  AND ib.status = 'ACTIVE'
+  AND (ib.expiry_date IS NULL OR ib.expiry_date >= CURRENT_DATE)
+  AND p.is_active = TRUE
+  AND p.verification_status = 'APPROVED'
+`;
+const IN_STOCK_SOMEWHERE = `EXISTS (
+  SELECT 1 FROM public.inventory_batches ib
+  JOIN public.pharmacies p ON p.pharmacy_id = ib.pharmacy_id
+  WHERE ${STOCK_FILTER}
+)`;
 
 @Injectable()
 export class MarketplaceService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly patientsService: PatientsService,
+    private readonly uploadService: UploadService,
   ) {}
 
   private validatePositiveInteger(value: unknown, field: string): number {
@@ -141,7 +159,7 @@ export class MarketplaceService {
       `
         SELECT COUNT(*)::INTEGER AS total
         FROM public.medicines
-        ${whereClause}
+        ${whereClause ? `${whereClause} AND` : 'WHERE'} ${IN_STOCK_SOMEWHERE}
       `,
       params,
     );
@@ -159,9 +177,22 @@ export class MarketplaceService {
           strength,
           dosage_form,
           description,
-          requires_prescription
+          requires_prescription,
+          CASE WHEN medicine_image_path IS NOT NULL THEN '/medicines/' || medicine_id || '/image?v=' || LEFT(MD5(medicine_image_path), 8) END AS image_url,
+          (
+            SELECT MIN(COALESCE(ib.selling_price, ib.unit_price))
+            FROM public.inventory_batches ib
+            JOIN public.pharmacies p ON p.pharmacy_id = ib.pharmacy_id
+            WHERE ${STOCK_FILTER}
+          ) AS lowest_price,
+          (
+            SELECT COUNT(DISTINCT ib.pharmacy_id)::INTEGER
+            FROM public.inventory_batches ib
+            JOIN public.pharmacies p ON p.pharmacy_id = ib.pharmacy_id
+            WHERE ${STOCK_FILTER}
+          ) AS pharmacy_count
         FROM public.medicines
-        ${whereClause}
+        ${whereClause ? `${whereClause} AND` : 'WHERE'} ${IN_STOCK_SOMEWHERE}
         ORDER BY medicine_name ASC, medicine_id ASC
         LIMIT $${dataParams.length - 1}
         OFFSET $${dataParams.length}
@@ -200,7 +231,8 @@ export class MarketplaceService {
           strength,
           dosage_form,
           description,
-          requires_prescription
+          requires_prescription,
+          CASE WHEN medicine_image_path IS NOT NULL THEN '/medicines/' || medicine_id || '/image?v=' || LEFT(MD5(medicine_image_path), 8) END AS image_url
         FROM public.medicines
         WHERE medicine_id = $1
         LIMIT 1
@@ -236,7 +268,9 @@ export class MarketplaceService {
           brand_name,
           strength,
           dosage_form,
-          requires_prescription
+          description,
+          requires_prescription,
+          CASE WHEN medicine_image_path IS NOT NULL THEN '/medicines/' || medicine_id || '/image?v=' || LEFT(MD5(medicine_image_path), 8) END AS image_url
         FROM public.medicines
         WHERE medicine_id = $1
         LIMIT 1
@@ -572,7 +606,8 @@ export class MarketplaceService {
           m.brand_name,
           m.strength,
           m.dosage_form,
-          m.requires_prescription
+          m.requires_prescription,
+          CASE WHEN m.medicine_image_path IS NOT NULL THEN '/medicines/' || m.medicine_id || '/image?v=' || LEFT(MD5(m.medicine_image_path), 8) END AS image_url
         FROM public.marketplace_cart_items ci
         INNER JOIN public.medicines m
           ON m.medicine_id = ci.medicine_id
@@ -772,7 +807,9 @@ export class MarketplaceService {
       paymentMethod: PaymentMethod;
       mobileMoneyProvider?: MobileMoneyProvider;
       paymentPhoneNumber?: string;
+      prescriptionReference?: string;
     },
+    prescriptionFile?: Express.Multer.File,
   ) {
     const patientId = this.validatePositiveInteger(
       patientIdInput,
@@ -824,7 +861,18 @@ export class MarketplaceService {
       );
     }
 
-    return this.databaseService.transaction(async (client) => {
+    const prescriptionReference = input.prescriptionReference?.trim() || null;
+    if (prescriptionReference && prescriptionReference.length > 100) {
+      throw new BadRequestException('The prescription number cannot exceed 100 characters.');
+    }
+
+    // Save the photo first; it is removed again if the order fails.
+    const prescriptionImagePath = prescriptionFile
+      ? await this.uploadService.savePrescriptionImage(patientId, prescriptionFile)
+      : null;
+
+    try {
+    return await this.databaseService.transaction(async (client) => {
       const cart = await this.lockPatientCart(client, patientId);
 
       if (cart.pharmacy_id === null) {
@@ -863,7 +911,8 @@ export class MarketplaceService {
             ci.medicine_id,
             ci.quantity,
             ci.unit_price,
-            m.medicine_name
+            m.medicine_name,
+            m.requires_prescription
           FROM public.marketplace_cart_items ci
           INNER JOIN public.medicines m
             ON m.medicine_id = ci.medicine_id
@@ -877,6 +926,15 @@ export class MarketplaceService {
       if (cartItemsResult.rows.length === 0) {
         throw new ConflictException(
           'Your cart is empty. Add medicines before placing an order.',
+        );
+      }
+
+      const rxNames = cartItemsResult.rows
+        .filter((item: any) => item.requires_prescription)
+        .map((item: any) => item.medicine_name);
+      if (rxNames.length > 0 && !prescriptionReference && !prescriptionImagePath) {
+        throw new BadRequestException(
+          `A prescription is needed for: ${rxNames.join(', ')}. Add the prescription number or a photo of it.`,
         );
       }
 
@@ -953,7 +1011,9 @@ export class MarketplaceService {
             mobile_money_provider,
             payment_phone_number,
             subtotal,
-            total
+            total,
+            prescription_reference,
+            prescription_image_path
           )
           VALUES (
             $1,
@@ -964,7 +1024,9 @@ export class MarketplaceService {
             $4,
             $5,
             $6,
-            $6
+            $6,
+            $7,
+            $8
           )
           RETURNING
             order_id,
@@ -986,6 +1048,8 @@ export class MarketplaceService {
           mobileMoneyProvider,
           paymentPhoneNumber,
           total,
+          prescriptionReference,
+          prescriptionImagePath,
         ],
       );
 
@@ -1046,6 +1110,12 @@ export class MarketplaceService {
         },
       };
     });
+    } catch (error) {
+      if (prescriptionImagePath) {
+        await this.uploadService.removeStoredFile(prescriptionImagePath, 'prescriptions');
+      }
+      throw error;
+    }
   }
 
   /**
@@ -1133,6 +1203,8 @@ export class MarketplaceService {
           o.subtotal,
           o.total,
           o.rejection_reason,
+          o.prescription_reference,
+          (o.prescription_image_path IS NOT NULL) AS has_prescription_image,
           o.created_at,
           o.updated_at
         FROM public.marketplace_orders o
@@ -1159,6 +1231,7 @@ export class MarketplaceService {
           m.brand_name,
           m.strength,
           m.dosage_form,
+          m.requires_prescription,
           oi.quantity,
           oi.unit_price,
           oi.subtotal

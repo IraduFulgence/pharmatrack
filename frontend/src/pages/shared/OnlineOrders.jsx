@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShoppingBag, Loader2, AlertCircle, X, CheckCircle2, XCircle, PackageCheck,
-  Store, RefreshCw, User, Phone, Lock, AlertTriangle,
+  Store, RefreshCw, User, Phone, Lock, AlertTriangle, FileText,
 } from 'lucide-react';
 // import { marketplaceService, ORDER_STATUS, PAYMENT_LABELS } from '../../services/marketplaceService';
 import { marketplaceService, ORDER_STATUS, PAYMENT_LABELS } from '../../services/marketplaceService';
@@ -46,6 +46,9 @@ const OnlineOrders = () => {
   const [busy, setBusy] = useState(null); // 'accept' | 'reject' | 'ready'
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  const [rxPhotoUrl, setRxPhotoUrl] = useState(null);
+  const [rxPhotoError, setRxPhotoError] = useState(null);
+  const [showRxPhoto, setShowRxPhoto] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -70,7 +73,25 @@ const OnlineOrders = () => {
     return () => clearInterval(t);
   }, [load]);
 
+  const clearRxPhoto = () => {
+    setRxPhotoUrl((url) => { if (url) URL.revokeObjectURL(url); return null; });
+    setRxPhotoError(null);
+    setShowRxPhoto(false);
+  };
+
+  const viewRxPhoto = async () => {
+    setShowRxPhoto(true);
+    if (rxPhotoUrl) return;
+    setRxPhotoError(null);
+    try {
+      setRxPhotoUrl(await marketplaceService.getPrescriptionImageUrl(selectedId));
+    } catch (err) {
+      setRxPhotoError(err.message || 'Could not load the prescription photo.');
+    }
+  };
+
   const openOrder = async (orderId) => {
+    if (orderId !== selectedId) clearRxPhoto();
     setSelectedId(orderId);
     setDetail(null);
     setDetailError(null);
@@ -88,6 +109,7 @@ const OnlineOrders = () => {
   };
 
   const closeOrder = () => {
+    clearRxPhoto();
     setSelectedId(null);
     setDetail(null);
   };
@@ -243,6 +265,31 @@ const OnlineOrders = () => {
                     </div>
                   </div>
 
+                  {(order.prescription_reference || order.has_prescription_image) && (
+                    <div className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 text-sm space-y-2">
+                      <p className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white"><FileText size={14} /> Prescription from the patient</p>
+                      {order.prescription_reference && (
+                        <p className="text-gray-700 dark:text-gray-300">Number / SMS code: <span className="font-mono font-semibold">{order.prescription_reference}</span></p>
+                      )}
+                      {order.has_prescription_image && (
+                        showRxPhoto ? (
+                          rxPhotoError ? (
+                            <p className="text-red-600">{rxPhotoError}</p>
+                          ) : rxPhotoUrl ? (
+                            <a href={rxPhotoUrl} target="_blank" rel="noreferrer">
+                              <img src={rxPhotoUrl} alt="Prescription sent by the patient" className="max-h-80 rounded-lg border border-gray-200 dark:border-gray-700" />
+                            </a>
+                          ) : (
+                            <Loader2 className="animate-spin text-[#007a55]" size={18} />
+                          )
+                        ) : (
+                          <button onClick={viewRxPhoto} className="text-[#007a55] font-semibold hover:underline">View prescription photo</button>
+                        )
+                      )}
+                      <p className="text-xs text-gray-500">Check it before accepting. At pickup, the sales point checks the number again and asks for the original.</p>
+                    </div>
+                  )}
+
                   {order.status === 'REJECTED' && order.rejection_reason && (
                     <p className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">Rejected: {order.rejection_reason}</p>
                   )}
@@ -290,7 +337,7 @@ const OnlineOrders = () => {
                     </tfoot>
                   </table>
 
-                  {detail.items.some((it) => it.requires_prescription) && ['PENDING', 'ACCEPTED', 'READY_FOR_COLLECTION'].includes(order.status) && (
+                  {detail.items.some((it) => it.requires_prescription) && !order.prescription_reference && !order.has_prescription_image && ['PENDING', 'ACCEPTED', 'READY_FOR_COLLECTION'].includes(order.status) && (
                     <p className="text-xs text-gray-500">This order has prescription-only medicine. You'll need the patient's prescription number at pickup.</p>
                   )}
 

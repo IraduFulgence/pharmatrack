@@ -1,6 +1,22 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Globe, Loader2, AlertCircle, Search, Check, X, Pencil, Lock } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Globe, Loader2, AlertCircle, Search, Check, X, Pencil, Lock, ImagePlus, Pill } from 'lucide-react';
 import { marketplaceService } from '../../services/marketplaceService';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Product photo with a placeholder when there is none (or it fails to load).
+const Thumb = ({ src, alt }) => {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  return (
+    <div className="w-12 h-12 rounded-lg bg-[#e6f4ef] dark:bg-gray-800 flex items-center justify-center overflow-hidden shrink-0">
+      {src && !failed
+        ? <img src={src} alt={alt} className="w-full h-full object-cover" onError={() => setFailed(true)} />
+        : <Pill size={20} className="text-[#7FBFA9]" />}
+    </div>
+  );
+};
 
 const money = (n) => (n === null || n === undefined ? '—' : `${Number(n).toLocaleString()} RWF`);
 
@@ -12,6 +28,10 @@ const OnlineCatalogue = () => {
   const [busyId, setBusyId] = useState(null);
   const [editing, setEditing] = useState(null); // { id, value }
   const [rowError, setRowError] = useState({});
+  const [uploadingId, setUploadingId] = useState(null);
+  const [imageVersion, setImageVersion] = useState({}); // medicine_id -> timestamp of last upload
+  const fileInput = useRef(null);
+  const uploadTarget = useRef(null);
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +72,38 @@ const OnlineCatalogue = () => {
     }
   };
 
+  const chooseImage = (medicineId) => {
+    uploadTarget.current = medicineId;
+    fileInput.current?.click();
+  };
+
+  const onImagePicked = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow picking the same file again
+    const id = uploadTarget.current;
+    if (!file || !id) return;
+    setRowErr(id, null);
+    if (!IMAGE_TYPES.includes(file.type)) {
+      setRowErr(id, 'Use a JPEG, PNG or WebP image.');
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setRowErr(id, 'The photo must be 5 MB or smaller.');
+      return;
+    }
+    setUploadingId(id);
+    try {
+      await marketplaceService.uploadMedicineImage(id, file);
+      const url = `/medicines/${id}/image`;
+      setMedicines((list) => list.map((x) => (x.medicine_id === id ? { ...x, image_url: url } : x)));
+      setImageVersion((v) => ({ ...v, [id]: Date.now() }));
+    } catch (err) {
+      setRowErr(id, err.message || 'Could not upload the photo.');
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
   const savePrice = async () => {
     const { id, value } = editing;
     const price = Number(value);
@@ -80,6 +132,14 @@ const OnlineCatalogue = () => {
           Medicines patients can order from you in the mobile app. {medicines.length > 0 && `${onlineCount} of ${medicines.length} are online.`}
         </p> */}
       </div>
+
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={onImagePicked}
+      />
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
@@ -111,6 +171,7 @@ const OnlineCatalogue = () => {
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-xs uppercase">
                 <tr>
+                  <th className="px-4 py-3">Photo</th>
                   <th className="px-4 py-3">Medicine</th>
                   <th className="px-4 py-3 text-right">In stock</th>
                   <th className="px-4 py-3 text-right">Online price</th>
@@ -125,6 +186,22 @@ const OnlineCatalogue = () => {
                     : `${money(m.lowest_price)} – ${money(m.highest_price)}`;
                   return (
                     <tr key={m.medicine_id} className={m.available ? '' : 'opacity-60'}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Thumb src={marketplaceService.imageSrc(m.image_url, imageVersion[m.medicine_id])} alt={m.medicine_name} />
+                          <button
+                            onClick={() => chooseImage(m.medicine_id)}
+                            disabled={uploadingId === m.medicine_id}
+                            className="flex items-center gap-1 text-xs font-semibold text-[#007a55] hover:underline disabled:opacity-50"
+                            title={m.image_url ? 'Replace photo' : 'Add photo'}
+                          >
+                            {uploadingId === m.medicine_id
+                              ? <Loader2 size={14} className="animate-spin" />
+                              : <ImagePlus size={14} />}
+                            {m.image_url ? 'Change' : 'Add'}
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900 dark:text-white">
                           {m.medicine_name} {m.strength}
@@ -183,6 +260,7 @@ const OnlineCatalogue = () => {
 
       {/* <p className="text-xs text-gray-500 dark:text-gray-400">
         Changing the online price updates the selling price of all current batches, so it also applies at your sales point. Hiding a medicine online doesn't affect in-store sales.
+        Photos (JPEG, PNG or WebP, up to 5 MB) are shared: every pharmacy selling that medicine and every patient sees the same photo.
       </p> */}
     </div>
   );

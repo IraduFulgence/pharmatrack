@@ -193,6 +193,19 @@ export default function OrderDetailScreen() {
             </Text>
           </View>
 
+          {(order.prescription_reference || order.has_prescription_image) && (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>{t('orders.prescription', 'Prescription sent')}</Text>
+              {order.prescription_reference ? (
+                <Text style={styles.meta}>{t('orders.rxNumber', 'Number')}: {order.prescription_reference}</Text>
+              ) : null}
+              {order.has_prescription_image ? (
+                <Text style={styles.meta}>{t('orders.rxPhoto', 'Photo attached')}</Text>
+              ) : null}
+              <Text style={styles.meta}>{t('orders.rxBring', 'Bring the original prescription when you pick up.')}</Text>
+            </View>
+          )}
+
           {order.status === 'PENDING' && (
             <TouchableOpacity style={[styles.cancelButton, isCancelling && { opacity: 0.6 }]} onPress={cancel} disabled={isCancelling}>
               {isCancelling ? <ActivityIndicator color="#B42318" /> : <Text style={styles.cancelText}>{t('orders.cancelConfirm', 'Cancel order')}</Text>}

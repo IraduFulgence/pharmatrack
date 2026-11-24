@@ -234,6 +234,7 @@ const SalesPOS = () => {
       setSelectedInsurance(null);
       setPaymentMethod(order.payment_method === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH');
       setMarketplaceOrderId(order.order_id);
+      setPrescriptionCode(order.prescription_reference || '');
       setActiveTab('terminal');
       setIsPOSOpen(true);
       if (short.length > 0) {

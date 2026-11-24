@@ -8,6 +8,7 @@ import { UploadModule } from '../upload/upload.module.js';
 import { PharmacyMarketplaceController } from './pharmacy-marketplace.controller.js';
 import { PharmacyMarketplaceService } from './pharmacy-marketplace.service.js';
 import { MedicineImageController } from './medicine-image.controller.js';
+import { MedicineImagePublicController } from './medicine-image-public.controller.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { MedicineImageController } from './medicine-image.controller.js';
   controllers: [
     PharmacyMarketplaceController,
     MedicineImageController,
+    MedicineImagePublicController,
   ],
   providers: [
     PharmacyMarketplaceService,

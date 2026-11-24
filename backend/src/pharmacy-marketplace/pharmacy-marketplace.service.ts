@@ -3,6 +3,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
 
@@ -208,6 +209,8 @@ export class PharmacyMarketplaceService {
           o.total,
           o.rejection_reason,
           o.sale_id,
+          o.prescription_reference,
+          (o.prescription_image_path IS NOT NULL) AS has_prescription_image,
           o.created_at,
           o.updated_at,
           COUNT(oi.order_item_id)::INTEGER AS item_count,
@@ -283,6 +286,8 @@ export class PharmacyMarketplaceService {
           o.total,
           o.rejection_reason,
           o.sale_id,
+          o.prescription_reference,
+          (o.prescription_image_path IS NOT NULL) AS has_prescription_image,
           o.created_at,
           o.updated_at
         FROM public.marketplace_orders o
@@ -377,6 +382,40 @@ export class PharmacyMarketplaceService {
         all_items_in_stock: items.every((i: any) => i.short_by === 0),
       },
     };
+  }
+
+  /**
+   * Stored path of the prescription photo attached to one of this pharmacy's orders.
+   */
+  async getOrderPrescriptionImagePath(
+    pharmacyIdInput: number,
+    orderIdInput: number,
+  ): Promise<string | null> {
+    const pharmacyId = this.validatePositiveInteger(pharmacyIdInput, 'Pharmacy ID');
+    const orderId = this.validatePositiveInteger(orderIdInput, 'Order ID');
+    const result = await this.databaseService.query(
+      `SELECT prescription_image_path FROM public.marketplace_orders WHERE order_id = $1 AND pharmacy_id = $2`,
+      [orderId, pharmacyId],
+    );
+    if (result.rows.length === 0) {
+      throw new NotFoundException('Order not found for this pharmacy.');
+    }
+    return result.rows[0].prescription_image_path || null;
+  }
+
+  /**
+   * A pharmacy may set the photo of a medicine only if it has that medicine in its inventory.
+   */
+  async assertPharmacyStocksMedicine(pharmacyIdInput: number, medicineIdInput: number): Promise<void> {
+    const pharmacyId = this.validatePositiveInteger(pharmacyIdInput, 'Pharmacy ID');
+    const medicineId = this.validatePositiveInteger(medicineIdInput, 'Medicine ID');
+    const result = await this.databaseService.query(
+      `SELECT 1 FROM public.inventory_batches WHERE pharmacy_id = $1 AND medicine_id = $2 LIMIT 1`,
+      [pharmacyId, medicineId],
+    );
+    if (result.rows.length === 0) {
+      throw new ForbiddenException('You can only add photos for medicines in your own inventory.');
+    }
   }
 
   /**
@@ -753,6 +792,9 @@ export class PharmacyMarketplaceService {
           m.dosage_form,
           m.description,
           m.requires_prescription,
+          CASE WHEN m.medicine_image_path IS NOT NULL
+            THEN '/medicines/' || m.medicine_id || '/image?v=' || LEFT(MD5(m.medicine_image_path), 8)
+          END AS image_url,
           COALESCE(SUM(ib.quantity), 0)::INTEGER
             AS available_quantity,
           MIN(COALESCE(ib.selling_price, ib.unit_price))
@@ -778,7 +820,8 @@ export class PharmacyMarketplaceService {
           m.strength,
           m.dosage_form,
           m.description,
-          m.requires_prescription
+          m.requires_prescription,
+          m.medicine_image_path
         ORDER BY m.medicine_name ASC
       `,
       [pharmacyId],

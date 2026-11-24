@@ -10,7 +10,10 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  NotFoundException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -20,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 
 import { PharmacyMarketplaceService } from './pharmacy-marketplace.service.js';
+import { UploadService } from '../upload/upload.service.js';
 
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
@@ -41,6 +45,7 @@ const ORDER_ROLES = ['PHARMACY', 'PHARMACY_ADMIN', 'SALES_OFFICER', 'PHARMACIST'
 export class PharmacyMarketplaceController {
   constructor(
     private readonly marketplaceService: PharmacyMarketplaceService,
+    private readonly uploadService: UploadService,
   ) {}
 
   // =========================================================
@@ -69,6 +74,23 @@ export class PharmacyMarketplaceController {
     @Param('orderId', ParseIntPipe) orderId: number,
   ) {
     return this.marketplaceService.getOrder(pharmacyIdOf(user), orderId);
+  }
+
+  @Get('orders/:orderId/prescription-image')
+  @Roles(...ORDER_ROLES)
+  @ApiOperation({ summary: 'View the prescription photo the patient attached to an order' })
+  async getOrderPrescriptionImage(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', ParseIntPipe) orderId: number,
+    @Res() res: Response,
+  ) {
+    const stored = await this.marketplaceService.getOrderPrescriptionImagePath(pharmacyIdOf(user), orderId);
+    const absolutePath = this.uploadService.resolveStoredFile(stored, 'prescriptions');
+    if (!absolutePath) {
+      throw new NotFoundException('No prescription photo was attached to this order.');
+    }
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.sendFile(absolutePath);
   }
 
   @Patch('orders/:orderId/accept')

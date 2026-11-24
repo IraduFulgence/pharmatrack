@@ -1,14 +1,16 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, FlatList,
-  ActivityIndicator, Alert, TextInput, ScrollView,
+  ActivityIndicator, Alert, TextInput, ScrollView, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
-  Cart, CartItem, MobileMoneyProvider, PaymentMethod, formatRwf, marketplaceService,
+  Cart, CartItem, MobileMoneyProvider, PaymentMethod, PickedImage, formatRwf, marketplaceService,
 } from '@/src/api/marketplace/marketplaceService';
+import ProductImage from '@/components/marketplace/ProductImage';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -23,6 +25,10 @@ export default function CartScreen() {
   const [provider, setProvider] = useState<MobileMoneyProvider>('MTN_MOMO');
   const [momoPhone, setMomoPhone] = useState('');
   const [isPlacing, setIsPlacing] = useState(false);
+
+  // Prescription for prescription-only medicine: a number/SMS code, a photo, or both.
+  const [rxReference, setRxReference] = useState('');
+  const [rxImage, setRxImage] = useState<PickedImage | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -63,18 +69,60 @@ export default function CartScreen() {
     }
   };
 
+  const pickPrescription = async (source: 'camera' | 'library') => {
+    const permission = source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert(
+        t('cart.permissionTitle', 'Permission needed'),
+        source === 'camera'
+          ? t('cart.cameraPermission', 'Allow camera access to photograph your prescription.')
+          : t('cart.libraryPermission', 'Allow photo access to choose your prescription.'),
+      );
+      return;
+    }
+    const options: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: false,
+    };
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync(options);
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+      Alert.alert(t('cart.photoTooBig', 'Photo too large'), t('cart.photoTooBigBody', 'Choose a photo under 5 MB.'));
+      return;
+    }
+    setRxImage({ uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName });
+  };
+
   const placeOrder = async () => {
+    if (hasRx && !rxReference.trim() && !rxImage) {
+      Alert.alert(
+        t('cart.rxMissingTitle', 'Prescription needed'),
+        t('cart.rxMissingBody', 'Add your prescription number (or SMS code), or a photo of the prescription, so the pharmacy can check it.'),
+      );
+      return;
+    }
     if (paymentMethod === 'MOBILE_MONEY' && momoPhone.trim().length < 9) {
       Alert.alert(t('cart.momoPhoneTitle', 'Mobile Money number'), t('cart.momoPhoneBody', 'Enter the phone number to pay from.'));
       return;
     }
     setIsPlacing(true);
     try {
+      const prescription = hasRx
+        ? { prescriptionReference: rxReference.trim() || undefined, prescriptionImage: rxImage }
+        : {};
       const res = await marketplaceService.placeOrder(
         paymentMethod === 'MOBILE_MONEY'
-          ? { paymentMethod, mobileMoneyProvider: provider, paymentPhoneNumber: momoPhone.trim() }
-          : { paymentMethod },
+          ? { paymentMethod, mobileMoneyProvider: provider, paymentPhoneNumber: momoPhone.trim(), ...prescription }
+          : { paymentMethod, ...prescription },
       );
+      setRxReference('');
+      setRxImage(null);
       const orderId = res.data?.order?.order_id;
       Alert.alert(
         t('cart.placedTitle', 'Order placed'),
@@ -130,6 +178,7 @@ export default function CartScreen() {
           <View style={styles.card}>
             {items.map((item) => (
               <View key={item.item_id} style={styles.itemRow}>
+                <ProductImage path={item.image_url} style={styles.thumb} iconSize={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName}>
                     {item.medicine_name}{item.strength ? ` ${item.strength}` : ''}
@@ -159,9 +208,45 @@ export default function CartScreen() {
           </View>
 
           {hasRx && (
-            <Text style={styles.rxNote}>
-              {t('cart.rxNote', 'Your order has prescription-only medicine. Bring your prescription (or its SMS code) when you pick it up.')}
-            </Text>
+            <>
+              <Text style={styles.sectionTitle}>{t('cart.prescription', 'Prescription')}</Text>
+              <View style={styles.card}>
+                <Text style={styles.rxIntro}>
+                  {t('cart.rxIntro', 'Some medicines need a prescription. Add its number (or the SMS code) and/or a photo. The pharmacy checks it before preparing your order, and you show the original at pickup.')}
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('cart.rxPlaceholder', 'Prescription number or SMS code')}
+                  placeholderTextColor="#98A2B3"
+                  autoCapitalize="characters"
+                  value={rxReference}
+                  onChangeText={setRxReference}
+                  maxLength={100}
+                />
+                {rxImage ? (
+                  <View style={styles.rxPreviewRow}>
+                    <Image source={{ uri: rxImage.uri }} style={styles.rxPreview} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rxAttached}>{t('cart.photoAttached', 'Photo attached')}</Text>
+                      <TouchableOpacity onPress={() => setRxImage(null)}>
+                        <Text style={styles.rxRemove}>{t('cart.removePhoto', 'Remove')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.rxButtons}>
+                    <TouchableOpacity style={styles.rxButton} onPress={() => pickPrescription('camera')}>
+                      <Ionicons name="camera-outline" size={18} color="#007a55" />
+                      <Text style={styles.rxButtonText}>{t('cart.takePhoto', 'Take photo')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.rxButton} onPress={() => pickPrescription('library')}>
+                      <Ionicons name="image-outline" size={18} color="#007a55" />
+                      <Text style={styles.rxButtonText}>{t('cart.choosePhoto', 'Choose photo')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </>
           )}
 
           <Text style={styles.sectionTitle}>{t('cart.payment', 'Payment')}</Text>
@@ -246,7 +331,15 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12 },
   totalLabel: { fontSize: 16, fontWeight: '700', color: '#0F2926' },
   totalValue: { fontSize: 16, fontWeight: '800', color: '#007a55' },
-  rxNote: { marginHorizontal: 16, marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: '#FEF3F2', color: '#B42318', fontSize: 13 },
+  thumb: { width: 44, height: 44, borderRadius: 10 },
+  rxIntro: { fontSize: 13, color: '#475467', marginBottom: 10, lineHeight: 18 },
+  rxButtons: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  rxButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 12, backgroundColor: '#e6f4ef' },
+  rxButtonText: { color: '#007a55', fontWeight: '700' },
+  rxPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
+  rxPreview: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#F2F4F7' },
+  rxAttached: { fontSize: 14, fontWeight: '600', color: '#0F2926' },
+  rxRemove: { fontSize: 13, color: '#B42318', fontWeight: '600', marginTop: 4 },
 
   sectionTitle: { marginHorizontal: 16, marginTop: 20, fontSize: 14, fontWeight: '700', color: '#344054' },
   optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
