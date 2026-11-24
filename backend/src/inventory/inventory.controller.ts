@@ -65,17 +65,25 @@ export class InventoryController {
     return this.inventoryService.getDashboardOverview(targetPharmacyId);
   }
 
-  // ───────────── 2. Central Medicine Catalogue ─────────────
+  // ───────────── 2. Medicine Catalogue ─────────────
 
   @Get('catalogue')
-  @ApiOperation({ summary: 'Search and browse central medicine catalogue' })
+  @ApiOperation({ summary: 'Search and browse medicine catalogue' })
+  @ApiQuery({ name: 'pharmacyId', required: false, description: 'Filter by pharmacy or admin override' })
   async searchCatalogue(
+    @CurrentUser() user: JwtPayload,
     @Query('search') search?: string,
     @Query('dosageForm') dosageForm?: string,
     @Query('requiresPrescription') requiresPrescription?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('pharmacyId') pharmacyId?: string,
   ): Promise<ApiResponse> {
+    const targetPharmacyId =
+      user.role === 'ADMIN' || user.role === 'SYSTEM_ADMIN'
+        ? (pharmacyId ? Number(pharmacyId) : undefined)
+        : await this.inventoryService.resolvePharmacyId(user);
+
     const reqPrescriptionBool =
       requiresPrescription === 'true'
         ? true
@@ -89,6 +97,7 @@ export class InventoryController {
       requiresPrescription: reqPrescriptionBool,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
+      pharmacyId: targetPharmacyId,
     });
   }
 
@@ -103,10 +112,16 @@ export class InventoryController {
   @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Update medicine details in the central catalogue' })
   async updateMedicine(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMedicineDto,
+    @Query('pharmacyId') pharmacyId?: string,
   ): Promise<ApiResponse> {
-    return this.inventoryService.updateMedicine(id, dto);
+    const targetPharmacyId = await this.inventoryService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.inventoryService.updateMedicine(id, dto, targetPharmacyId, user.role);
   }
 
   // ───────────── 3. Pharmacy Stocked Medicines ─────────────

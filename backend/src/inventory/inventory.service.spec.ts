@@ -104,13 +104,14 @@ describe('InventoryService', () => {
   // 3. Central Medicine Catalogue (Section 4)
   // ─────────────────────────────────────────────────────────────
   describe('createMedicine', () => {
-    it('should register a new medicine in central catalogue', async () => {
+    it('should register a new medicine in central catalogue when pharmacyId is omitted', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [] }) // no duplicate
         .mockResolvedValueOnce({
           rows: [
             {
               medicine_id: '99',
+              pharmacy_id: null,
               medicine_name: 'Azithromycin 250mg',
               generic_name: 'Azithromycin',
               brand_name: 'Zithromax',
@@ -134,7 +135,50 @@ describe('InventoryService', () => {
       expect(res.data.medicine_name).toBe('Azithromycin 250mg');
     });
 
-    it('should reject duplicate medicine name', async () => {
+    it('should register a medicine scoped to a specific pharmacy without conflict', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [] }) // no duplicate in pharmacy 5
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              medicine_id: '101',
+              pharmacy_id: 5,
+              medicine_name: 'Amoxicillin 500mg',
+              strength: '500mg',
+              dosage_form: 'Capsule',
+            },
+          ],
+        });
+
+      const res = await service.createMedicine(
+        {
+          medicineName: 'Amoxicillin 500mg',
+          strength: '500mg',
+          dosageForm: 'Capsule',
+        },
+        5,
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data.pharmacy_id).toBe(5);
+    });
+
+    it('should reject duplicate medicine in the same pharmacy', async () => {
+      mockDb.query.mockResolvedValueOnce({ rows: [{ medicine_id: '101' }] });
+
+      await expect(
+        service.createMedicine(
+          {
+            medicineName: 'Amoxicillin 500mg',
+            strength: '500mg',
+            dosageForm: 'Capsule',
+          },
+          5,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject duplicate medicine name in global catalogue', async () => {
       mockDb.query.mockResolvedValueOnce({ rows: [{ medicine_id: '1' }] });
 
       await expect(
