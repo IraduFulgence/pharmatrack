@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service.js';
+import { rankByFuzzy } from '../common/utils/fuzzy-match.js';
 
 @Injectable()
 export class PatientsService {
@@ -24,9 +25,12 @@ export class PatientsService {
       throw new BadRequestException('Medicine name is required');
     }
 
-    const searchTerm = `%${name.trim().toLowerCase()}%`;
+    if (name.trim().length > 150) {
+      throw new BadRequestException('Search term cannot exceed 150 characters.');
+    }
 
-    const medicineResult = await this.db.query(
+    // Typo tolerant: "paractmol" still finds Paracetamol.
+    const allMedicines = await this.db.query(
       `SELECT
          medicine_id,
          medicine_name,
@@ -36,13 +40,15 @@ export class PatientsService {
          dosage_form,
          requires_prescription
        FROM public.medicines
-       WHERE LOWER(medicine_name) LIKE $1
-          OR LOWER(generic_name) LIKE $1
-          OR LOWER(brand_name) LIKE $1
-       ORDER BY medicine_name ASC
-       LIMIT 10`,
-      [searchTerm],
+       ORDER BY medicine_name ASC`,
     );
+    const medicineResult = {
+      rows: rankByFuzzy(allMedicines.rows, name, (m: any) => [
+        m.medicine_name,
+        m.generic_name,
+        m.brand_name,
+      ]).slice(0, 10),
+    };
 
     if (medicineResult.rows.length === 0) {
       return {

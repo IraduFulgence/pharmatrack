@@ -110,6 +110,29 @@ export interface PlaceOrderInput {
   prescriptionImage?: PickedImage | null;
 }
 
+export interface PrescriptionLookup {
+  prescription: {
+    prescription_id: number;
+    prescription_reference: string;
+    status: 'ACTIVE' | 'FULFILLED' | 'CANCELLED' | 'EXPIRED';
+    issued_date: string;
+    usable: boolean;
+    problem: string | null;
+  };
+  items: Array<CatalogueMedicine & {
+    quantity: number;
+    dosage_instructions?: string | null;
+    in_stock: boolean;
+  }>;
+}
+
+// The prescription number the patient last looked up, so the cart can fill it in at checkout.
+let prescriptionDraft: string | null = null;
+export const prescriptionDraftStore = {
+  get: () => prescriptionDraft,
+  set: (reference: string | null) => { prescriptionDraft = reference?.trim() || null; },
+};
+
 /** Full URL for an image path returned by the API (null when there is no photo). */
 export const imageUri = (path?: string | null) => (path ? `${API_BASE_URL}${path}` : null);
 
@@ -120,6 +143,10 @@ export const marketplaceService = {
     if (q?.trim()) params.set('q', q.trim());
     return ApiRequest(`/marketplace/medicines?${params.toString()}`, { method: 'GET' });
   },
+
+  // One of the patient's own prescriptions, by number or SMS code, with the medicines on it.
+  lookupPrescription: async (reference: string): Promise<{ data: PrescriptionLookup }> =>
+    ApiRequest(`/marketplace/prescriptions/lookup?reference=${encodeURIComponent(reference.trim())}`, { method: 'GET' }),
 
   // Medicine details plus the pharmacies that have it in stock, cheapest first.
   getMedicinePharmacies: async (

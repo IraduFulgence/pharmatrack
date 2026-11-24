@@ -58,6 +58,18 @@ export class MarketplaceController {
     return this.marketplaceService.getMedicines(q, limit, offset);
   }
 
+  @Get('prescriptions/lookup')
+  @ApiOperation({
+    summary: 'Find one of your prescriptions by its number or SMS code, with the medicines on it',
+  })
+  @ApiQuery({ name: 'reference', required: true, description: 'Prescription number or SMS code' })
+  async lookupPrescription(
+    @CurrentUser() user: JwtPayload,
+    @Query('reference') reference: string,
+  ) {
+    return this.marketplaceService.lookupPrescription(Number(user.sub), reference);
+  }
+
   @Get('medicines/search')
   @ApiOperation({
     summary: 'Search medicines and view pharmacy availability and prices',

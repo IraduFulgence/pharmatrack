@@ -17,6 +17,9 @@ export default function ProductDetailScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams();
   const medicineId = Array.isArray(params.id) ? params.id[0] : params.id;
+  // Opened from a prescription: start at the prescribed quantity.
+  const prescribedQty = Math.max(1, Number(Array.isArray(params.qty) ? params.qty[0] : params.qty) || 1);
+  const startQty = (offer: PharmacyOffer) => Math.max(1, Math.min(prescribedQty, Number(offer.available_quantity) || 1));
   const { location, hasPermission, isLoading: isLocating, requestlocation } = useLocation();
 
   const [medicine, setMedicine] = useState<CatalogueMedicine | null>(null);
@@ -53,7 +56,7 @@ export default function ProductDetailScreen() {
 
   const changeQty = (offer: PharmacyOffer, delta: number) => {
     setQuantities((q) => {
-      const current = q[offer.pharmacy_id] || 1;
+      const current = q[offer.pharmacy_id] || startQty(offer);
       const next = Math.max(1, Math.min(Number(offer.available_quantity), current + delta));
       return { ...q, [offer.pharmacy_id]: next };
     });
@@ -61,7 +64,7 @@ export default function ProductDetailScreen() {
 
   const addToCart = async (offer: PharmacyOffer) => {
     if (!medicine) return;
-    const quantity = quantities[offer.pharmacy_id] || 1;
+    const quantity = quantities[offer.pharmacy_id] || startQty(offer);
     setAddingTo(offer.pharmacy_id);
     try {
       await marketplaceService.addToCart(offer.pharmacy_id, medicine.medicine_id, quantity);
@@ -163,7 +166,7 @@ export default function ProductDetailScreen() {
             <Text style={styles.noOffers}>{t('marketplace.noStock', 'No pharmacy has this in stock right now.')}</Text>
           ) : (
             sortedOffers.map((offer) => {
-              const qty = quantities[offer.pharmacy_id] || 1;
+              const qty = quantities[offer.pharmacy_id] || startQty(offer);
               const distance = formatDistance(offer.km);
               return (
                 <View key={offer.pharmacy_id} style={styles.offerCard}>

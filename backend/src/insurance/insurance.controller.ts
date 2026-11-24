@@ -1,3 +1,15 @@
+
+//import { Controller, Get, Param, Post, Body, Patch, UseGuards, ForbiddenException, ParseIntPipe } from '@nestjs/common';
+// The insurers a pharmacy accepts, and the coverage % it applies for each.
+// Pharmacy accounts can only see and change their own pharmacy, whatever
+// pharmacyId is in the URL; system admins can manage any pharmacy.
+
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse as SwaggerResponse,
+} from '@nestjs/swagger';
 import {
   Controller,
   Get,
@@ -98,18 +110,18 @@ export class InsuranceController {
    * PATCH /api/pharmacy/:pharmacyId/insurances/:id
    * Updates an existing association (coverage %, active flag).
    */
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update insurance configuration details' })
-  @SwaggerResponse({ status: 200, description: 'Insurance configuration updated successfully.' })
-  async update(
-    @CurrentUser() user: JwtPayload,
-    @Param('pharmacyId', ParseIntPipe) pharmacyId: number,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdatePharmacyInsuranceDto,
-  ) {
-    this.checkPharmacyAccess(user, pharmacyId);
-    return this.insuranceService.updateInsurance(pharmacyId, id, dto);
-  }
+  // @Patch(':id')
+  // @ApiOperation({ summary: 'Update insurance configuration details' })
+  // @SwaggerResponse({ status: 200, description: 'Insurance configuration updated successfully.' })
+  // async update(
+  //   @CurrentUser() user: JwtPayload,
+  //   @Param('pharmacyId', ParseIntPipe) pharmacyId: number,
+  //   @Param('id', ParseIntPipe) id: number,
+  //   @Body() dto: UpdatePharmacyInsuranceDto,
+  // ) {
+  //   this.checkPharmacyAccess(user, pharmacyId);
+  //   return this.insuranceService.updateInsurance(pharmacyId, id, dto);
+  // }
 
   /**
    * PATCH /api/pharmacy/:pharmacyId/insurances/:id/status

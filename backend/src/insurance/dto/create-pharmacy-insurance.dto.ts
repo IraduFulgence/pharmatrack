@@ -1,8 +1,10 @@
-import { IsNumber, IsInt, IsOptional, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-
+import { IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
 export class CreatePharmacyInsuranceDto {
+  @IsOptional()
+  @IsNumber()
+
   @ApiPropertyOptional({
     description: 'Ignored: the pharmacy comes from the URL and your login. Kept so older clients still validate.',
   })

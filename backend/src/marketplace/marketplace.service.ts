@@ -9,6 +9,7 @@ import {
 import { DatabaseService } from '../database/database.service.js';
 import { PatientsService } from '../patients/patients.service.js';
 import { UploadService } from '../upload/upload.service.js';
+import { rankByFuzzy } from '../common/utils/fuzzy-match.js';
 
 type PaymentMethod = 'CASH_ON_COLLECTION' | 'MOBILE_MONEY';
 type MobileMoneyProvider = 'MTN_MOMO' | 'AIRTEL_MONEY';
@@ -137,36 +138,42 @@ export class MarketplaceService {
       );
     }
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    let pageIds: number[] | null = null; // null = no search, list everything
+    let total: number;
 
     if (searchTerm) {
-      params.push(`%${searchTerm}%`);
-      conditions.push(`
-        (
-          medicine_name ILIKE $${params.length}
-          OR generic_name ILIKE $${params.length}
-          OR brand_name ILIKE $${params.length}
-        )
-      `);
+      // Typo tolerant: "paractmol" still finds Paracetamol. The in-stock catalogue is small,
+      // so rank the names here and load only the requested page.
+      const candidates = await this.databaseService.query(
+        `SELECT medicine_id, medicine_name, generic_name, brand_name
+         FROM public.medicines
+         WHERE ${IN_STOCK_SOMEWHERE}
+         ORDER BY medicine_name ASC, medicine_id ASC`,
+      );
+      const ranked = rankByFuzzy(candidates.rows, searchTerm, (m: any) => [
+        m.medicine_name,
+        m.generic_name,
+        m.brand_name,
+      ]);
+      total = ranked.length;
+      pageIds = ranked.slice(offset, offset + limit).map((m: any) => Number(m.medicine_id));
+    } else {
+      const countResult = await this.databaseService.query(
+        `SELECT COUNT(*)::INTEGER AS total FROM public.medicines WHERE ${IN_STOCK_SOMEWHERE}`,
+      );
+      total = Number(countResult.rows[0]?.total ?? 0);
     }
 
-    const whereClause = conditions.length
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    if (pageIds !== null && pageIds.length === 0) {
+      return {
+        success: true,
+        message: 'No medicines match your search.',
+        data: [],
+        pagination: { total, limit, offset, hasMore: false },
+      };
+    }
 
-    const countResult = await this.databaseService.query(
-      `
-        SELECT COUNT(*)::INTEGER AS total
-        FROM public.medicines
-        ${whereClause ? `${whereClause} AND` : 'WHERE'} ${IN_STOCK_SOMEWHERE}
-      `,
-      params,
-    );
-
-    const total = Number(countResult.rows[0]?.total ?? 0);
-    const dataParams = [...params, limit, offset];
-
+    const dataParams: unknown[] = pageIds === null ? [limit, offset] : [pageIds];
     const medicinesResult = await this.databaseService.query(
       `
         SELECT
@@ -192,13 +199,21 @@ export class MarketplaceService {
             WHERE ${STOCK_FILTER}
           ) AS pharmacy_count
         FROM public.medicines
-        ${whereClause ? `${whereClause} AND` : 'WHERE'} ${IN_STOCK_SOMEWHERE}
-        ORDER BY medicine_name ASC, medicine_id ASC
-        LIMIT $${dataParams.length - 1}
-        OFFSET $${dataParams.length}
+        WHERE ${IN_STOCK_SOMEWHERE}
+        ${pageIds === null
+          ? 'ORDER BY medicine_name ASC, medicine_id ASC LIMIT $1 OFFSET $2'
+          : 'AND medicine_id = ANY($1::bigint[])'}
       `,
       dataParams,
     );
+
+    // Keep the best matches first when searching.
+    if (pageIds !== null) {
+      const order = new Map(pageIds.map((id, i) => [id, i]));
+      medicinesResult.rows.sort(
+        (a: any, b: any) => (order.get(Number(a.medicine_id)) ?? 0) - (order.get(Number(b.medicine_id)) ?? 0),
+      );
+    }
 
     return {
       success: true,
@@ -1116,6 +1131,101 @@ export class MarketplaceService {
       }
       throw error;
     }
+  }
+
+  /**
+   * A patient looks up one of their own prescriptions by its number or SMS code
+   * and sees the medicines on it, with where they can be ordered.
+   * Another patient's prescription is reported as not found.
+   */
+  async lookupPrescription(patientIdInput: number, referenceInput: string) {
+    const patientId = this.validatePositiveInteger(patientIdInput, 'Patient ID');
+    const reference = (referenceInput ?? '').trim();
+    if (!reference) {
+      throw new BadRequestException('Enter your prescription number or SMS code.');
+    }
+    if (reference.length > 100) {
+      throw new BadRequestException('Prescription number cannot exceed 100 characters.');
+    }
+
+    const prescriptionResult = await this.databaseService.query(
+      `SELECT prescription_id, prescription_reference, status,
+              to_char(issued_date, 'YYYY-MM-DD') AS issued_date
+       FROM public.prescriptions
+       WHERE LOWER(prescription_reference) = LOWER($1) AND patient_id = $2`,
+      [reference, patientId],
+    );
+    const prescription = prescriptionResult.rows[0];
+    if (!prescription) {
+      throw new NotFoundException(
+        'No prescription with that number was found on your account. Check the number, or attach a photo of the prescription when you order.',
+      );
+    }
+
+    const itemsResult = await this.databaseService.query(
+      `SELECT
+         medicines.medicine_id,
+         medicines.medicine_name,
+         medicines.generic_name,
+         medicines.brand_name,
+         medicines.strength,
+         medicines.dosage_form,
+         medicines.requires_prescription,
+         CASE WHEN medicines.medicine_image_path IS NOT NULL
+           THEN '/medicines/' || medicines.medicine_id || '/image?v=' || LEFT(MD5(medicines.medicine_image_path), 8)
+         END AS image_url,
+         pi.quantity,
+         pi.dosage_instructions,
+         (
+           SELECT MIN(COALESCE(ib.selling_price, ib.unit_price))
+           FROM public.inventory_batches ib
+           JOIN public.pharmacies p ON p.pharmacy_id = ib.pharmacy_id
+           WHERE ${STOCK_FILTER}
+         ) AS lowest_price,
+         (
+           SELECT COUNT(DISTINCT ib.pharmacy_id)::INTEGER
+           FROM public.inventory_batches ib
+           JOIN public.pharmacies p ON p.pharmacy_id = ib.pharmacy_id
+           WHERE ${STOCK_FILTER}
+         ) AS pharmacy_count
+       FROM public.prescription_items pi
+       JOIN public.medicines ON medicines.medicine_id = pi.medicine_id
+       WHERE pi.prescription_id = $1
+       ORDER BY pi.prescription_item_id ASC`,
+      [prescription.prescription_id],
+    );
+
+    const status = String(prescription.status || 'ACTIVE').toUpperCase();
+    const problem =
+      status === 'FULFILLED'
+        ? 'This prescription has already been dispensed.'
+        : status === 'CANCELLED'
+          ? 'This prescription was cancelled.'
+          : status === 'EXPIRED'
+            ? 'This prescription has expired.'
+            : null;
+
+    return {
+      success: true,
+      message: 'Prescription found.',
+      data: {
+        prescription: {
+          prescription_id: Number(prescription.prescription_id),
+          prescription_reference: prescription.prescription_reference,
+          status,
+          issued_date: prescription.issued_date,
+          usable: problem === null,
+          problem,
+        },
+        items: itemsResult.rows.map((row: any) => ({
+          ...row,
+          medicine_id: Number(row.medicine_id),
+          quantity: Number(row.quantity),
+          pharmacy_count: Number(row.pharmacy_count || 0),
+          in_stock: Number(row.pharmacy_count || 0) > 0,
+        })),
+      },
+    };
   }
 
   /**
