@@ -17,7 +17,7 @@ export const insuranceService = {
   // Insurers this pharmacy has set up (accepted or switched off), with coverage %.
   list: async () => ApiRequest(base(), { method: 'GET' }),
 
-  // Every active insurer in PharmaTrack, with `already_added`.
+ 
   available: async () => ApiRequest(`${base()}/available`, { method: 'GET' }),
 
   add: async ({ insuranceId, coveragePercentage }) =>
@@ -26,7 +26,7 @@ export const insuranceService = {
       body: JSON.stringify({ insuranceId, coveragePercentage }),
     }),
 
-  // { coveragePercentage?, isActive? }
+  
   update: async (id, changes) =>
     ApiRequest(`${base()}/${id}/status`, {
       method: 'PATCH',

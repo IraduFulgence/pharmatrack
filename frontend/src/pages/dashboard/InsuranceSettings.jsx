@@ -229,9 +229,7 @@ const InsuranceSettings = () => {
         )}
       </div>
 
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        Claims you have already sent are not changed. <Link to="/pharmacy/dashboard/insurance" className="text-[#007a55] hover:underline">See insurance claims</Link>
-      </p>
+  
 
       {modal && (
         <Modal title={modal.mode === 'add' ? 'Add insurer' : `Coverage for ${modal.config.provider_name}`} onClose={() => setModal(null)}>
