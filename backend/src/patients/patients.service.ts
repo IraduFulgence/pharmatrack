@@ -69,12 +69,13 @@ export class PatientsService {
              p.latitude,
              p.longitude,
              COALESCE(SUM(ib.quantity), 0)::INTEGER AS quantity_available,
-             MIN(ib.unit_price) AS unit_price
+             MIN(COALESCE(ib.selling_price, ib.unit_price)) AS unit_price
            FROM public.inventory_batches ib
            JOIN public.pharmacies p
              ON p.pharmacy_id = ib.pharmacy_id
            WHERE ib.medicine_id = $1
              AND ib.quantity > 0
+             AND ib.status = 'ACTIVE'
              AND p.is_active = TRUE
              AND p.verification_status = 'APPROVED'
              AND (

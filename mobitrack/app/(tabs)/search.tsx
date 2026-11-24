@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, SafeAreaView, ActivityIndicator, Platform,
+  FlatList, SafeAreaView, ActivityIndicator, Platform, Alert,
 } from 'react-native';
+import { marketplaceService } from '@/src/api/marketplace/marketplaceService';
 import { Ionicons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useLocation } from '@/hooks/useLocation';
@@ -47,6 +48,9 @@ export default function SearchScreen() {
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  // Booking: chosen quantity per "medicineId-pharmacyId" row, and the row being added.
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [bookingKey, setBookingKey] = useState<string | null>(null);
 
   
   const requestIdRef = useRef(0);
@@ -198,6 +202,55 @@ export default function SearchScreen() {
     );
   }
 
+  // -------- Booking --------
+
+  const rowKey = (medicineId: number, pharmacyId: number) => `${medicineId}-${pharmacyId}`;
+
+  const changeQty = (key: string, available: number, delta: number) =>
+    setQuantities((q) => ({
+      ...q,
+      [key]: Math.max(1, Math.min(Math.max(1, available), (q[key] || 1) + delta)),
+    }));
+
+  const bookMedicine = async (medicine: any, pharmacy: any) => {
+    const medicineId = Number(medicine?.medicine_id);
+    const pharmacyId = Number(pharmacy.pharmacy_id ?? pharmacy.id ?? pharmacy.pharmacyId);
+    if (!medicineId || !pharmacyId) return;
+    const key = rowKey(medicineId, pharmacyId);
+    const quantity = quantities[key] || 1;
+    setBookingKey(key);
+    try {
+      await marketplaceService.addToCart(pharmacyId, medicineId, quantity);
+      Alert.alert(
+        t('searchScreen.bookedTitle', 'Added to cart'),
+        `${medicine.medicine_name} × ${quantity} · ${pharmacy.pharmacyName || ''}` +
+          (medicine.requires_prescription
+            ? `\n\n${t('searchScreen.bookedRx', 'This medicine needs a prescription. Add its number or a photo at checkout.')}`
+            : ''),
+        [
+          { text: t('marketplace.keepShopping', 'Keep shopping'), style: 'cancel' },
+          { text: t('searchScreen.checkout', 'Go to checkout'), onPress: () => router.push('/cart') },
+        ],
+      );
+    } catch (err: any) {
+      const message = err?.message || '';
+      if (/another pharmacy/i.test(message)) {
+        Alert.alert(
+          t('marketplace.otherPharmacyTitle', 'One pharmacy per order'),
+          t('marketplace.otherPharmacyBody', 'Your cart has medicines from another pharmacy. Order those first, or empty your cart to switch pharmacy.'),
+          [
+            { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+            { text: t('marketplace.viewCart', 'View cart'), onPress: () => router.push('/cart') },
+          ],
+        );
+      } else {
+        Alert.alert(t('marketplace.addFailed', 'Could not add to cart'), message);
+      }
+    } finally {
+      setBookingKey(null);
+    }
+  };
+
   // -------- Render result rows --------
 
   const renderResult = ({ item }: { item: any }) => {
@@ -205,12 +258,23 @@ export default function SearchScreen() {
 
     return (
       <View style={styles.resultCard}>
-        <View style={styles.medicineHeader}>
+        <TouchableOpacity
+          style={styles.medicineHeader}
+          activeOpacity={0.7}
+          disabled={!item.medicine?.medicine_id}
+          onPress={() =>
+            router.push({ pathname: '/product/[id]', params: { id: String(item.medicine.medicine_id) } })
+          }
+        >
           <View style={styles.pillIcon}>
             <FontAwesome5 name="pills" size={18} color="#007a55" />
           </View>
-          <Text style={styles.medicineName}>{item.medicineName}</Text>
-        </View>
+          <Text style={[styles.medicineName, { flex: 1 }]}>{item.medicineName}</Text>
+          {item.medicine?.requires_prescription ? (
+            <View style={styles.rxBadge}><Text style={styles.rxBadgeText}>Rx</Text></View>
+          ) : null}
+          {item.medicine?.medicine_id ? <Ionicons name="chevron-forward" size={18} color="#98A2B3" /> : null}
+        </TouchableOpacity>
 
         {pharmacies.length === 0 ? (
           <View style={styles.emptyResult}>
@@ -223,14 +287,16 @@ export default function SearchScreen() {
             </Text>
           </View>
         ) : (
-          pharmacies.map((pharmacy: any, index: number) => (
+          pharmacies.map((pharmacy: any, index: number) => {
+            const pharmacyId = Number(pharmacy.pharmacy_id ?? pharmacy.id ?? pharmacy.pharmacyId);
+            const medicineId = Number(item.medicine?.medicine_id);
+            const key = rowKey(medicineId, pharmacyId);
+            const available = Number(pharmacy.quantity_available ?? 0);
+            const qty = quantities[key] || 1;
+            const canBook = Boolean(medicineId && pharmacyId && available > 0);
+            return (
+            <View key={pharmacy.pharmacy_id ?? pharmacy.id ?? pharmacy.pharmacyId ?? `row-${index}`} style={styles.pharmacyBlock}>
             <TouchableOpacity
-              key={
-                pharmacy.pharmacy_id ??
-                pharmacy.id ??
-                pharmacy.pharmacyId ??
-                `row-${index}`
-              }
               style={styles.pharmacyRow}
               onPress={() =>
                 router.push({
@@ -280,7 +346,36 @@ export default function SearchScreen() {
                 </View>
               </View>
             </TouchableOpacity>
-          ))
+            {canBook ? (
+              <View style={styles.bookRow}>
+                <View style={styles.stepper}>
+                  <TouchableOpacity style={styles.stepperBtn} onPress={() => changeQty(key, available, -1)}>
+                    <Ionicons name="remove" size={16} color="#0F2926" />
+                  </TouchableOpacity>
+                  <Text style={styles.stepperValue}>{qty}</Text>
+                  <TouchableOpacity style={styles.stepperBtn} onPress={() => changeQty(key, available, 1)}>
+                    <Ionicons name="add" size={16} color="#0F2926" />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={[styles.bookButton, bookingKey === key && { opacity: 0.6 }]}
+                  onPress={() => bookMedicine(item.medicine, pharmacy)}
+                  disabled={bookingKey !== null}
+                >
+                  {bookingKey === key ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="cart-outline" size={16} color="white" />
+                      <Text style={styles.bookButtonText}>{t('searchScreen.book', 'Book')}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            </View>
+            );
+          })
         )}
       </View>
     );
@@ -451,6 +546,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     elevation: 2,
   },
+  pharmacyBlock: { borderBottomWidth: 1, borderBottomColor: '#F2F4F7' },
+  bookRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+    paddingBottom: 12,
+  },
+  stepper: {
+    flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#EAECF0', borderRadius: 10,
+  },
+  stepperBtn: { paddingHorizontal: 10, paddingVertical: 6 },
+  stepperValue: { minWidth: 24, textAlign: 'center', fontWeight: '700', color: '#0F2926' },
+  bookButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#007a55',
+    borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8, minWidth: 84, justifyContent: 'center',
+  },
+  bookButtonText: { color: 'white', fontWeight: '800', fontSize: 14 },
+  rxBadge: { backgroundColor: '#FEF3F2', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, marginRight: 6 },
+  rxBadgeText: { color: '#B42318', fontSize: 11, fontWeight: '800' },
   medicineHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -483,8 +595,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F4F7',
   },
   pharmacyInfo: { flex: 1 },
   pharmacyName: {
