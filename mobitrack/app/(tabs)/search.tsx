@@ -326,6 +326,13 @@ export default function SearchScreen() {
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity style={styles.rxLink} onPress={() => router.push('/prescription')} activeOpacity={0.8}>
+          <Feather name="file-text" size={18} color="#007a55" />
+          <Text style={styles.rxLinkText}>
+            {t('searchScreen.haveRx', 'Have a prescription number? Find your medicines')}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color="#007a55" />
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (
@@ -424,6 +431,11 @@ const styles = StyleSheet.create({
     height: 50,
   },
   searchInput: { flex: 1, fontSize: 15, color: '#101828' },
+  rxLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10,
+    paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#ECFDF3', borderRadius: 12,
+  },
+  rxLinkText: { flex: 1, color: '#007a55', fontWeight: '700', fontSize: 13 },
 
   listContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
 

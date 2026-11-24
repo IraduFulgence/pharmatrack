@@ -9,6 +9,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   Cart, CartItem, MobileMoneyProvider, PaymentMethod, PickedImage, formatRwf, marketplaceService,
+  prescriptionDraftStore,
 } from '@/src/api/marketplace/marketplaceService';
 import ProductImage from '@/components/marketplace/ProductImage';
 
@@ -42,7 +43,13 @@ export default function CartScreen() {
     }
   }, [t]);
 
-  useFocusEffect(useCallback(() => { setIsLoading(true); load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    setIsLoading(true);
+    load();
+    // Fill in the prescription number the patient looked up, unless they typed one already.
+    const draft = prescriptionDraftStore.get();
+    if (draft) setRxReference((current) => current || draft);
+  }, [load]));
 
   const changeQty = async (item: CartItem, next: number) => {
     if (next < 1) return removeItem(item);
@@ -123,6 +130,7 @@ export default function CartScreen() {
       );
       setRxReference('');
       setRxImage(null);
+      prescriptionDraftStore.set(null);
       const orderId = res.data?.order?.order_id;
       Alert.alert(
         t('cart.placedTitle', 'Order placed'),

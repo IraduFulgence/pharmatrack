@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, Platform,
   FlatList, ActivityIndicator, RefreshControl, useWindowDimensions,
@@ -27,17 +27,23 @@ export default function MarketplaceScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
+  const requestId = useRef(0);
 
   const loadMedicines = useCallback(async (q: string) => {
+    const myId = ++requestId.current;
     try {
       const res = await marketplaceService.getMedicines(q, PAGE_SIZE, 0);
+      if (myId !== requestId.current) return; // a newer search is running
       setMedicines(Array.isArray(res.data) ? res.data : []);
       setError(null);
     } catch (err: any) {
+      if (myId !== requestId.current) return;
       setError(err?.message || t('marketplace.loadError', 'Could not load medicines.'));
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (myId === requestId.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [t]);
 
@@ -119,6 +125,12 @@ export default function MarketplaceScreen() {
         )}
       </View>
 
+      <TouchableOpacity style={styles.rxLink} onPress={() => router.push('/prescription')} activeOpacity={0.8}>
+        <MaterialCommunityIcons name="file-document-outline" size={20} color="#007a55" />
+        <Text style={styles.rxLinkText}>{t('marketplace.haveRx', 'Have a prescription number? Find your medicines')}</Text>
+        <Ionicons name="chevron-forward" size={18} color="#007a55" />
+      </TouchableOpacity>
+
       {isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#007a55" /></View>
       ) : (
@@ -181,6 +193,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: '#EAECF0',
   },
   searchInput: { flex: 1, fontSize: 15, color: '#0F2926' },
+  rxLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: SIDE, marginBottom: 12,
+    paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#ECFDF3', borderRadius: 12,
+  },
+  rxLinkText: { flex: 1, color: '#007a55', fontWeight: '700', fontSize: 13 },
 
   card: {
     backgroundColor: 'white', borderRadius: 16, overflow: 'hidden',

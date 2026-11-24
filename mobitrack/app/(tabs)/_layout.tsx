@@ -108,6 +108,12 @@ export default function TabLayout(){
         href:null,
       }}
    />
+   <Tabs.Screen
+      name="prescription"
+      options={{
+        href:null,
+      }}
+   />
 
     </Tabs>
   )
