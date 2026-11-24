@@ -39,7 +39,7 @@ export const adminService ={
   },
   getPharmacyDocument: async (id, type) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/admin/pharmacies/${id}/certificate/${type}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pharmatrack-backend-thxw.onrender.com/api'}/admin/pharmacies/${id}/certificate/${type}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
