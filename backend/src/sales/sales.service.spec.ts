@@ -542,5 +542,145 @@ describe('SalesService', () => {
       expect(mockDb.query.mock.calls[0][0]).toContain('pharmacy_patients');
     });
   });
-});
 
+  // ─────────────────────────────────────────────────────────────
+  // Prescription checking at the POS
+  // ─────────────────────────────────────────────────────────────
+  describe('prescriptions', () => {
+    const rxBatch = {
+      inventory_id: 10,
+      pharmacy_id: 1,
+      medicine_id: 100,
+      batch_number: 'B-001',
+      quantity: 50,
+      unit_price: '2500.00',
+      expiry_date: '2028-12-31',
+      medicine_name: 'Amoxicillin 500mg',
+      requires_prescription: true,
+    };
+
+    it('rejects a sale of prescription-only medicine without a prescription', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({ rows: [rxBatch] }); // bill batch
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, items: [{ inventoryId: 10, quantity: 2 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/prescription is required for: Amoxicillin 500mg/);
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a prescription issued to another patient or for less than the cart', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({ rows: [rxBatch] }) // bill batch
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 99, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed_quantity: '1' }],
+        });
+
+      const attempt = service.createSale(
+        1,
+        {
+          paymentCategory: 'PRIVATE',
+          paymentMethod: 'CASH',
+          patientId: 7,
+          prescriptionReference: 'rx-1',
+          items: [{ inventoryId: 10, quantity: 2 }],
+        },
+        'pharmacist@kigali.rw',
+      );
+      await expect(attempt).rejects.toThrow(BadRequestException);
+      await expect(attempt).rejects.toThrow(/different patient/);
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    it('reports an unknown code as a new prescription to record', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, medicine_id: 100, medicine_name: 'Amoxicillin 500mg', requires_prescription: true }],
+        })
+        .mockResolvedValueOnce({ rows: [] }); // no prescription with that reference
+
+      const res = await service.verifyPrescription(1, {
+        prescriptionReference: ' SMS-555 ',
+        patientId: 7,
+        items: [{ inventoryId: 10, quantity: 2 }],
+      });
+
+      expect(res.data.found).toBe(false);
+      expect(res.data.valid).toBe(true);
+      expect(res.data.willRecordNew).toBe(true);
+      expect(mockDb.query.mock.calls[1][1]).toEqual(['SMS-555']);
+    });
+
+    it('verifies a matching active prescription', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, medicine_id: 100, medicine_name: 'Amoxicillin 500mg', requires_prescription: true }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed_quantity: '2' }],
+        });
+
+      const res = await service.verifyPrescription(1, {
+        prescriptionReference: 'RX-1',
+        patientId: 7,
+        items: [{ inventoryId: 10, quantity: 2 }],
+      });
+
+      expect(res.data.found).toBe(true);
+      expect(res.data.valid).toBe(true);
+      expect(res.data.prescription.prescriptionId).toBe(3);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Completing a marketplace order with a POS sale
+  // ─────────────────────────────────────────────────────────────
+  describe('createSale for an online order', () => {
+    it('refuses an online order that is not accepted yet', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 50, unit_price: '2500.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg' }],
+        }) // bill batch
+        .mockResolvedValueOnce({ rows: [{ order_id: 12, patient_id: 7, status: 'PENDING' }] }); // order
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, marketplaceOrderId: 12, items: [{ inventoryId: 10, quantity: 1 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/pending and can't be completed/);
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses an online order that belongs to another patient', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 50, unit_price: '2500.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg' }],
+        })
+        .mockResolvedValueOnce({ rows: [{ order_id: 12, patient_id: 99, status: 'READY_FOR_COLLECTION' }] });
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, marketplaceOrderId: 12, items: [{ inventoryId: 10, quantity: 1 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/different patient/);
+    });
+  });
+});

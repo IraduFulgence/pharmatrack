@@ -396,8 +396,8 @@ export class AuthService {
           });
 
           let redirectTo = '/pharmacy/dashboard';
-          if (role === 'PHARMACIST') redirectTo = '/pharmacist/dashboard';
-          else if (role === 'SALES_OFFICER') redirectTo = '/sales/dashboard';
+          //if (role === 'PHARMACIST') redirectTo = '/pharmacist/dashboard';
+          if (role === 'PHARMACIST' || role === 'SALES_OFFICER') redirectTo = '/staff/dashboard';
 
           return {
             success: true,

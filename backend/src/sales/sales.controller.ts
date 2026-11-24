@@ -23,7 +23,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
-import { CreateSaleDto } from './dto/create-sale.dto.js';
+import { CreateSaleDto, VerifyPrescriptionDto } from './dto/create-sale.dto.js';
 import { CalculateBillDto } from './dto/calculate-bill.dto.js';
 import { QuerySalesDto } from './dto/query-sales.dto.js';
 import { RefundSaleDto } from './dto/refund-sale.dto.js';
@@ -114,10 +114,25 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.registerWalkinPatient(targetPharmacyId, dto, user.email);
+    return this.salesService.registerWalkinPatient(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 4. Prescription Integration ─────────────
+
+  @Post('prescriptions/verify')
+  @ApiOperation({ summary: 'Check a prescription number / SMS code against the patient and cart before dispensing' })
+  @ApiQuery({ name: 'pharmacyId', required: false })
+  async verifyPrescription(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: VerifyPrescriptionDto,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId = await this.salesService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.salesService.verifyPrescription(targetPharmacyId, dto);
+  }
 
   @Get('prescriptions/search')
   @ApiOperation({ summary: 'Search prescriptions to dispense at POS' })
@@ -139,8 +154,15 @@ export class SalesController {
 
   @Get('insurance-providers')
   @ApiOperation({ summary: 'Get all active registered insurance providers' })
-  async getInsuranceProviders(): Promise<ApiResponse> {
-    return this.salesService.getInsuranceProviders();
+  async getInsuranceProviders(
+    @CurrentUser() user: JwtPayload,
+    @Query('pharmacyId') pharmacyId?: string,
+  ): Promise<ApiResponse> {
+    const targetPharmacyId = await this.salesService.resolvePharmacyId(
+      user,
+      pharmacyId ? Number(pharmacyId) : undefined,
+    );
+    return this.salesService.getInsuranceProviders(targetPharmacyId);
   }
 
   // ───────────── 6. Automatic Billing Calculation ─────────────
@@ -174,7 +196,7 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.createSale(targetPharmacyId, dto, user.email);
+    return this.salesService.createSale(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 8. Sales History ─────────────
@@ -244,6 +266,7 @@ export class SalesController {
   }
 
   @Patch('claims/:id/status')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Update claim status, approval, or insurance payment' })
   @ApiQuery({ name: 'pharmacyId', required: false })
   async updateClaimStatus(
@@ -256,7 +279,7 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.updateClaimStatus(targetPharmacyId, id, dto, user.email);
+    return this.salesService.updateClaimStatus(targetPharmacyId, id, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 10. Single Sale & Receipt ─────────────
@@ -315,7 +338,7 @@ export class SalesController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.salesService.refundSale(targetPharmacyId, id, dto, user.email);
+    return this.salesService.refundSale(targetPharmacyId, id, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 }
 

@@ -93,7 +93,7 @@ export class ActivityLogService {
         pu.phone_number AS employee_phone,
         pu.role AS employee_role
        FROM public.pharmacy_user_activity_logs al
-       LEFT JOIN public.pharmacy_users pu ON pu.pharmacy_user_id = al.pharmacy_user_id
+       LEFT JOIN public.pharmacy_users pu ON pu.pharmacy_user_id = al.pharmacy_user_id AND pu.pharmacy_id = al.pharmacy_id
        ${where}
        ORDER BY al.log_id DESC
        LIMIT $${idx} OFFSET $${idx + 1}`,

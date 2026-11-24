@@ -14,7 +14,9 @@ import Inventory from './pages/dashboard/inventory';
 import PharmacyProfile from './pages/dashboard/profile';
 import CreatePharmacyProfile from './pages/dashboard/create-profile';
 import Prescriptions from './pages/dashboard/prescription';
-import Orders from './pages/dashboard/orders';
+import OnlineOrders from './pages/shared/OnlineOrders';
+import OnlineCatalogue from './pages/dashboard/OnlineCatalogue';
+import InsuranceSettings from './pages/dashboard/InsuranceSettings';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingVerification from './pages/PendingVerification';
 import CTA from './components/Cta';
@@ -40,6 +42,19 @@ import SalesPOS from './pages/dashboard/SalesPOS';
 import SaleReceipt from './pages/dashboard/SaleReceipt';
 import SalesHistory from './pages/dashboard/SalesHistory';
 import InsuranceClaims from './pages/dashboard/InsuranceClaims';
+import SalesOfficers from './pages/dashboard/salesOfficers';
+import StaffActivity from './pages/dashboard/StaffActivity';
+import StaffReports from './pages/dashboard/StaffReports';
+import InventoryUpdates from './pages/dashboard/InventoryUpdates';
+import ActivateAccount from './pages/activateAccount';
+import Messages from './pages/shared/Messages';
+import StaffDashboard from './pages/staff/staffDashboard';
+import StaffOverview from './pages/staff/StaffOverview';
+import { STAFF_ROLES } from './utils/dashboardBase';
+
+
+
+
 
 
 const Layout =({children}) =>(
@@ -74,11 +89,11 @@ function App() {
         <Route path="/register" element={<Layout><Register /></Layout>} />
         
         <Route path="/pending-verification" element={<PendingVerification />} />
-
+        <Route path="/activate-account" element={<Layout><ActivateAccount /></Layout>} />
         {/* protected routes for pharmacy dashboard */}
         <Route element={
           <ProtectedRoute
-          allowedRoles={['PHARMACY']}
+          allowedRoles={['PHARMACY','PHARMACY_ADMIN']}
           requireApprovedPharmacy={true}
           />
         }>
@@ -88,21 +103,39 @@ function App() {
         <Route path="profile" element={<PharmacyProfile />} />
         <Route path="createprofile" element={<CreatePharmacyProfile/>}/>
         <Route path="prescriptions" element={<Prescriptions/>}/>
-        <Route path="orders" element={<Orders/>}/>
+        <Route path="orders" element={<OnlineOrders />} />
+        <Route path='online-catalogue' element={<OnlineCatalogue />} />
         <Route path="inventory/list" element={<InventoryList />} />
         <Route path="inventory/stock-in" element={<StockIn />} /> 
         <Route path='inventory/adjust' element={<AdjustStock />} />
         <Route path='inventory/alerts' element={<InventoryAlerts />} />
         <Route path='inventory/transactions' element={<TransactionHistory />} />
         <Route path='inventory/reports' element={<InventoryReports />} />
+        <Route path='inventory/updates' element={<InventoryUpdates />} />
         <Route path="settings" element={<PharmacySettings />} /> 
         <Route path="sales/pos" element={<SalesPOS />} />
         <Route path="sales/:id/receipt" element={<SaleReceipt />} />
          <Route path="sales/history" element={<SalesHistory />} />
         <Route path='insurance' element={<InsuranceClaims />} />
-        </Route>
-        </Route>
+        <Route path='insurers' element={<InsuranceSettings />} />
+        <Route path='staffs' element={<SalesOfficers />} />
+        <Route path='staff/activity' element={<StaffActivity />} />
+        <Route path='staff/reports' element={<StaffReports />} />
+        <Route path='messages' element={<Messages />} />
 
+        </Route>
+        </Route>
+        {/* staff routes */}
+           <Route element={<ProtectedRoute allowedRoles={STAFF_ROLES} />}>
+          <Route path='/staff/dashboard' element={<StaffDashboard />}>
+            <Route index element={<StaffOverview />} />
+            <Route path='sales/pos' element={<SalesPOS />} />
+            <Route path='sales/history' element={<SalesHistory />} />
+            <Route path='sales/:id/receipt' element={<SaleReceipt />} />
+            <Route path='messages' element={<Messages />} />
+            <Route path='orders' element={<OnlineOrders />} />
+          </Route>
+        </Route>
         {/* admin route */}
        <Route element={
         <ProtectedRoute 

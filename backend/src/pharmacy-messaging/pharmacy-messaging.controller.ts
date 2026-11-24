@@ -29,7 +29,8 @@ import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 @ApiBearerAuth()
 @Controller('api/pharmacy/messages')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('PHARMACY')
+// Pharmacy admins and their staff (sales officers, pharmacists) handle patient messages.
+@Roles('PHARMACY', 'PHARMACY_ADMIN', 'SALES_OFFICER', 'PHARMACIST')
 export class PharmacyMessagingController {
   constructor(
     private readonly messagingService: PharmacyMessagingService,

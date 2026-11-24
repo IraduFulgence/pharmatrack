@@ -102,23 +102,15 @@ export class InventoryController {
   }
 
   @Post('medicines')
-  @ApiOperation({ summary: 'Register a new medicine in pharmacy or central catalogue' })
-  @ApiQuery({ name: 'pharmacyId', required: false, description: 'Admin only tenant override' })
-  async createMedicine(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: CreateMedicineDto,
-    @Query('pharmacyId') pharmacyId?: string,
-  ): Promise<ApiResponse> {
-    const targetPharmacyId =
-      user.role === 'ADMIN' || user.role === 'SYSTEM_ADMIN'
-        ? (pharmacyId ? Number(pharmacyId) : undefined)
-        : await this.inventoryService.resolvePharmacyId(user);
-    return this.inventoryService.createMedicine(dto, targetPharmacyId);
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ summary: 'Register a new medicine in the central catalogue' })
+  async createMedicine(@Body() dto: CreateMedicineDto): Promise<ApiResponse> {
+    return this.inventoryService.createMedicine(dto);
   }
 
   @Patch('medicines/:id')
-  @ApiOperation({ summary: 'Update medicine details in the central or pharmacy catalogue' })
-  @ApiQuery({ name: 'pharmacyId', required: false })
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ summary: 'Update medicine details in the central catalogue' })
   async updateMedicine(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
@@ -167,6 +159,7 @@ export class InventoryController {
   // ───────────── 4. Add Stock / Receive Batch ─────────────
 
   @Post('batches')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Receive new stock batch into inventory' })
   @ApiQuery({ name: 'pharmacyId', required: false })
   async addStock(
@@ -178,10 +171,11 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.addStock(targetPharmacyId, dto, user.email);
+    return this.inventoryService.addStock(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   @Post('stock-in')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Alias for receiving new stock batch' })
   async stockIn(
     @CurrentUser() user: JwtPayload,
@@ -192,7 +186,7 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.addStock(targetPharmacyId, dto, user.email);
+    return this.inventoryService.addStock(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 5. Batches Management ─────────────
@@ -228,6 +222,7 @@ export class InventoryController {
   }
 
   @Patch('batches/:id')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Update batch unit price, reorder level, or status' })
   @ApiQuery({ name: 'pharmacyId', required: false })
   async updateBatch(
@@ -246,6 +241,7 @@ export class InventoryController {
   // ───────────── 6. Stock Adjustments ─────────────
 
   @Post('adjustments')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({
     summary: 'Adjust inventory stock (Increase, Decrease, Damaged, Expired, Lost, Physical Count)',
   })
@@ -259,7 +255,7 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.adjustStock(targetPharmacyId, dto, user.email);
+    return this.inventoryService.adjustStock(targetPharmacyId, dto, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 7. Alerts and Notifications ─────────────
@@ -315,6 +311,7 @@ export class InventoryController {
   }
 
   @Post('notifications/scan-alerts')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Scan inventory and generate new alert notifications' })
   @ApiQuery({ name: 'pharmacyId', required: false })
   async scanAlerts(
@@ -405,6 +402,7 @@ export class InventoryController {
   }
 
   @Post('import/preview')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Preview and validate bulk inventory file before submission' })
   @ApiConsumes('multipart/form-data')
   @ApiQuery({ name: 'pharmacyId', required: false })
@@ -425,6 +423,7 @@ export class InventoryController {
   }
 
   @Post('import')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Upload and process bulk inventory records' })
   @ApiConsumes('multipart/form-data')
   @ApiQuery({ name: 'pharmacyId', required: false })
@@ -441,7 +440,7 @@ export class InventoryController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.inventoryService.importBulkInventory(targetPharmacyId, file.buffer, user.email);
+    return this.inventoryService.importBulkInventory(targetPharmacyId, file.buffer, { email: user.email, pharmacyUserId: user.pharmacyUserId });
   }
 
   // ───────────── 11. Multi-Format Inventory Export (Module 2.2) ─────────────
@@ -486,6 +485,7 @@ export class InventoryController {
   }
 
   @Post('medicines/:id/packaging')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Add a packaging configuration for a medicine' })
   async createPackaging(
     @Param('id', ParseIntPipe) id: number,
@@ -495,6 +495,7 @@ export class InventoryController {
   }
 
   @Delete('packaging/:id')
+  @Roles('PHARMACY', 'PHARMACY_ADMIN', 'ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ summary: 'Delete a packaging configuration' })
   async deletePackaging(@Param('id', ParseIntPipe) id: number): Promise<ApiResponse> {
     return this.inventoryService.deletePackaging(id);

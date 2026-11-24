@@ -1,180 +1,225 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
-  Platform, ScrollView, Image, ActivityIndicator
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, ScrollView,
+  ActivityIndicator, Alert, Linking,
 } from 'react-native';
-import { Ionicons, FontAwesome5, Feather } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import {
+  ORDER_STATUS_LABEL, OrderItem, OrderStatus, OrderSummary, formatRwf, marketplaceService,
+} from '@/src/api/marketplace/marketplaceService';
+import { chatService } from '@/src/api/chat/chatService';
 
-
-const MOCK_ORDER = {
-  id: 'ORD-8842',
-  pharmacy: {
-    name: 'Divine Pharmacy',
-    address: 'KG 11 Ave, Remera, Kigali',
-    phone: '+250 788 123 456',
-  },
-  date: '2026-11-15T10:30:00Z',
-  status: 'READY', 
-  paymentMethod: 'MOBILE_MONEY',
-  paymentStatus: 'PAID',
-  items: [
-    { id: '1', name: 'Amoxicillin 500mg', qty: 2, price: 2500 },
-    { id: '2', name: 'Paracetamol 250mg', qty: 1, price: 7500 },
-  ],
-  subtotal: 12500,
-  deliveryFee: 1000,
-  total: 13500,
+const POLL_MS = 20000;
+const STEPS: OrderStatus[] = ['PENDING', 'ACCEPTED', 'READY_FOR_COLLECTION', 'COMPLETED'];
+const STEP_LABEL: Record<string, string> = {
+  PENDING: 'Placed',
+  ACCEPTED: 'Accepted',
+  READY_FOR_COLLECTION: 'Ready',
+  COMPLETED: 'Collected',
 };
 
 export default function OrderDetailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const params = useLocalSearchParams();
-  
-  
-  const [order] = useState(MOCK_ORDER);
-  const [isLoading] = useState(false);
+  const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  // Formatting Helpers
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'long', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
+  const [order, setOrder] = useState<OrderSummary | null>(null);
+  const [items, setItems] = useState<OrderItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isOpeningChat, setIsOpeningChat] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      const res = await marketplaceService.getOrder(orderId);
+      setOrder(res.data.order);
+      setItems(res.data.items || []);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || t('orders.loadOneError', 'Could not load this order.'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orderId, t]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsLoading(true);
+      load();
+      const timer = setInterval(load, POLL_MS);
+      return () => clearInterval(timer);
+    }, [load]),
+  );
+
+  const cancel = () => {
+    Alert.alert(
+      t('orders.cancelTitle', 'Cancel this order?'),
+      t('orders.cancelBody', 'The pharmacy will not prepare it.'),
+      [
+        { text: t('common.no', 'No'), style: 'cancel' },
+        {
+          text: t('orders.cancelConfirm', 'Cancel order'),
+          style: 'destructive',
+          onPress: async () => {
+            setIsCancelling(true);
+            try {
+              await marketplaceService.cancelOrder(orderId!);
+              await load();
+            } catch (err: any) {
+              Alert.alert(t('orders.cancelFailed', 'Could not cancel'), err?.message || '');
+            } finally {
+              setIsCancelling(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'PENDING': return { bg: '#FEF3C7', text: '#B45309', label: 'Pending Approval' };
-      case 'PROCESSING': return { bg: '#DBEAFE', text: '#1D4ED8', label: 'Preparing your order' };
-      case 'READY': return { bg: '#D1FAE5', text: '#047857', label: 'Ready for Pickup' };
-      case 'COMPLETED': return { bg: '#F3F4F6', text: '#374151', label: 'Completed' };
-      case 'CANCELLED': return { bg: '#FEE2E2', text: '#B91C1C', label: 'Cancelled' };
-      default: return { bg: '#F3F4F6', text: '#374151', label: status };
+  const messagePharmacy = async () => {
+    if (!order) return;
+    setIsOpeningChat(true);
+    try {
+      const res = await chatService.startChat(Number(order.pharmacy_id));
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: String(res.data.chat_id), name: res.data.pharmacy_name || order.pharmacy_name || '' },
+      });
+    } catch (err: any) {
+      Alert.alert(t('chat.openFailedTitle', 'Could not open chat'), err?.message || '');
+    } finally {
+      setIsOpeningChat(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#007a55" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const statusStyle = getStatusStyle(order.status);
+  const status = order ? ORDER_STATUS_LABEL[order.status] : null;
+  const stepIndex = order ? STEPS.indexOf(order.status) : -1;
+  const ended = order?.status === 'REJECTED' || order?.status === 'CANCELLED';
 
   return (
     <SafeAreaView style={styles.container}>
-      
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/orders')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.navigate('/orders')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#0F2926" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order {order.id}</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>{t('orders.order', 'Order')} #{orderId}</Text>
+        <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Status Card */}
-        <View style={[styles.statusCard, { backgroundColor: statusStyle.bg }]}>
-          <View style={styles.statusIconContainer}>
-            {order.status === 'READY' ? (
-              <Feather name="check-circle" size={32} color={statusStyle.text} />
-            ) : (
-              <Feather name="clock" size={32} color={statusStyle.text} />
+      {isLoading && !order ? (
+        <View style={styles.center}><ActivityIndicator size="large" color="#007a55" /></View>
+      ) : error && !order ? (
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>
+      ) : order ? (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}>
+          <View style={styles.card}>
+            <View style={[styles.statusPill, { backgroundColor: status?.bg }]}>
+              <Text style={[styles.statusText, { color: status?.color }]}>{status?.label || order.status}</Text>
+            </View>
+
+            {!ended && (
+              <View style={styles.progress}>
+                {STEPS.map((step, i) => {
+                  const done = i <= stepIndex;
+                  return (
+                    <React.Fragment key={step}>
+                      <View style={styles.step}>
+                        <View style={[styles.dot, done && styles.dotDone]}>
+                          {done && <Ionicons name="checkmark" size={12} color="white" />}
+                        </View>
+                        <Text style={[styles.stepLabel, done && styles.stepLabelDone]}>{t(`orders.step.${step}`, STEP_LABEL[step])}</Text>
+                      </View>
+                      {i < STEPS.length - 1 && <View style={[styles.line, i < stepIndex && styles.lineDone]} />}
+                    </React.Fragment>
+                  );
+                })}
+              </View>
+            )}
+
+            {order.status === 'READY_FOR_COLLECTION' && (
+              <Text style={styles.readyNote}>{t('orders.readyLong', 'Your order is ready. Show this order number at the pharmacy to collect and pay.')}</Text>
+            )}
+            {order.status === 'REJECTED' && (
+              <Text style={styles.rejectNote}>
+                {t('orders.rejected', 'The pharmacy could not fill this order.')}
+                {order.rejection_reason ? `\n${t('orders.reason', 'Reason')}: ${order.rejection_reason}` : ''}
+              </Text>
             )}
           </View>
-          <Text style={[styles.statusTitle, { color: statusStyle.text }]}>{statusStyle.label}</Text>
-          <Text style={styles.statusDate}>Order placed on {formatDate(order.date)}</Text>
-        </View>
 
-        {/* Pharmacy Info */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Pharmacy Information</Text>
-          <View style={styles.pharmacyRow}>
-            <View style={styles.pharmacyIcon}>
-              <FontAwesome5 name="clinic-medical" size={20} color="#007a55" />
-            </View>
-            <View style={styles.pharmacyInfo}>
-              <Text style={styles.pharmacyName}>{order.pharmacy.name}</Text>
-              <Text style={styles.pharmacyAddress}>{order.pharmacy.address}</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{order.pharmacy_name || t('orders.pharmacy', 'Pharmacy')}</Text>
+            {order.pharmacy_address ? (
+              <Text style={styles.meta}><Ionicons name="location-outline" size={13} /> {order.pharmacy_address}</Text>
+            ) : null}
+            <View style={styles.contactRow}>
+              {order.pharmacy_phone ? (
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => Linking.openURL(`tel:${order.pharmacy_phone}`)}>
+                  <Ionicons name="call-outline" size={16} color="#007a55" />
+                  <Text style={styles.secondaryButtonText}>{t('orders.call', 'Call')}</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.secondaryButton} onPress={messagePharmacy} disabled={isOpeningChat}>
+                {isOpeningChat ? <ActivityIndicator size="small" color="#007a55" /> : <Ionicons name="chatbubble-outline" size={16} color="#007a55" />}
+                <Text style={styles.secondaryButtonText}>{t('orders.message', 'Message')}</Text>
+              </TouchableOpacity>
             </View>
           </View>
-          
-          <View style={styles.actionRow}>
-            <TouchableOpacity 
-              style={styles.contactButton}
-              onPress={() => router.push(`/chat/${order.id}`)} 
-            >
-              <Feather name="message-square" size={16} color="#007a55" />
-              <Text style={styles.contactButtonText}>Message</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.contactButton}>
-              <Feather name="phone" size={16} color="#007a55" />
-              <Text style={styles.contactButtonText}>Call</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
-        {/* Order Items */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Order Items</Text>
-          {order.items.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemQty}>Qty: {item.qty}</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{t('orders.items', 'Items')}</Text>
+            {items.map((it) => (
+              <View key={it.order_item_id} style={styles.itemRow}>
+                <Text style={styles.itemName} numberOfLines={2}>
+                  {it.medicine_name}{it.strength ? ` ${it.strength}` : ''} × {it.quantity}
+                </Text>
+                <Text style={styles.itemPrice}>{formatRwf(it.subtotal)}</Text>
               </View>
-              <Text style={styles.itemPrice}>{(item.price * item.qty).toLocaleString()} RWF</Text>
+            ))}
+            <View style={[styles.itemRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.totalLabel}>{t('orders.total', 'Total')}</Text>
+              <Text style={styles.totalValue}>{formatRwf(order.total)}</Text>
             </View>
-          ))}
-        </View>
-
-        {/* Payment Summary */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Payment Summary</Text>
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>{order.subtotal.toLocaleString()} RWF</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery Fee</Text>
-            <Text style={styles.summaryValue}>{order.deliveryFee.toLocaleString()} RWF</Text>
-          </View>
-          
-          <View style={styles.divider} />
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{order.total.toLocaleString()} RWF</Text>
-          </View>
-
-          <View style={styles.paymentMethodRow}>
-            <Feather name="credit-card" size={16} color="#667085" />
-            <Text style={styles.paymentMethodText}>
-              Paid with {order.paymentMethod === 'MOBILE_MONEY' ? 'Mobile Money' : 'Cash'}
+            <Text style={styles.meta}>
+              {order.payment_method === 'MOBILE_MONEY'
+                ? `${t('orders.mobileMoney', 'Mobile Money')}${order.mobile_money_provider ? ` (${order.mobile_money_provider === 'MTN_MOMO' ? 'MTN MoMo' : 'Airtel Money'})` : ''}`
+                : t('orders.payAtPickup', 'Pay at pickup')}
+              {' · '}{order.payment_status === 'PAID' ? t('orders.paid', 'Paid') : t('orders.unpaid', 'Not paid yet')}
             </Text>
-            <View style={styles.paidBadge}>
-              <Text style={styles.paidBadgeText}>{order.paymentStatus}</Text>
-            </View>
           </View>
-        </View>
 
-      </ScrollView>
+          {(order.prescription_reference || order.has_prescription_image) && (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>{t('orders.prescription', 'Prescription sent')}</Text>
+              {order.prescription_reference ? (
+                <Text style={styles.meta}>{t('orders.rxNumber', 'Number')}: {order.prescription_reference}</Text>
+              ) : null}
+              {order.has_prescription_image ? (
+                <Text style={styles.meta}>{t('orders.rxPhoto', 'Photo attached')}</Text>
+              ) : null}
+              <Text style={styles.meta}>{t('orders.rxBring', 'Bring the original prescription when you pick up.')}</Text>
+            </View>
+          )}
+
+          {order.status === 'PENDING' && (
+            <TouchableOpacity style={[styles.cancelButton, isCancelling && { opacity: 0.6 }]} onPress={cancel} disabled={isCancelling}>
+              {isCancelling ? <ActivityIndicator color="#B42318" /> : <Text style={styles.cancelText}>{t('orders.cancelConfirm', 'Cancel order')}</Text>}
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9F9' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'white',
@@ -183,69 +228,37 @@ const styles = StyleSheet.create({
   },
   backButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F2926' },
-  scrollContent: { padding: 20, paddingBottom: 40 },
+  errorText: { color: '#B42318', textAlign: 'center' },
 
-  /* Status Card */
-  statusCard: {
-    borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 20,
-  },
-  statusIconContainer: { marginBottom: 12 },
-  statusTitle: { fontSize: 22, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
-  statusDate: { fontSize: 13, color: '#344054', opacity: 0.8 },
+  card: { backgroundColor: 'white', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#EAECF0', gap: 8 },
+  statusPill: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 },
+  statusText: { fontSize: 13, fontWeight: '700' },
+  progress: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 12 },
+  step: { alignItems: 'center', width: 64 },
+  dot: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#EAECF0', alignItems: 'center', justifyContent: 'center' },
+  dotDone: { backgroundColor: '#007a55' },
+  stepLabel: { fontSize: 11, color: '#98A2B3', marginTop: 4, textAlign: 'center' },
+  stepLabelDone: { color: '#0F2926', fontWeight: '600' },
+  line: { flex: 1, height: 2, backgroundColor: '#EAECF0', marginTop: 10 },
+  lineDone: { backgroundColor: '#007a55' },
+  readyNote: { marginTop: 8, fontSize: 14, color: '#6941C6', fontWeight: '600' },
+  rejectNote: { fontSize: 14, color: '#B42318' },
 
-  /* Cards */
-  card: {
-    backgroundColor: 'white', borderRadius: 20, padding: 20, marginBottom: 20,
-    borderWidth: 1, borderColor: '#EAECF0',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, elevation: 2,
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0F2926' },
+  meta: { fontSize: 13, color: '#667085' },
+  contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  secondaryButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: 12, backgroundColor: '#e6f4ef',
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#0F2926', marginBottom: 16 },
-  divider: { height: 1, backgroundColor: '#F2F4F7', marginVertical: 16 },
+  secondaryButtonText: { color: '#007a55', fontWeight: '700' },
 
-  /* Pharmacy Info */
-  pharmacyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  pharmacyIcon: {
-    width: 44, height: 44, borderRadius: 12, backgroundColor: '#e6f4ef',
-    justifyContent: 'center', alignItems: 'center', marginRight: 16,
-  },
-  pharmacyInfo: { flex: 1 },
-  pharmacyName: { fontSize: 16, fontWeight: '700', color: '#0F2926', marginBottom: 2 },
-  pharmacyAddress: { fontSize: 13, color: '#667085' },
-  
-  actionRow: { flexDirection: 'row', gap: 12 },
-  contactButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#e6f4ef', paddingVertical: 12, borderRadius: 12, gap: 8,
-  },
-  contactButtonText: { color: '#007a55', fontSize: 14, fontWeight: '600' },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F2F4F7' },
+  itemName: { flex: 1, fontSize: 14, color: '#0F2926' },
+  itemPrice: { fontSize: 14, fontWeight: '600', color: '#0F2926' },
+  totalLabel: { fontSize: 16, fontWeight: '700', color: '#0F2926' },
+  totalValue: { fontSize: 16, fontWeight: '800', color: '#007a55' },
 
-  /* Items */
-  itemRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F2F4F7',
-  },
-  itemInfo: { flex: 1 },
-  itemName: { fontSize: 15, fontWeight: '600', color: '#0F2926', marginBottom: 4 },
-  itemQty: { fontSize: 13, color: '#667085' },
-  itemPrice: { fontSize: 15, fontWeight: '700', color: '#344054' },
-
-  /* Summary */
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  summaryLabel: { fontSize: 14, color: '#667085' },
-  summaryValue: { fontSize: 14, fontWeight: '600', color: '#344054' },
-  
-  totalLabel: { fontSize: 18, fontWeight: '800', color: '#0F2926' },
-  totalValue: { fontSize: 20, fontWeight: '800', color: '#007a55' },
-
-  paymentMethodRow: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 16,
-    paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F2F4F7',
-  },
-  paymentMethodText: { fontSize: 13, color: '#667085', marginLeft: 8, flex: 1 },
-  paidBadge: {
-    backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-  },
-  paidBadgeText: { fontSize: 11, fontWeight: '700', color: '#047857' },
-
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  cancelButton: { borderWidth: 1, borderColor: '#FECDCA', backgroundColor: '#FEF3F2', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  cancelText: { color: '#B42318', fontWeight: '700' },
 });

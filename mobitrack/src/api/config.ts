@@ -2,8 +2,11 @@
 import * as SecureStore from 'expo-secure-store';
 
 
-export const API_BASE_URL = 'https://pharmatrack-backend-thxw.onrender.com/api';
 
+// export const API_BASE_URL =
+//   process.env.EXPO_PUBLIC_API_URL || 'https://pharmatrack-backend-thxw.onrender.com/api';
+export const API_BASE_URL = 'http://10.60.76.156:3000/api'
+//export const API_BASE_URL = 'https://pharmatrack-backend-thxw.onrender.com/api'
 export const ApiRequest = async (
   endpoint: string, 
   options: RequestInit = {} 

@@ -5,38 +5,31 @@ import {
   Store, History, Inbox, UserPlus, Printer, Pill, MapPin, Phone, Calendar,
   AlertCircle, FileText, UploadCloud, Lock
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { salesService } from '../../services/salesService';
+import { marketplaceService, PAYMENT_LABELS } from '../../services/marketplaceService';
 import PatientSelectorModal from '../../components/sales/PatientSelectorModal';
 import SalesHistory from './SalesHistory';
 
 // MOCK DATA
-const MOCK_ONLINE_ORDERS = [
-  {
-    id: 'ONL-001',
-    patientName: 'Jean Paul',
-    phone: '0788111222',
-    total: 4500,
-    status: 'PENDING',
-    items: [
-      { inventoryId: 101, medicineName: 'Amoxicillin 500mg', batchNumber: 'BATCH-A1', unitPrice: 1500, quantity: 2, availableQuantity: 50, medicineId: 1, requires_prescription: true },
-    ]
-  }
-];
-
 const MOCK_HISTORY = [
   { id: 'ORD-8842', date: '10:30 AM', customer: 'Walk-in', total: 3500, status: 'Completed' },
 ];
 
 const SalesPOS = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // --- NAVIGATION ---
   const [activeTab, setActiveTab] = useState('terminal');
   const [isPOSOpen, setIsPOSOpen] = useState(false);
 
   // Online Orders & History
-  const [onlineOrders, setOnlineOrders] = useState(MOCK_ONLINE_ORDERS);
+  // Online orders accepted or ready for pickup, and the one being collected now.
+  const [onlineOrders, setOnlineOrders] = useState([]);
+  const [onlineOrdersError, setOnlineOrdersError] = useState(null);
+  const [marketplaceOrderId, setMarketplaceOrderId] = useState(null);
+  const [loadingOrderId, setLoadingOrderId] = useState(null);
   const [salesHistory, setSalesHistory] = useState(MOCK_HISTORY);
   
   // Search State
@@ -53,8 +46,10 @@ const SalesPOS = () => {
   const [insuranceCardNumber, setInsuranceCardNumber] = useState('');
   
  
-  const [prescriptionFile, setPrescriptionFile] = useState(null);
   const [prescriptionCode, setPrescriptionCode] = useState('');
+  // Result of the last "Check" of the prescription code (null = not checked yet).
+  const [rxCheck, setRxCheck] = useState(null);
+  const [isCheckingRx, setIsCheckingRx] = useState(false);
 
   // Checkout State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -189,12 +184,82 @@ const SalesPOS = () => {
   };
 
 
-  const loadOnlineOrder = (order) => {
-    setPatient({ id: order.id, full_name: order.patientName, phone_number: order.phone });
-    setCart(order.items);
-    setOnlineOrders(onlineOrders.filter(o => o.id !== order.id));
-    setActiveTab('terminal');
-    setIsPOSOpen(true);
+  const fetchOnlineOrders = async () => {
+    try {
+      const res = await marketplaceService.getOrders();
+      setOnlineOrders((res.data || []).filter(o => o.status === 'ACCEPTED' || o.status === 'READY_FOR_COLLECTION'));
+      setOnlineOrdersError(null);
+    } catch (err) {
+      setOnlineOrdersError(err.message || 'Could not load online orders.');
+    }
+  };
+
+  useEffect(() => {
+    fetchOnlineOrders();
+    const timer = setInterval(fetchOnlineOrders, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Load an online order into the cart: its patient, and the batches to sell from.
+  const loadOnlineOrder = async (orderId) => {
+    setLoadingOrderId(orderId);
+    setError(null);
+    try {
+      const res = await marketplaceService.getOrder(orderId);
+      const { order, items } = res.data;
+      if (order.status !== 'ACCEPTED' && order.status !== 'READY_FOR_COLLECTION') {
+        setError(`Order #${orderId} is ${String(order.status).toLowerCase().replace(/_/g, ' ')} and can't be sold.`);
+        return;
+      }
+      const lines = [];
+      const short = [];
+      items.forEach(it => {
+        (it.allocations || []).forEach(a => {
+          lines.push({
+            medicineId: it.medicine_id,
+            medicineName: [it.medicine_name, it.strength].filter(Boolean).join(' '),
+            strength: it.strength,
+            inventoryId: a.inventory_id,
+            batchNumber: a.batch_number,
+            unitPrice: Number(a.unit_price),
+            availableQuantity: Number(a.available_quantity),
+            quantity: Number(a.quantity),
+            requires_prescription: !!it.requires_prescription,
+          });
+        });
+        if (it.short_by > 0) short.push(`${it.medicine_name} (short by ${it.short_by})`);
+      });
+      setCart(lines);
+      setPatient({ id: order.patient_id, patient_id: order.patient_id, full_name: order.patient_name, phone_number: order.patient_phone });
+      setSelectedInsurance(null);
+      setPaymentMethod(order.payment_method === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH');
+      setMarketplaceOrderId(order.order_id);
+      setPrescriptionCode(order.prescription_reference || '');
+      setActiveTab('terminal');
+      setIsPOSOpen(true);
+      if (short.length > 0) {
+        setError(`Not enough stock for: ${short.join(', ')}. The cart has what is available.`);
+      }
+    } catch (err) {
+      setError(err.message || 'Could not load the online order.');
+    } finally {
+      setLoadingOrderId(null);
+    }
+  };
+
+  // Arriving from the Online Orders page with an order to sell.
+  useEffect(() => {
+    const orderId = location.state?.marketplaceOrderId;
+    if (orderId) {
+      loadOnlineOrder(orderId);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state]);
+
+  const detachOnlineOrder = () => {
+    setMarketplaceOrderId(null);
+    setCart([]);
+    setPatient(null);
   };
 
 
@@ -210,7 +275,46 @@ const SalesPOS = () => {
 
   
   const requiresPrescription = cart.some(item => item.requires_prescription);
-  const hasPrescription = !!(prescriptionFile || prescriptionCode.trim());
+  const patientId = patient ? (Number(patient.id ?? patient.patient_id ?? patient.patientId) || null) : null;
+  const rxSignature = cart
+    .filter(item => item.requires_prescription)
+    .map(item => `${item.inventoryId}:${item.quantity}`)
+    .join(',');
+
+  // Any change to the code, the patient or the prescription-only items needs a fresh check.
+  useEffect(() => {
+    setRxCheck(null);
+  }, [prescriptionCode, patientId, rxSignature]);
+
+  const hasPrescription = !requiresPrescription || !!(rxCheck?.valid && rxCheck.reference === prescriptionCode.trim());
+
+  const handleCheckPrescription = async () => {
+    const reference = prescriptionCode.trim();
+    if (!reference) {
+      setError('Enter the prescription number or SMS code.');
+      return;
+    }
+    if (!patientId) {
+      setError('Select the patient first. The prescription is checked against them.');
+      setIsPatientModalOpen(true);
+      return;
+    }
+    setIsCheckingRx(true);
+    setError(null);
+    try {
+      const res = await salesService.verifyPrescription({
+        prescriptionReference: reference,
+        patientId,
+        items: cart.map(item => ({ inventoryId: Number(item.inventoryId), quantity: Number(item.quantity) || 1 })),
+      });
+      setRxCheck({ ...res.data, message: res.message });
+    } catch (err) {
+      setRxCheck(null);
+      setError(err.message || 'Could not check the prescription.');
+    } finally {
+      setIsCheckingRx(false);
+    }
+  };
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -233,7 +337,7 @@ const SalesPOS = () => {
     }
 
     if (requiresPrescription && !hasPrescription) {
-      setError("This cart contains prescription-only medicine. Please attach a prescription (code or image) before completing the sale.");
+      setError("This cart contains prescription-only medicine. Enter the prescription number or SMS code and check it before completing the sale.");
       return;
     }
 
@@ -251,13 +355,14 @@ const SalesPOS = () => {
           customCoveragePercentage: selectedInsurance ? Number(selectedInsurance.default_coverage_percentage) : 0
         })),
         amountPaid: Math.round(patientAmount),
-        patientId: Number(patient.id || patient.patientId || 1),
+        patientId: patientId || undefined,
         customerName: patient.full_name || patient.name || 'Walk-in',
         customerPhone: patient.phone_number || patient.phone || '',
-        providerId: selectedInsurance ? Number(selectedInsurance.provider_id) : null,
-        insuranceCardNumber: selectedInsurance ? insuranceCardNumber : null,
+        providerId: selectedInsurance ? Number(selectedInsurance.provider_id) : undefined,
+        insuranceCardNumber: selectedInsurance ? (insuranceCardNumber.trim() || undefined) : undefined,
         discountAmount: 0,
-        prescriptionCode: prescriptionCode || undefined, 
+        prescriptionReference: requiresPrescription ? prescriptionCode.trim() : undefined,
+        marketplaceOrderId: marketplaceOrderId || undefined, 
       };
 
       const res = await salesService.createSale(payload);
@@ -269,7 +374,11 @@ const SalesPOS = () => {
       setSelectedInsurance(null);
       setInsuranceCardNumber('');
       setPrescriptionCode('');
-      setPrescriptionFile(null);
+      setRxCheck(null);
+      if (marketplaceOrderId) {
+        setMarketplaceOrderId(null);
+        fetchOnlineOrders();
+      }
       setIsPOSOpen(false);
       
       setSalesHistory([{ id: saleId, date: 'Just now', customer: patient.full_name, total: patientAmount, status: 'Completed' }, ...salesHistory]);
@@ -365,6 +474,12 @@ const SalesPOS = () => {
               <div className="bg-white dark:bg-gray-900 border rounded-xl flex-grow flex flex-col overflow-hidden shadow-sm">
                 <div className="p-4 border-b bg-gray-50 dark:bg-gray-800/50 dark:text-white">
                 <h3 className="font-bold">Current Cart ({cart.length} items)</h3>
+                {marketplaceOrderId && (
+                  <div className="mt-2 flex items-center justify-between gap-2 text-xs font-medium text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 px-3 py-2 rounded-lg">
+                    <span>Collecting online order #{marketplaceOrderId}. Completing this sale marks it collected.</span>
+                    <button onClick={detachOnlineOrder} className="underline whitespace-nowrap">Cancel</button>
+                  </div>
+                )}
                 </div>
                 <div className="flex-grow overflow-y-auto p-4 space-y-3 dark:text-white">
                   {cart.map(item => (
@@ -426,19 +541,55 @@ const SalesPOS = () => {
 
               {/* prescription box */}
               {requiresPrescription && (
-                <div className="bg-red-50 p-4 rounded-xl border border-red-200 shadow-sm animate-in fade-in">
-                  <h3 className="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><FileText size={16}/> Prescription Required</h3>
-                  <p className="text-xs text-red-600 mb-3">Enter the hospital SMS code or upload a valid prescription.</p>
-                  <div className="space-y-2">
-                    <input type="text" placeholder="Enter SMS Code (e.g. SMS-123)" value={prescriptionCode} onChange={(e) => setPrescriptionCode(e.target.value)} className="w-full border border-red-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500" />
-                    {/* <div className="relative border border-red-300 rounded-lg p-3 bg-white text-center hover:bg-gray-50 transition-colors">
-                      <input type="file" onChange={(e) => setPrescriptionFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*,.pdf" />
-                      <div className="flex items-center justify-center gap-2 text-sm text-red-600 font-medium">
-                        {prescriptionFile ? <CheckCircle2 size={16} /> : <UploadCloud size={16} />}
-                        {prescriptionFile ? prescriptionFile.name : 'Upload Image / PDF'}
-                      </div>
-                    </div> */}
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800 shadow-sm animate-in fade-in">
+                  <h3 className="font-bold text-red-700 dark:text-red-400 mb-2 text-sm flex items-center gap-2"><FileText size={16}/> Prescription Required</h3>
+                  <p className="text-xs text-red-600 dark:text-red-300 mb-3">Enter the prescription number or hospital SMS code, then check it against this patient and cart.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. RX-2026-000123"
+                      value={prescriptionCode}
+                      onChange={(e) => setPrescriptionCode(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCheckPrescription(); }}
+                      className="flex-1 min-w-0 border border-red-300 dark:border-red-800 bg-white dark:bg-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCheckPrescription}
+                      disabled={isCheckingRx || !prescriptionCode.trim()}
+                      className="px-4 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {isCheckingRx ? <Loader2 className="animate-spin" size={16} /> : 'Check'}
+                    </button>
                   </div>
+
+                  {rxCheck && rxCheck.reference === prescriptionCode.trim() && (
+                    rxCheck.valid && rxCheck.found ? (
+                      <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-xs text-green-800 dark:text-green-300">
+                        <p className="font-semibold flex items-center gap-1"><CheckCircle2 size={14} /> Prescription verified</p>
+                        <p className="mt-1">Issued {rxCheck.prescription?.issuedDate}. It will be marked as dispensed with this sale.</p>
+                        {rxCheck.prescription?.items?.length > 0 && (
+                          <ul className="mt-1 list-disc list-inside">
+                            {rxCheck.prescription.items.map((it) => (
+                              <li key={it.medicineId}>{it.medicineName} {it.strength} &times; {it.prescribedQuantity}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : rxCheck.valid ? (
+                      <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                        <p className="font-semibold">New prescription</p>
+                        <p className="mt-1">This number isn&apos;t in PharmaTrack yet. It will be recorded for {patient?.full_name || 'this patient'} with the medicines in this cart. Make sure you have seen the original.</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-3 rounded-lg bg-white dark:bg-gray-900 border border-red-300 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+                        <p className="font-semibold flex items-center gap-1"><AlertCircle size={14} /> Can&apos;t dispense with this prescription</p>
+                        <ul className="mt-1 list-disc list-inside">
+                          {(rxCheck.problems || []).map((p) => <li key={p}>{p}</li>)}
+                        </ul>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
 
@@ -449,7 +600,7 @@ const SalesPOS = () => {
                 
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <button onClick={() => setPaymentMethod('CASH')} className={`py-2 rounded-lg font-semibold border ${paymentMethod === 'CASH' ? 'bg-gray-900 text-white' : 'bg-gray-50 dark:bg-gray-800'}`}>Cash</button>
-                  <button onClick={() => setPaymentMethod('MOMO')} className={`py-2 rounded-lg font-semibold border ${paymentMethod === 'MOMO' ? 'bg-gray-900 text-white' : 'bg-gray-50 dark:bg-gray-800'}`}>MoMo</button>
+                  <button onClick={() => setPaymentMethod('MOBILE_MONEY')} className={`py-2 rounded-lg font-semibold border ${paymentMethod === 'MOBILE_MONEY' ?  'bg-gray-900 text-white' : 'bg-gray-50 dark:bg-gray-800'}`}>MoMo</button>
                 </div>
 
                 {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
@@ -464,7 +615,7 @@ const SalesPOS = () => {
                   }`}
                 >
                   {isProcessing ? <Loader2 className="animate-spin" /> : (requiresPrescription && !hasPrescription) ? <Lock /> : <CheckCircle2 />} 
-                  {requiresPrescription && !hasPrescription ? 'Prescription Required' : 'Complete Sale'}
+                  {requiresPrescription && !hasPrescription ? 'Check Prescription First' : 'Complete Sale'}
                 </button>
               </div>
             </div>
@@ -472,12 +623,36 @@ const SalesPOS = () => {
         )}
 
         {activeTab === 'online-orders' && (
-          <div className="max-w-full mx-auto space-y-4">
-            <h2 className="text-xl font-bold mb-4">Incoming Online Requests</h2>
+          <div className="max-w-full mx-auto space-y-4 dark:text-white">
+            <div className="flex items-center justify-between">
+              {/* <h2 className="text-xl font-bold">Online orders to collect</h2> */}
+              <button onClick={fetchOnlineOrders} className="text-sm text-[#007a55] hover:underline">Refresh</button>
+            </div>
+           
+            {onlineOrdersError && <p className="text-sm text-red-600">{onlineOrdersError}</p>}
+            {onlineOrders.length === 0 && !onlineOrdersError && (
+              <div className="text-center py-12 text-gray-500"><Inbox className="mx-auto mb-2 text-gray-300" size={32} />No online orders waiting for pickup.</div>
+            )}
             {onlineOrders.map(order => (
-              <div key={order.id} className="bg-white p-5 rounded-2xl border shadow-sm flex justify-between items-center">
-                <div><p className="font-bold text-lg">{order.id} <span className="text-orange-500 text-xs ml-2">PENDING</span></p><p className="text-sm text-gray-600">{order.patientName} ({order.phone})</p><p className="text-sm font-bold mt-1">{order.total.toLocaleString()} RWF</p></div>
-                <button onClick={() => loadOnlineOrder(order)} className="px-5 py-2.5 bg-[#007a55] text-white font-semibold text-sm rounded-xl flex items-center gap-2">Process in POS <ArrowRight size={16} /></button>
+              <div key={order.order_id} className="bg-white dark:bg-gray-900 p-5 rounded-2xl border shadow-sm flex justify-between items-center gap-4">
+                <div>
+                  <p className="font-bold text-lg">
+                    #{order.order_id}
+                    <span className={`text-xs ml-2 ${order.status === 'READY_FOR_COLLECTION' ? 'text-purple-600' : 'text-blue-600'}`}>
+                      {order.status === 'READY_FOR_COLLECTION' ? 'READY FOR PICKUP' : 'ACCEPTED'}
+                    </span>
+                    {order.requires_prescription && <span className="text-xs ml-2 text-red-600">Rx</span>}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{order.patient_name || `Patient #${order.patient_id}`}{order.patient_phone ? ` (${order.patient_phone})` : ''}</p>
+                  <p className="text-sm mt-1"><span className="font-bold">{Number(order.total).toLocaleString()} RWF</span> · {order.item_count} item{order.item_count === 1 ? '' : 's'} · {PAYMENT_LABELS[order.payment_method] || order.payment_method}</p>
+                </div>
+                <button
+                  onClick={() => loadOnlineOrder(order.order_id)}
+                  disabled={loadingOrderId === order.order_id}
+                  className="px-5 py-2.5 bg-[#007a55] text-white font-semibold text-sm rounded-xl flex items-center gap-2 disabled:opacity-60"
+                >
+                  {loadingOrderId === order.order_id ? <Loader2 size={16} className="animate-spin" /> : <>Sell in POS <ArrowRight size={16} /></>}
+                </button>
               </div>
             ))}
           </div>

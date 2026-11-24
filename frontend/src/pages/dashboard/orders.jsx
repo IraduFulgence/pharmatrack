@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 
 const Orders = () => {
-  // 1. Mock Data
+  // Mock Data
   const [orders, setOrders] = useState([
     {
       id: 'ORD-8842',
@@ -139,7 +139,7 @@ const Orders = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-8xl mx-auto">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -229,7 +229,7 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* --- CREATE ORDER MODAL --- */}
+      {/* create order modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
@@ -359,7 +359,7 @@ const Orders = () => {
         </div>
       )}
 
-      {/* --- VIEW ORDER MODAL --- */}
+      {/* view order*/}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">

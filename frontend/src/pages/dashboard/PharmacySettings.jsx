@@ -7,6 +7,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 're
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { authService } from '../../services/authentication';
+import { staffService } from '../../services/staffService';
 import DocumentViewer from '../../components/admin/DocumentViewer';
 
 // Fix for default Leaflet marker icon
@@ -55,6 +56,8 @@ const PharmacySettings = () => {
   const [formData, setFormData] = useState({
     pharmacyName: '',
     locationAddress: '',
+    phoneNumber: '',
+    email: '',
     latitude: -1.9565,
     longitude: 30.1119,
   });
@@ -72,6 +75,8 @@ const PharmacySettings = () => {
       setFormData({
         pharmacyName: response.data.pharmacyName || '',
         locationAddress: response.data.locationAddress || '',
+        phoneNumber: response.data.phoneNumber || '',
+        email: response.data.email || '',
         latitude: Number(response.data.latitude) || -1.9565,
         longitude: Number(response.data.longitude) || 30.1119,
       });
@@ -118,17 +123,57 @@ const PharmacySettings = () => {
     setError(null);
     setSaveSuccess(false);
 
+    const pharmacyName = formData.pharmacyName.trim();
+    const phoneNumber = formData.phoneNumber.trim();
+    const email = formData.email.trim();
+    if (!pharmacyName) {
+      setError('Pharmacy name is required.');
+      setIsSaving(false);
+      return;
+    }
+    if (phoneNumber && !/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+      setError('Phone number must be in international format, e.g. +250788123456.');
+      setIsSaving(false);
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Enter a valid email address.');
+      setIsSaving(false);
+      return;
+    }
+
     try {
-      
-      await new Promise(resolve => setTimeout(resolve, 800)); 
-      
-      setProfile(prev => ({ ...prev, ...formData }));
+      const response = await staffService.updatePharmacyProfile({
+        pharmacyName,
+        locationAddress: formData.locationAddress.trim() || undefined,
+        phoneNumber: phoneNumber || undefined,
+        email: email || undefined,
+        latitude: Number(formData.latitude),
+        longitude: Number(formData.longitude),
+      });
+
+      const saved = response.data || {};
+      const updated = {
+        pharmacyName: saved.pharmacy_name ?? pharmacyName,
+        locationAddress: saved.location_address ?? formData.locationAddress,
+        phoneNumber: saved.phone_number ?? phoneNumber,
+        email: saved.email ?? email,
+        latitude: Number(saved.latitude ?? formData.latitude),
+        longitude: Number(saved.longitude ?? formData.longitude),
+      };
+
+      setProfile(prev => ({ ...prev, ...updated }));
+      setFormData(updated);
       setSaveSuccess(true);
       setIsEditing(false);
-      
-     
-      const storedUser = JSON.parse(localStorage.getItem('user'));
-      localStorage.setItem('user', JSON.stringify({ ...storedUser, ...formData }));
+
+      // Keep the header/sidebar name in sync.
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user')) || {};
+        localStorage.setItem('user', JSON.stringify({ ...storedUser, pharmacyName: updated.pharmacyName }));
+      } catch {
+        // ignore a corrupted stored user; the next login refreshes it
+      }
 
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -159,7 +204,7 @@ const PharmacySettings = () => {
   const mapCenter = [formData.latitude, formData.longitude];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-8xl mx-auto space-y-6">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -177,8 +222,19 @@ const PharmacySettings = () => {
           </button>
         ) : (
           <div className="flex gap-3">
-            <button 
-              onClick={() => setIsEditing(false)}
+            <button
+              onClick={() => {
+                setIsEditing(false);
+                setError(null);
+                setFormData({
+                  pharmacyName: profile?.pharmacyName || '',
+                  locationAddress: profile?.locationAddress || '',
+                  phoneNumber: profile?.phoneNumber || '',
+                  email: profile?.email || '',
+                  latitude: Number(profile?.latitude) || -1.9565,
+                  longitude: Number(profile?.longitude) || 30.1119,
+                });
+              }}
               className="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors"
             >
               Cancel
@@ -267,15 +323,31 @@ const PharmacySettings = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4 border-t border-gray-100 dark:border-gray-800">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Email</label>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                    <Mail size={14} className="text-gray-400"/> {profile?.email}
-                  </p>
+                  {isEditing ? (
+                    <input
+                      type="email" name="email"
+                      value={formData.email} onChange={handleInputChange}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#007a55] dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <Mail size={14} className="text-gray-400"/> {profile?.email}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Phone</label>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                    <Phone size={14} className="text-gray-400"/> {profile?.phoneNumber}
-                  </p>
+                  {isEditing ? (
+                    <input
+                      type="tel" name="phoneNumber" placeholder="+250788123456"
+                      value={formData.phoneNumber} onChange={handleInputChange}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#007a55] dark:text-white"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <Phone size={14} className="text-gray-400"/> {profile?.phoneNumber}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">TIN</label>

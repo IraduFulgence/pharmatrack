@@ -650,49 +650,58 @@ export class StaffService {
     pharmacyId: number,
     query: { period?: string; staffId?: number; startDate?: string; endDate?: string },
   ): Promise<ApiResponse> {
-    const conditions: string[] = ['s.pharmacy_id = $1', "s.sale_status != 'CANCELLED'"];
+    // Sale filters live in the JOIN so staff with no sales in the range still appear (with zeros).
+    const saleConditions: string[] = ['s.pharmacy_user_id = pu.pharmacy_user_id', 's.pharmacy_id = $1', "s.sale_status != 'CANCELLED'"];
+    const staffConditions: string[] = ['pu.pharmacy_id = $1'];
     const params: any[] = [pharmacyId];
     let idx = 2;
 
     if (query.staffId) {
-      conditions.push(`s.pharmacy_user_id = $${idx++}`);
+      staffConditions.push(`pu.pharmacy_user_id = $${idx++}`);
       params.push(query.staffId);
     }
 
+    // `period` is a shortcut; explicit startDate/endDate win when given.
+    const period = query.period?.trim().toLowerCase();
+    if (!query.startDate?.trim() && !query.endDate?.trim() && period && period !== 'custom' && period !== 'all') {
+      if (period === 'today') saleConditions.push('s.created_at >= CURRENT_DATE');
+      else if (period === 'week') saleConditions.push("s.created_at >= CURRENT_DATE - INTERVAL '6 days'");
+      else if (period === 'month') saleConditions.push("s.created_at >= CURRENT_DATE - INTERVAL '29 days'");
+    }
+
     if (query.startDate?.trim()) {
-      conditions.push(`s.created_at >= $${idx++}`);
+      saleConditions.push(`s.created_at >= $${idx++}`);
       params.push(`${query.startDate.trim()} 00:00:00`);
     }
 
     if (query.endDate?.trim()) {
-      conditions.push(`s.created_at <= $${idx++}`);
+      saleConditions.push(`s.created_at <= $${idx++}`);
       params.push(`${query.endDate.trim()} 23:59:59`);
     }
 
-    const where = `WHERE ${conditions.join(' AND ')}`;
-
     const res = await this.db.query(
-      `SELECT 
+      `SELECT
         pu.pharmacy_user_id,
         pu.full_name AS staff_name,
         pu.role AS staff_role,
+        pu.is_active,
         COUNT(s.sale_id) AS total_sales_count,
         COALESCE(SUM(s.net_total_amount), 0) AS total_revenue,
         COALESCE(SUM(s.patient_contribution), 0) AS patient_revenue,
         COALESCE(SUM(s.insurance_contribution), 0) AS insurance_revenue,
         COUNT(s.sale_id) FILTER (WHERE s.payment_category = 'PRIVATE') AS private_sales_count,
         COUNT(s.sale_id) FILTER (WHERE s.payment_category = 'INSURANCE') AS insurance_sales_count,
-        COALESCE((
-          SELECT SUM(si.quantity) 
-          FROM public.sale_items si 
-          JOIN public.sales s2 ON s2.sale_id = si.sale_id 
-          WHERE s2.pharmacy_user_id = pu.pharmacy_user_id AND s2.pharmacy_id = $1
-        ), 0) AS total_medicines_sold
+        COALESCE(SUM(si.item_quantity), 0) AS total_medicines_sold
        FROM public.pharmacy_users pu
-       LEFT JOIN public.sales s ON s.pharmacy_user_id = pu.pharmacy_user_id AND s.pharmacy_id = $1
-       ${where}
-       GROUP BY pu.pharmacy_user_id, pu.full_name, pu.role
-       ORDER BY total_revenue DESC`,
+       LEFT JOIN public.sales s ON ${saleConditions.join(' AND ')}
+       LEFT JOIN (
+         SELECT sale_id, SUM(quantity) AS item_quantity
+         FROM public.sale_items
+         GROUP BY sale_id
+       ) si ON si.sale_id = s.sale_id
+       WHERE ${staffConditions.join(' AND ')}
+       GROUP BY pu.pharmacy_user_id, pu.full_name, pu.role, pu.is_active
+       ORDER BY total_revenue DESC, pu.full_name ASC`,
       params,
     );
 
@@ -703,6 +712,7 @@ export class StaffService {
         staffId: Number(r.pharmacy_user_id),
         staffName: r.staff_name,
         staffRole: r.staff_role,
+        isActive: r.is_active,
         totalSalesCount: Number(r.total_sales_count),
         totalRevenue: Number(Number(r.total_revenue).toFixed(2)),
         patientRevenue: Number(Number(r.patient_revenue).toFixed(2)),
@@ -913,7 +923,7 @@ export class StaffService {
        JOIN public.inventory_batches ib ON ib.inventory_id = it.inventory_id
        JOIN public.medicines m ON m.medicine_id = ib.medicine_id
        LEFT JOIN public.pharmacy_users pu ON pu.pharmacy_user_id = it.pharmacy_user_id
-       WHERE it.pharmacy_id = $1 AND (it.transaction_type = 'DAMAGED' OR it.reason ILIKE '%damag%')
+       WHERE it.pharmacy_id = $1 AND (it.transaction_type IN ('DAMAGED', 'ADJUSTMENT_DAMAGED') OR it.reason ILIKE '%damag%')
        ORDER BY it.transaction_id DESC
        LIMIT 15`,
       [pharmacyId],

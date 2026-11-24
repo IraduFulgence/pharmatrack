@@ -22,6 +22,7 @@ import {
 } from './utils/inventory-importer.js';
 import { InventoryExporter, type InventoryExportItem } from './utils/inventory-exporter.js';
 import type { CreatePackagingDto } from './dto/create-packaging.dto.js';
+import type { ActorRef } from '../common/interfaces/actor-ref.interface.js';
 
 @Injectable()
 export class InventoryService {
@@ -58,9 +59,24 @@ export class InventoryService {
   }
 
   /**
-   * Helper: Find a pharmacy_user_id for audit logs from the authenticated user
+   * Helper: Find the pharmacy_user_id that performed an action.
+   * Prefers the staff ID from the token, then the email. Returns null for the
+   * main pharmacy account (or anyone not in pharmacy_users) instead of guessing.
    */
-  private async getPharmacyUserId(pharmacyId: number, email?: string): Promise<number | null> {
+  private async getPharmacyUserId(pharmacyId: number, actor?: ActorRef): Promise<number | null> {
+    const email = typeof actor === 'string' ? actor : actor?.email;
+    const staffId = typeof actor === 'object' ? actor?.pharmacyUserId : undefined;
+
+    if (staffId) {
+      const byId = await this.db.query(
+        'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_id = $1 AND pharmacy_user_id = $2 LIMIT 1',
+        [pharmacyId, staffId],
+      );
+      if (byId.rows.length > 0) {
+        return Number(byId.rows[0].pharmacy_user_id);
+      }
+    }
+
     if (email) {
       const userRes = await this.db.query(
         'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_id = $1 AND LOWER(email) = $2 LIMIT 1',
@@ -70,12 +86,8 @@ export class InventoryService {
         return Number(userRes.rows[0].pharmacy_user_id);
       }
     }
-    // Fallback: get the primary/owner user for this pharmacy
-    const ownerRes = await this.db.query(
-      'SELECT pharmacy_user_id FROM public.pharmacy_users WHERE pharmacy_id = $1 ORDER BY pharmacy_user_id ASC LIMIT 1',
-      [pharmacyId],
-    );
-    return ownerRes.rows.length > 0 ? Number(ownerRes.rows[0].pharmacy_user_id) : null;
+
+    return null;
   }
 
   // =========================================================================
@@ -638,7 +650,7 @@ export class InventoryService {
   async addStock(
     pharmacyId: number,
     dto: AddStockDto,
-    userEmail?: string,
+    userEmail?: ActorRef,
   ): Promise<ApiResponse> {
     const {
       medicineId,
@@ -793,7 +805,7 @@ export class InventoryService {
   async adjustStock(
     pharmacyId: number,
     dto: StockAdjustmentDto,
-    userEmail?: string,
+    userEmail?: ActorRef,
   ): Promise<ApiResponse> {
     const { inventoryId, adjustmentType, quantity, reason, notes } = dto;
 
@@ -1932,7 +1944,7 @@ export class InventoryService {
   async importBulkInventory(
     pharmacyId: number,
     fileBuffer: Buffer,
-    userEmail?: string,
+    userEmail?: ActorRef,
   ): Promise<ApiResponse> {
     const batchRes = await this.db.query(
       'SELECT batch_number FROM public.inventory_batches WHERE pharmacy_id = $1',

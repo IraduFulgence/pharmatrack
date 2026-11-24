@@ -1,3 +1,4 @@
+
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -9,6 +10,8 @@ import { SalesModule } from './sales/sales.module.js';
 import { SalesOfficerModule } from './sales-officer/sales-officer.module.js';
 import { PatientsModule } from './patients/patients.module.js';
 import { PharmacyMessagingModule } from './pharmacy-messaging/pharmacy-messaging.module.js';
+import { MarketplaceModule } from './marketplace/marketplace.module.js';
+import { PharmacyMarketplaceModule } from './pharmacy-marketplace/pharmacy-marketplace.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { InsuranceModule } from './insurance/insurance.module.js';
 import { ProfileModule } from './profile/profile.module.js';
@@ -25,10 +28,15 @@ import { ProfileModule } from './profile/profile.module.js';
     SalesOfficerModule,
     PatientsModule,
     PharmacyMessagingModule,
+    MarketplaceModule,
+    PharmacyMarketplaceModule,
     ProfileModule,
     StaffModule,
     InsuranceModule,
   ],
+    
+  
+  
   
   
   controllers: [AppController],

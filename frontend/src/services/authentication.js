@@ -38,7 +38,9 @@ export const authService = {
 
   getMyDocument: async (type) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pharmatrack-backend-thxw.onrender.com/api'}/auth/profile/documents/${type}`, {
+    // const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pharmatrack-backend-thxw.onrender.com/api'}/auth/profile/documents/${type}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/profile/documents/${type}`, {
+
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
     });

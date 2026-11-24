@@ -120,7 +120,7 @@ export class StaffController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.staffService.updateStaff(targetPharmacyId, id, dto, user.pharmacyUserId || user.sub);
+    return this.staffService.updateStaff(targetPharmacyId, id, dto, user.pharmacyUserId);
   }
 
   @Patch('pharmacy/staff/:id/toggle-status')
@@ -138,7 +138,7 @@ export class StaffController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.staffService.toggleStaffStatus(targetPharmacyId, id, user.pharmacyUserId || user.sub);
+    return this.staffService.toggleStaffStatus(targetPharmacyId, id, user.pharmacyUserId);
   }
 
   @Post('pharmacy/staff/:id/reissue-code')
@@ -156,7 +156,7 @@ export class StaffController {
       user,
       pharmacyId ? Number(pharmacyId) : undefined,
     );
-    return this.staffService.reissueActivationCode(targetPharmacyId, id, user.pharmacyUserId || user.sub);
+    return this.staffService.reissueActivationCode(targetPharmacyId, id, user.pharmacyUserId);
   }
 
   // ───────────── 3. Activity Monitoring & Logs (Section 3.4) ─────────────
@@ -280,7 +280,7 @@ export class StaffController {
     return this.staffService.updatePharmacyProfile(
       targetPharmacyId,
       dto,
-      user.pharmacyUserId || user.sub,
+      user.pharmacyUserId,
     );
   }
 
