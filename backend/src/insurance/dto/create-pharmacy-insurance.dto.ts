@@ -1,11 +1,6 @@
 import { IsNumber, IsInt, IsOptional, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
-export class CreatePharmacyInsuranceDto {
-  @IsOptional()
-  @IsNumber()
-
 
 export class CreatePharmacyInsuranceDto {
   @ApiPropertyOptional({

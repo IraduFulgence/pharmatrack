@@ -8,6 +8,9 @@ describe('InsuranceService - Pharmacy Data Isolation', () => {
   let mockDb: any;
 
   beforeEach(() => {
+    let lastInsertedPharmacyId: any = 1;
+    let lastInsertedInsuranceId: any = 1;
+
     mockDb = {
       query: vi.fn().mockImplementation(async (sql: string, params?: any[]) => {
         if (sql.includes('pg_attribute') || sql.includes('pg_index')) {
@@ -19,10 +22,12 @@ describe('InsuranceService - Pharmacy Data Isolation', () => {
         if (sql.includes('SELECT pharmacy_id FROM public.pharmacies')) {
           return { rows: [{ pharmacy_id: params?.[0] }] };
         }
-        if (sql.includes('SELECT * FROM public.insurance_providers')) {
-          return { rows: [{ provider_id: params?.[0], provider_name: 'RSSB' }] };
+        if (sql.includes('FROM public.insurance_providers')) {
+          return { rows: [{ provider_id: params?.[0], provider_name: 'RSSB', is_active: true }] };
         }
         if (sql.includes('INSERT INTO public.pharmacy_insurances')) {
+          lastInsertedPharmacyId = params?.[0];
+          lastInsertedInsuranceId = params?.[1];
           return {
             rows: [
               {
@@ -31,6 +36,20 @@ describe('InsuranceService - Pharmacy Data Isolation', () => {
                 insurance_id: String(params?.[1]),
                 coverage_percentage: String(params?.[2]),
                 is_active: true,
+              },
+            ],
+          };
+        }
+        if (sql.includes('WHERE pi.pharmacy_insurance_id')) {
+          return {
+            rows: [
+              {
+                pharmacy_insurance_id: '10',
+                pharmacy_id: String(lastInsertedPharmacyId),
+                insurance_id: String(lastInsertedInsuranceId),
+                coverage_percentage: '85',
+                is_active: true,
+                provider_name: 'RSSB',
               },
             ],
           };
@@ -48,8 +67,8 @@ describe('InsuranceService - Pharmacy Data Isolation', () => {
         coveragePercentage: 85,
       });
 
-      expect(res.pharmacy_id).toBe('1');
-      expect(res.insurance_id).toBe('1');
+      expect(res.data.pharmacy_id).toBe(1);
+      expect(res.data.insurance_id).toBe(1);
     });
 
     it('should allow pharmacy 2 to independently add the same insurance provider 1', async () => {
@@ -58,8 +77,8 @@ describe('InsuranceService - Pharmacy Data Isolation', () => {
         coveragePercentage: 80,
       });
 
-      expect(res.pharmacy_id).toBe('2');
-      expect(res.insurance_id).toBe('1');
+      expect(res.data.pharmacy_id).toBe(2);
+      expect(res.data.insurance_id).toBe(1);
     });
   });
 
