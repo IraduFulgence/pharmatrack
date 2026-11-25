@@ -120,7 +120,10 @@ export interface PrescriptionLookup {
     problem: string | null;
   };
   items: Array<CatalogueMedicine & {
-    quantity: number;
+    quantity: number;               // prescribed
+    dispensed_quantity: number;     // already given out at a pharmacy
+    ordered_quantity: number;       // in your open online orders
+    remaining_quantity: number;     // what you can still order
     dosage_instructions?: string | null;
     in_stock: boolean;
   }>;

@@ -41,20 +41,6 @@ describe('InsuranceService - Pharmacy Data Isolation', () => {
         if (sql.includes('WHERE pi.pharmacy_insurance_id = $1')) {
           return { rows: saved.filter((r) => r.pharmacy_insurance_id === String(params?.[0])) };
         }
-        if (sql.includes('WHERE pi.pharmacy_insurance_id')) {
-          return {
-            rows: [
-              {
-                pharmacy_insurance_id: '10',
-                pharmacy_id: String(lastInsertedPharmacyId),
-                insurance_id: String(lastInsertedInsuranceId),
-                coverage_percentage: '85',
-                is_active: true,
-                provider_name: 'RSSB',
-              },
-            ],
-          };
-        }
         return { rows: [] };
       }),
     };

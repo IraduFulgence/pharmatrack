@@ -57,6 +57,44 @@ describe('MarketplaceService.createOrder prescriptions', () => {
     expect(upload.removeStoredFile).toHaveBeenCalledWith('prescriptions/patient-7/photo.jpg', 'prescriptions');
   });
 
+  it('rejects ordering more than is left on the prescription', async () => {
+    const client = cartWith([{ ...rxItem, quantity: 10 }]);
+    client.query
+      .mockResolvedValueOnce({ rows: [{ prescription_id: 3, patient_id: 7, status: 'ACTIVE' }] }) // prescription (locked)
+      .mockResolvedValueOnce({
+        rows: [{ medicine_id: 5, medicine_name: 'Amoxicillin 500mg', strength: null, prescribed: 21, dispensed: 7, reserved: 7 }],
+      });
+    db.transaction.mockImplementation((cb: any) => cb(client));
+
+    await expect(
+      service.createOrder(7, { paymentMethod: 'CASH_ON_COLLECTION', prescriptionReference: 'RX-1' }),
+    ).rejects.toThrow(/10 requested but only 7 of the 21 prescribed are left \(14 already given out or ordered\)/);
+    // The balance counts this patient's other open orders on the same number.
+    expect(client.query.mock.calls[5][1]).toEqual([3, 7, 'RX-1', null]);
+  });
+
+  it("rejects another patient's prescription number", async () => {
+    const client = cartWith([rxItem]);
+    client.query.mockResolvedValueOnce({ rows: [{ prescription_id: 3, patient_id: 99, status: 'ACTIVE' }] });
+    db.transaction.mockImplementation((cb: any) => cb(client));
+
+    await expect(
+      service.createOrder(7, { paymentMethod: 'CASH_ON_COLLECTION', prescriptionReference: 'RX-1' }),
+    ).rejects.toThrow(/not on your account/);
+  });
+
+  it('accepts a prescription number PharmaTrack does not know yet (the pharmacy checks it)', async () => {
+    const client = cartWith([rxItem]);
+    client.query
+      .mockResolvedValueOnce({ rows: [] }) // unknown number
+      .mockResolvedValueOnce({ rows: [{ available_quantity: 0, unit_price: null }] }); // then the stock check runs
+    db.transaction.mockImplementation((cb: any) => cb(client));
+
+    await expect(
+      service.createOrder(7, { paymentMethod: 'CASH_ON_COLLECTION', prescriptionReference: 'SMS-123' }),
+    ).rejects.toThrow(/out of stock at this pharmacy/); // got past the prescription check
+  });
+
   it('rejects an over-long prescription number before touching the cart', async () => {
     await expect(
       service.createOrder(7, { paymentMethod: 'CASH_ON_COLLECTION', prescriptionReference: 'X'.repeat(101) }),

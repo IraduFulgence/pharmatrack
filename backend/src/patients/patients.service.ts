@@ -68,7 +68,15 @@ export class PatientsService {
              p.location_address,
              p.latitude,
              p.longitude,
-             COALESCE(SUM(ib.quantity), 0)::INTEGER AS quantity_available,
+             -- Minus units already held by open online orders.
+             (COALESCE(SUM(ib.quantity), 0) - COALESCE((
+               SELECT SUM(oi.quantity)
+               FROM public.marketplace_order_items oi
+               JOIN public.marketplace_orders o ON o.order_id = oi.order_id
+               WHERE o.pharmacy_id = p.pharmacy_id
+                 AND oi.medicine_id = $1
+                 AND o.status IN ('PENDING', 'ACCEPTED', 'READY_FOR_COLLECTION')
+             ), 0))::INTEGER AS quantity_available,
              MIN(COALESCE(ib.selling_price, ib.unit_price)) AS unit_price
            FROM public.inventory_batches ib
            JOIN public.pharmacies p
@@ -89,6 +97,14 @@ export class PatientsService {
              p.location_address,
              p.latitude,
              p.longitude
+           HAVING COALESCE(SUM(ib.quantity), 0) - COALESCE((
+               SELECT SUM(oi.quantity)
+               FROM public.marketplace_order_items oi
+               JOIN public.marketplace_orders o ON o.order_id = oi.order_id
+               WHERE o.pharmacy_id = p.pharmacy_id
+                 AND oi.medicine_id = $1
+                 AND o.status IN ('PENDING', 'ACCEPTED', 'READY_FOR_COLLECTION')
+             ), 0) > 0
            ORDER BY p.pharmacy_name ASC`,
           [medicine.medicine_id],
         );

@@ -17,6 +17,12 @@ import type { ApiResponse } from '../common/interfaces/api-response.interface.js
 import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
 import type { ActorRef } from '../common/interfaces/actor-ref.interface.js';
 import {
+  SYNC_PRESCRIPTION_STATUS_SQL,
+  getPrescriptionBalance,
+  prescriptionQuantityProblems,
+  type Queryable,
+} from '../common/utils/prescription-balance.js';
+import {
   ReceiptData,
   generateHtmlReceipt,
 } from './utils/receipt-generator.js';
@@ -468,7 +474,7 @@ export class SalesService {
     reference?: string;
     patientId?: number | null;
     rxItems: { medicineId: number; medicineName: string; quantity: number }[];
-  }): Promise<{
+  }, db: Queryable = this.db, lock = false): Promise<{
     found: boolean;
     prescription: any | null;
     problems: string[];
@@ -476,20 +482,20 @@ export class SalesService {
     const reference = params.reference?.trim() || '';
     let res;
     if (params.prescriptionId) {
-      res = await this.db.query(
+      res = await db.query(
         `SELECT prescription_id, prescription_reference, patient_id, status,
                 to_char(issued_date, 'YYYY-MM-DD') AS issued_date
-         FROM public.prescriptions WHERE prescription_id = $1`,
+         FROM public.prescriptions WHERE prescription_id = $1${lock ? ' FOR UPDATE' : ''}`,
         [params.prescriptionId],
       );
       if (res.rows.length === 0) {
         throw new NotFoundException('Prescription not found.');
       }
     } else {
-      res = await this.db.query(
+      res = await db.query(
         `SELECT prescription_id, prescription_reference, patient_id, status,
                 to_char(issued_date, 'YYYY-MM-DD') AS issued_date
-         FROM public.prescriptions WHERE LOWER(prescription_reference) = LOWER($1)`,
+         FROM public.prescriptions WHERE LOWER(prescription_reference) = LOWER($1)${lock ? ' FOR UPDATE' : ''}`,
         [reference],
       );
     }
@@ -499,14 +505,8 @@ export class SalesService {
     }
 
     const pr = res.rows[0];
-    const itemsRes = await this.db.query(
-      `SELECT pi.medicine_id, m.medicine_name, m.strength, SUM(pi.quantity) AS prescribed_quantity
-       FROM public.prescription_items pi
-       JOIN public.medicines m ON m.medicine_id = pi.medicine_id
-       WHERE pi.prescription_id = $1
-       GROUP BY pi.medicine_id, m.medicine_name, m.strength`,
-      [pr.prescription_id],
-    );
+    // Counts what earlier sales already gave out under this prescription.
+    const balance = await getPrescriptionBalance(db, Number(pr.prescription_id));
 
     const problems: string[] = [];
     const status = String(pr.status || '').toUpperCase();
@@ -519,26 +519,8 @@ export class SalesService {
     }
 
     // Only check medicines when the prescription lists them; older records may not.
-    if (itemsRes.rows.length > 0) {
-      const prescribed = new Map<number, number>(
-        itemsRes.rows.map((r: any) => [Number(r.medicine_id), Number(r.prescribed_quantity)]),
-      );
-      const wanted = new Map<number, { name: string; quantity: number }>();
-      for (const item of params.rxItems) {
-        const prev = wanted.get(item.medicineId);
-        wanted.set(item.medicineId, {
-          name: item.medicineName,
-          quantity: (prev?.quantity || 0) + item.quantity,
-        });
-      }
-      for (const [medicineId, { name, quantity }] of wanted) {
-        const allowed = prescribed.get(medicineId);
-        if (allowed === undefined) {
-          problems.push(`${name} is not on this prescription.`);
-        } else if (quantity > allowed) {
-          problems.push(`${name}: ${quantity} in the cart but only ${allowed} prescribed.`);
-        }
-      }
+    if (balance.length > 0) {
+      problems.push(...prescriptionQuantityProblems(balance, params.rxItems));
     }
 
     return {
@@ -549,11 +531,13 @@ export class SalesService {
         status: pr.status,
         issuedDate: pr.issued_date,
         matchesPatient: params.patientId ? Number(pr.patient_id) === Number(params.patientId) : null,
-        items: itemsRes.rows.map((r: any) => ({
-          medicineId: Number(r.medicine_id),
-          medicineName: r.medicine_name,
-          strength: r.strength,
-          prescribedQuantity: Number(r.prescribed_quantity),
+        items: balance.map((b) => ({
+          medicineId: b.medicineId,
+          medicineName: b.medicineName,
+          strength: b.strength,
+          prescribedQuantity: b.prescribed,
+          dispensedQuantity: b.dispensed,
+          remainingQuantity: b.remaining,
         })),
       },
       problems,
@@ -720,6 +704,7 @@ export class SalesService {
     let totalInsuranceContribution = 0;
     let totalPatientContribution = 0;
     const calculatedItems = [];
+    const requestedPerBatch = new Map<number, number>(); // inventory_id -> base units across cart lines
 
     for (const item of items) {
       const batchRes = await this.db.query(
@@ -764,9 +749,15 @@ export class SalesService {
           ? Number(item.packageQuantity) * Number(item.unitsPerPackage)
           : Number(item.quantity);
 
-      if (dispensedBaseQuantity > availableQty) {
+      if (!Number.isInteger(dispensedBaseQuantity) || dispensedBaseQuantity <= 0) {
+        throw new BadRequestException(`Enter a quantity of at least 1 for ${batch.medicine_name}.`);
+      }
+
+      const batchTotal = (requestedPerBatch.get(Number(batch.inventory_id)) || 0) + dispensedBaseQuantity;
+      requestedPerBatch.set(Number(batch.inventory_id), batchTotal);
+      if (batchTotal > availableQty) {
         throw new BadRequestException(
-          `Insufficient stock for ${batch.medicine_name} (Batch: ${batch.batch_number}). Requested: ${dispensedBaseQuantity} units, Available: ${availableQty} units.`,
+          `Insufficient stock for ${batch.medicine_name} (Batch: ${batch.batch_number}). Requested: ${batchTotal} units, Available: ${availableQty} units.`,
         );
       }
 
@@ -1001,10 +992,14 @@ export class SalesService {
           );
         }
       } else if (linkedPrescriptionId) {
-        await client.query(
-          `UPDATE public.prescriptions SET status = 'FULFILLED' WHERE prescription_id = $1 AND status = 'ACTIVE'`,
-          [linkedPrescriptionId],
+        const recheck = await this.checkPrescription(
+          { prescriptionId: linkedPrescriptionId, patientId, rxItems },
+          client,
+          true,
         );
+        if (recheck.problems.length > 0) {
+          throw new BadRequestException(recheck.problems.join(' '));
+        }
       }
 
       // 1. Generate unique receipt number (REC-YYYYMMDD-XXXX)
@@ -1083,12 +1078,17 @@ export class SalesService {
            SET quantity = quantity - $1,
                status = CASE WHEN quantity - $1 = 0 THEN 'DEPLETED' ELSE status END,
                updated_at = CURRENT_TIMESTAMP
-           WHERE inventory_id = $2 AND pharmacy_id = $3
+           WHERE inventory_id = $2 AND pharmacy_id = $3 AND quantity >= $1
            RETURNING inventory_id, quantity, reorder_level`,
           [deductQty, item.inventoryId, pharmacyId],
         );
 
         const updatedBatch = batchUpdateRes.rows[0];
+        if (!updatedBatch) {
+          throw new BadRequestException(
+            `Not enough ${item.medicineName} left in batch ${item.batchNumber}: it was just sold elsewhere. Refresh and try again.`,
+          );
+        }
         const newQty = Number(updatedBatch.quantity);
 
         // Record stock-out in inventory_transactions
@@ -1121,6 +1121,12 @@ export class SalesService {
             ],
           );
         }
+      }
+
+      // 3b. A prescription is fulfilled once every medicine on it has been given out in full
+      //     (or straight away when it doesn't list its medicines). Partly dispensed stays ACTIVE.
+      if (linkedPrescriptionId && !recordNewPrescription) {
+        await client.query(SYNC_PRESCRIPTION_STATUS_SQL, [linkedPrescriptionId]);
       }
 
       // 4. Record patient payment if amountPaid > 0
@@ -1530,8 +1536,9 @@ export class SalesService {
     const { reason, items: returnItems, refundAmount, refundMethod = 'CASH', notes } = dto;
 
     const saleRes = await this.db.query(
-      `SELECT sale_id, receipt_number, net_total_amount, patient_contribution, amount_paid, payment_status, sale_status 
-       FROM public.sales 
+      `SELECT sale_id, receipt_number, net_total_amount, patient_contribution, amount_paid, payment_status, sale_status,
+              prescription_id
+       FROM public.sales
        WHERE sale_id = $1 AND pharmacy_id = $2`,
       [saleId, pharmacyId],
     );
@@ -1618,6 +1625,11 @@ export class SalesService {
           );
           restoredItemsCount++;
         }
+      }
+
+      // Returned prescription medicine can be given out again: reopen the prescription.
+      if (sale.prescription_id) {
+        await client.query(SYNC_PRESCRIPTION_STATUS_SQL, [sale.prescription_id]);
       }
 
       // 3. Record refund payment if funds returned to patient

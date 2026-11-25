@@ -250,6 +250,21 @@ describe('SalesService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('should reject the same batch on two cart lines when together they exceed its stock', async () => {
+      const batch = {
+        inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 5,
+        unit_price: '100.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg',
+      };
+      mockDb.query.mockResolvedValue({ rows: [batch] });
+
+      await expect(
+        service.calculateBill(1, {
+          paymentCategory: 'PRIVATE',
+          items: [{ inventoryId: 10, quantity: 3 }, { inventoryId: 10, quantity: 3 }],
+        }),
+      ).rejects.toThrow(/Requested: 6 units, Available: 5 units/);
+    });
+
     it('should reject dispensing of expired medicine', async () => {
       mockDb.query.mockResolvedValueOnce({
         rows: [
@@ -375,6 +390,32 @@ describe('SalesService', () => {
   // ─────────────────────────────────────────────────────────────
   // 5. Sales Cancellation and Refund (Section 15)
   // ─────────────────────────────────────────────────────────────
+  describe('createSale stock race', () => {
+    it('refuses to sell stock another sale took after the bill was checked', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({
+          rows: [{
+            inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 2,
+            unit_price: '100.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg',
+          }],
+        });
+      const client = {
+        query: vi
+          .fn()
+          .mockResolvedValueOnce({ rows: [{ sale_id: 101, receipt_number: 'REC-1', created_at: new Date() }] }) // sale
+          .mockResolvedValueOnce({ rows: [] }) // sale_items
+          .mockResolvedValueOnce({ rows: [] }), // stock update: no longer enough
+      };
+      mockDb.transaction.mockImplementation((cb: any) => cb(client));
+
+      await expect(
+        service.createSale(1, { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', items: [{ inventoryId: 10, quantity: 2 }] }, 'pharmacist@kigali.rw'),
+      ).rejects.toThrow(/just sold elsewhere/);
+      expect(client.query.mock.calls[2][0]).toMatch(/quantity >= \$1/);
+    });
+  });
+
   describe('refundSale', () => {
     it('should refund sale, restore inventory quantity, and log inventory transaction', async () => {
       mockDb.query
@@ -582,7 +623,7 @@ describe('SalesService', () => {
           rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 99, status: 'ACTIVE', issued_date: '2026-11-20' }],
         })
         .mockResolvedValueOnce({
-          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed_quantity: '1' }],
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 1, dispensed: 0, reserved: 0 }],
         });
 
       const attempt = service.createSale(
@@ -629,7 +670,7 @@ describe('SalesService', () => {
           rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
         })
         .mockResolvedValueOnce({
-          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed_quantity: '2' }],
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 2, dispensed: 0, reserved: 0 }],
         });
 
       const res = await service.verifyPrescription(1, {
@@ -641,6 +682,71 @@ describe('SalesService', () => {
       expect(res.data.found).toBe(true);
       expect(res.data.valid).toBe(true);
       expect(res.data.prescription.prescriptionId).toBe(3);
+    });
+
+    it('only allows what is left after earlier sales on the same prescription', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, medicine_id: 100, medicine_name: 'Amoxicillin 500mg', requires_prescription: true }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 21, dispensed: 14, reserved: 0 }],
+        });
+
+      const res = await service.verifyPrescription(1, {
+        prescriptionReference: 'RX-1',
+        patientId: 7,
+        items: [{ inventoryId: 10, quantity: 10 }],
+      });
+
+      expect(res.data.valid).toBe(false);
+      expect(res.data.problems[0]).toMatch(/10 requested but only 7 of the 21 prescribed are left/);
+      expect(res.data.prescription.items[0]).toMatchObject({ prescribedQuantity: 21, dispensedQuantity: 14, remainingQuantity: 7 });
+    });
+
+    it('re-checks the prescription inside the sale so two tills cannot both dispense the rest', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({ rows: [rxBatch] }) // bill batch
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 2, dispensed: 0, reserved: 0 }],
+        })
+        .mockResolvedValue({ rows: [] }); // patient lookup, link to pharmacy
+
+      // Meanwhile another sale gave out both units.
+      const client = {
+        query: vi
+          .fn()
+          .mockResolvedValueOnce({
+            rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+          })
+          .mockResolvedValueOnce({
+            rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 2, dispensed: 2, reserved: 0 }],
+          }),
+      };
+      mockDb.transaction.mockImplementation((cb: any) => cb(client));
+
+      await expect(
+        service.createSale(
+          1,
+          {
+            paymentCategory: 'PRIVATE',
+            paymentMethod: 'CASH',
+            patientId: 7,
+            prescriptionReference: 'RX-1',
+            items: [{ inventoryId: 10, quantity: 2 }],
+          },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/all 2 prescribed have already been given out/);
+      expect(client.query.mock.calls[0][0]).toMatch(/FOR UPDATE/);
+      expect(client.query).toHaveBeenCalledTimes(2); // nothing written
     });
   });
 
