@@ -122,12 +122,13 @@ export default function PrescriptionLookupScreen() {
               </Text>
             ) : (
               result!.items.map((item) => {
-                const canOrder = rx.usable && item.in_stock;
+                const left = item.remaining_quantity;
+                const canOrder = rx.usable && item.in_stock && left > 0;
                 return (
                   <TouchableOpacity
                     key={item.medicine_id}
                     style={[styles.itemCard, !canOrder && { opacity: 0.6 }]}
-                    onPress={() => openMedicine(item.medicine_id, item.quantity)}
+                    onPress={() => openMedicine(item.medicine_id, left)}
                     disabled={!canOrder}
                     activeOpacity={0.85}
                   >
@@ -137,7 +138,14 @@ export default function PrescriptionLookupScreen() {
                         {item.medicine_name}{item.strength && !item.medicine_name.includes(item.strength) ? ` ${item.strength}` : ''}
                       </Text>
                       <Text style={styles.itemMeta}>
-                        {t('rxLookup.qty', 'Quantity: {{count}}', { count: item.quantity })}
+                        {t('rxLookup.qty', 'Prescribed: {{count}}', { count: item.quantity })}
+                        {item.dispensed_quantity > 0 ? ` · ${t('rxLookup.given', '{{count}} already given', { count: item.dispensed_quantity })}` : ''}
+                        {item.ordered_quantity > 0 ? ` · ${t('rxLookup.ordered', '{{count}} in your orders', { count: item.ordered_quantity })}` : ''}
+                      </Text>
+                      <Text style={[styles.itemMeta, { fontWeight: '700', color: left > 0 ? '#0F2926' : '#B54708' }]}>
+                        {left > 0
+                          ? t('rxLookup.left', 'You can order {{count}} more', { count: left })
+                          : t('rxLookup.none', 'Nothing left to order on this prescription')}
                       </Text>
                       {item.dosage_instructions ? <Text style={styles.itemMeta}>{item.dosage_instructions}</Text> : null}
                       {item.in_stock ? (

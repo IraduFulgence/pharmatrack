@@ -10,6 +10,10 @@ import { DatabaseService } from '../database/database.service.js';
 import { PatientsService } from '../patients/patients.service.js';
 import { UploadService } from '../upload/upload.service.js';
 import { rankByFuzzy } from '../common/utils/fuzzy-match.js';
+import {
+  getPrescriptionBalance,
+  prescriptionQuantityProblems,
+} from '../common/utils/prescription-balance.js';
 
 type PaymentMethod = 'CASH_ON_COLLECTION' | 'MOBILE_MONEY';
 type MobileMoneyProvider = 'MTN_MOMO' | 'AIRTEL_MONEY';
@@ -29,6 +33,17 @@ const IN_STOCK_SOMEWHERE = `EXISTS (
   JOIN public.pharmacies p ON p.pharmacy_id = ib.pharmacy_id
   WHERE ${STOCK_FILTER}
 )`;
+
+// Units of a medicine already promised to open online orders at a pharmacy. They are still
+// on the shelf (stock comes off when the order is collected) but can't be ordered again.
+const RESERVED_FOR_ORDERS = (pharmacyIdExpr: string, medicineIdExpr: string) => `COALESCE((
+  SELECT SUM(oi.quantity)
+  FROM public.marketplace_order_items oi
+  JOIN public.marketplace_orders o ON o.order_id = oi.order_id
+  WHERE o.pharmacy_id = ${pharmacyIdExpr}
+    AND oi.medicine_id = ${medicineIdExpr}
+    AND o.status IN ('PENDING', 'ACCEPTED', 'READY_FOR_COLLECTION')
+), 0)`;
 
 @Injectable()
 export class MarketplaceService {
@@ -85,7 +100,10 @@ export class MarketplaceService {
     const result = await client.query(
       `
         SELECT
-          COALESCE(SUM(ib.quantity), 0)::INTEGER AS available_quantity,
+          GREATEST(
+            COALESCE(SUM(ib.quantity), 0) - ${RESERVED_FOR_ORDERS('$1', '$2')},
+            0
+          )::INTEGER AS available_quantity,
           MIN(COALESCE(ib.selling_price, ib.unit_price)) AS unit_price
         FROM public.inventory_batches ib
         INNER JOIN public.pharmacies p
@@ -306,7 +324,7 @@ export class MarketplaceService {
           p.location_address,
           p.latitude,
           p.longitude,
-          SUM(ib.quantity)::INTEGER AS available_quantity,
+          (SUM(ib.quantity) - ${RESERVED_FOR_ORDERS('p.pharmacy_id', '$1')})::INTEGER AS available_quantity,
           MIN(COALESCE(ib.selling_price, ib.unit_price)) AS lowest_price,
           MAX(COALESCE(ib.selling_price, ib.unit_price)) AS highest_price
         FROM public.inventory_batches ib
@@ -325,6 +343,7 @@ export class MarketplaceService {
           p.location_address,
           p.latitude,
           p.longitude
+        HAVING SUM(ib.quantity) - ${RESERVED_FOR_ORDERS('p.pharmacy_id', '$1')} > 0
         ORDER BY lowest_price ASC NULLS LAST, p.pharmacy_id ASC
       `,
       [medicineId],
@@ -515,7 +534,9 @@ export class MarketplaceService {
 
       if (newQuantity > availableQuantity) {
         throw new ConflictException(
-          `Only ${availableQuantity} unit(s) are currently available at this pharmacy.`,
+          availableQuantity > 0
+            ? `Only ${availableQuantity} unit(s) are available to order at this pharmacy right now.`
+            : 'This medicine is out of stock at this pharmacy right now.',
         );
       }
 
@@ -702,7 +723,9 @@ export class MarketplaceService {
         stock.unit_price === null
       ) {
         throw new ConflictException(
-          `The requested quantity is not available. Current available quantity: ${availableQuantity}.`,
+          availableQuantity > 0
+            ? `Only ${availableQuantity} unit(s) are available to order at this pharmacy right now.`
+            : 'This medicine is out of stock at this pharmacy right now.',
         );
       }
 
@@ -953,6 +976,20 @@ export class MarketplaceService {
         );
       }
 
+      if (prescriptionReference) {
+        const rxItems = cartItemsResult.rows
+          .filter((item: any) => item.requires_prescription)
+          .map((item: any) => ({
+            medicineId: Number(item.medicine_id),
+            medicineName: item.medicine_name,
+            quantity: Number(item.quantity),
+          }));
+        const problems = await this.checkOrderPrescription(client, patientId, prescriptionReference, rxItems);
+        if (problems.length > 0) {
+          throw new BadRequestException(problems.join(' '));
+        }
+      }
+
       const orderItems: Array<{
         medicineId: number;
         medicineName: string;
@@ -986,7 +1023,9 @@ export class MarketplaceService {
           availableQuantity < quantity
         ) {
           throw new ConflictException(
-            `${item.medicine_name} is no longer available in the requested quantity. Available quantity: ${availableQuantity}.`,
+            availableQuantity > 0
+              ? `${item.medicine_name}: only ${availableQuantity} unit(s) left to order at this pharmacy. Lower the quantity in your cart.`
+              : `${item.medicine_name} is now out of stock at this pharmacy. Remove it from your cart.`,
           );
         }
 
@@ -1134,6 +1173,39 @@ export class MarketplaceService {
   }
 
   /**
+   * Problems with ordering these prescription-only quantities on this prescription number.
+   * A number PharmaTrack doesn't know is accepted: the pharmacy checks it (or the photo).
+   * Locks the prescription so two orders can't both claim what is left.
+   */
+  private async checkOrderPrescription(
+    client: any,
+    patientId: number,
+    reference: string,
+    rxItems: Array<{ medicineId: number; medicineName: string; quantity: number }>,
+  ): Promise<string[]> {
+    const res = await client.query(
+      `SELECT prescription_id, patient_id, status
+       FROM public.prescriptions
+       WHERE LOWER(prescription_reference) = LOWER($1)
+       FOR UPDATE`,
+      [reference],
+    );
+    const pr = res.rows[0];
+    if (!pr) return [];
+    if (Number(pr.patient_id) !== patientId) {
+      return ['This prescription number is not on your account. Check the number, or attach a photo of your prescription instead.'];
+    }
+    const status = String(pr.status || '').toUpperCase();
+    if (status === 'FULFILLED') return ['This prescription has already been fully dispensed.'];
+    if (status === 'CANCELLED') return ['This prescription was cancelled.'];
+    if (status === 'EXPIRED') return ['This prescription has expired.'];
+
+    const balance = await getPrescriptionBalance(client, Number(pr.prescription_id), { patientId, reference });
+    if (balance.length === 0 || rxItems.length === 0) return [];
+    return prescriptionQuantityProblems(balance, rxItems);
+  }
+
+  /**
    * A patient looks up one of their own prescriptions by its number or SMS code
    * and sees the medicines on it, with where they can be ordered.
    * Another patient's prescription is reported as not found.
@@ -1195,6 +1267,12 @@ export class MarketplaceService {
       [prescription.prescription_id],
     );
 
+    const balance = await getPrescriptionBalance(this.databaseService, Number(prescription.prescription_id), {
+      patientId,
+      reference: prescription.prescription_reference,
+    });
+    const balanceByMedicine = new Map(balance.map((b) => [b.medicineId, b]));
+
     const status = String(prescription.status || 'ACTIVE').toUpperCase();
     const problem =
       status === 'FULFILLED'
@@ -1217,13 +1295,19 @@ export class MarketplaceService {
           usable: problem === null,
           problem,
         },
-        items: itemsResult.rows.map((row: any) => ({
-          ...row,
-          medicine_id: Number(row.medicine_id),
-          quantity: Number(row.quantity),
-          pharmacy_count: Number(row.pharmacy_count || 0),
-          in_stock: Number(row.pharmacy_count || 0) > 0,
-        })),
+        items: itemsResult.rows.map((row: any) => {
+          const b = balanceByMedicine.get(Number(row.medicine_id));
+          return {
+            ...row,
+            medicine_id: Number(row.medicine_id),
+            quantity: Number(row.quantity),
+            dispensed_quantity: b?.dispensed ?? 0,
+            ordered_quantity: b?.reserved ?? 0, // in your open online orders
+            remaining_quantity: b?.remaining ?? Number(row.quantity),
+            pharmacy_count: Number(row.pharmacy_count || 0),
+            in_stock: Number(row.pharmacy_count || 0) > 0,
+          };
+        }),
       },
     };
   }

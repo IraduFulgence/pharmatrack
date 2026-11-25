@@ -21,12 +21,6 @@ import {
   ParseIntPipe,
   ForbiddenException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiResponse as SwaggerResponse,
-} from '@nestjs/swagger';
 import { InsuranceService } from './insurance.service.js';
 import { CreatePharmacyInsuranceDto } from './dto/create-pharmacy-insurance.dto.js';
 import { UpdatePharmacyInsuranceDto } from './dto/update-pharmacy-insurance.dto.js';

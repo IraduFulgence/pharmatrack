@@ -17,9 +17,12 @@ export default function ProductDetailScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams();
   const medicineId = Array.isArray(params.id) ? params.id[0] : params.id;
-  // Opened from a prescription: start at the prescribed quantity.
-  const prescribedQty = Math.max(1, Number(Array.isArray(params.qty) ? params.qty[0] : params.qty) || 1);
-  const startQty = (offer: PharmacyOffer) => Math.max(1, Math.min(prescribedQty, Number(offer.available_quantity) || 1));
+  // Opened from a prescription: start at, and never go above, what the prescription still allows.
+  const rawMax = Number(Array.isArray(params.qty) ? params.qty[0] : params.qty);
+  const rxMax = Number.isInteger(rawMax) && rawMax > 0 ? rawMax : null;
+  const maxFor = (offer: PharmacyOffer) =>
+    Math.max(1, Math.min(Number(offer.available_quantity) || 1, rxMax ?? Infinity));
+  const startQty = (offer: PharmacyOffer) => (rxMax !== null ? maxFor(offer) : 1);
   const { location, hasPermission, isLoading: isLocating, requestlocation } = useLocation();
 
   const [medicine, setMedicine] = useState<CatalogueMedicine | null>(null);
@@ -55,11 +58,18 @@ export default function ProductDetailScreen() {
   }, [offers, here?.latitude, here?.longitude]);
 
   const changeQty = (offer: PharmacyOffer, delta: number) => {
-    setQuantities((q) => {
-      const current = q[offer.pharmacy_id] || startQty(offer);
-      const next = Math.max(1, Math.min(Number(offer.available_quantity), current + delta));
-      return { ...q, [offer.pharmacy_id]: next };
-    });
+    const current = quantities[offer.pharmacy_id] || startQty(offer);
+    if (delta > 0 && current >= maxFor(offer)) {
+      Alert.alert(
+        t('product.maxTitle', 'Maximum reached'),
+        rxMax !== null && rxMax <= Number(offer.available_quantity)
+          ? t('product.maxRx', 'Your prescription allows {{count}}.', { count: rxMax })
+          : t('product.maxStock', 'This pharmacy has {{count}} available to order.', { count: offer.available_quantity }),
+      );
+      return;
+    }
+    const next = Math.max(1, Math.min(maxFor(offer), current + delta));
+    setQuantities((q) => ({ ...q, [offer.pharmacy_id]: next }));
   };
 
   const addToCart = async (offer: PharmacyOffer) => {
@@ -188,6 +198,9 @@ export default function ProductDetailScreen() {
                     <View>
                       <Text style={styles.price}>{formatRwf(offer.lowest_price)}</Text>
                       <Text style={styles.meta}>{offer.available_quantity} {t('marketplace.inStock', 'in stock')}</Text>
+                      {rxMax !== null ? (
+                        <Text style={styles.meta}>{t('product.rxAllows', 'Prescription: up to {{count}}', { count: rxMax })}</Text>
+                      ) : null}
                     </View>
                     <View style={styles.actions}>
                       <View style={styles.stepper}>

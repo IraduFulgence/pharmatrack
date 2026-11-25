@@ -567,11 +567,15 @@ const SalesPOS = () => {
                     rxCheck.valid && rxCheck.found ? (
                       <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-xs text-green-800 dark:text-green-300">
                         <p className="font-semibold flex items-center gap-1"><CheckCircle2 size={14} /> Prescription verified</p>
-                        <p className="mt-1">Issued {rxCheck.prescription?.issuedDate}. It will be marked as dispensed with this sale.</p>
+                        <p className="mt-1">Issued {rxCheck.prescription?.issuedDate}. It is closed once everything on it has been given out.</p>
                         {rxCheck.prescription?.items?.length > 0 && (
                           <ul className="mt-1 list-disc list-inside">
                             {rxCheck.prescription.items.map((it) => (
-                              <li key={it.medicineId}>{it.medicineName} {it.strength} &times; {it.prescribedQuantity}</li>
+                              <li key={it.medicineId}>
+                                {it.medicineName} {it.strength}: {it.prescribedQuantity} prescribed
+                                {it.dispensedQuantity > 0 ? `, ${it.dispensedQuantity} already given` : ''}
+                                {' '}&mdash; <span className="font-semibold">{it.remainingQuantity ?? it.prescribedQuantity} left</span>
+                              </li>
                             ))}
                           </ul>
                         )}
