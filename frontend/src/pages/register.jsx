@@ -1,4 +1,22 @@
 import React, { useState } from 'react';
+
+// Patients must be 18+ to register themselves (the server checks this too).
+const MIN_PATIENT_AGE = 18;
+const isoDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Latest date of birth allowed today: exactly 18 years ago (29 Feb -> 28 Feb).
+const latestAdultDob = () => {
+  const t = new Date();
+  const d = new Date(t.getFullYear() - MIN_PATIENT_AGE, t.getMonth(), t.getDate());
+  if (d.getMonth() !== t.getMonth()) d.setDate(0);
+  return isoDate(d);
+};
+
+const HOUSEHOLD_ROLES = [
+  { value: 'FAMILY_HEAD', label: 'Head of the family', hint: 'You can add your spouse and children later.' },
+  { value: 'SPOUSE', label: 'Spouse', hint: 'You can help manage your family later.' },
+  { value: 'OTHER_ADULT', label: 'Another adult', hint: 'For example an adult child or relative.' },
+];
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, Building2, Phone, Mail, Lock, Eye, EyeOff, 
@@ -38,6 +56,7 @@ const Register = () => {
     fullName: '',
     gender: 'Male',
     dateOfBirth: '',
+    householdRole: '',
     phone: '',
     email: '',
     password: '',
@@ -121,6 +140,11 @@ const Register = () => {
       } else {
         if (!formData.fullName.trim()) newErrors.fullName = "Full Name is required";
         if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
+        else if (formData.dateOfBirth > isoDate(new Date())) newErrors.dateOfBirth = "Date of birth cannot be in the future";
+        else if (formData.dateOfBirth > latestAdultDob()) {
+          newErrors.dateOfBirth = `You must be at least ${MIN_PATIENT_AGE} to create an account. A parent or guardian can add you to their family instead.`;
+        }
+        if (!formData.householdRole) newErrors.householdRole = "Choose your role in your household";
       }
       if (!/^\+[1-9]\d{1,14}$/.test(formData.phone)) {
         newErrors.phone = "Phone must be in international format (e.g., +250788123456)";
@@ -176,6 +200,7 @@ const Register = () => {
           phoneNumber: formData.phone,
           email: formData.email,
           gender: formData.gender,
+          householdRole: formData.householdRole,
           password: formData.password
         });
         alert("Patient account created successfully!");
@@ -308,9 +333,13 @@ const Register = () => {
                       <input
                         type="date"
                         value={formData.dateOfBirth}
+                        max={latestAdultDob()}
                         onChange={(e) => updateData('dateOfBirth', e.target.value)}
-                        className="block w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white"
+                        className={`block w-full px-4 py-2.5 border rounded-lg dark:bg-gray-900 dark:text-white ${errors.dateOfBirth ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                       />
+                      {errors.dateOfBirth
+                        ? <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>
+                        : <p className="text-gray-500 text-xs mt-1">You must be {MIN_PATIENT_AGE} or older.</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
@@ -324,6 +353,28 @@ const Register = () => {
                         <option value="Other">Other</option>
                       </select>
                     </div>
+                  </div>
+                )}
+
+                {!isPharmacy && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your role in your household</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {HOUSEHOLD_ROLES.map((r) => (
+                        <button
+                          key={r.value}
+                          type="button"
+                          onClick={() => updateData('householdRole', r.value)}
+                          className={`text-left p-3 rounded-lg border-2 transition-colors ${formData.householdRole === r.value
+                            ? 'border-[#007a55] bg-[#e6f4ef] dark:bg-[#007a55]/20'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
+                        >
+                          <span className="block text-sm font-semibold text-gray-900 dark:text-white">{r.label}</span>
+                          <span className="block text-xs text-gray-500 mt-0.5">{r.hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {errors.householdRole && <p className="text-red-500 text-xs mt-1">{errors.householdRole}</p>}
                   </div>
                 )}
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { todayIso } from '../common/utils/age.js';
 import { ConflictException, UnauthorizedException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
@@ -54,6 +55,7 @@ describe('AuthService', () => {
       email: 'john@example.com',
       gender: 'Male' as const,
       password: 'Password@123',
+      householdRole: 'FAMILY_HEAD' as const,
     };
 
     it('should successfully register a new patient with dateOfBirth and calculated age', async () => {
@@ -93,6 +95,8 @@ describe('AuthService', () => {
         phoneNumber: '+250788123456',
         email: 'john@example.com',
         gender: 'Male',
+        householdRole: 'FAMILY_HEAD',
+        canManageFamily: true,
         role: 'PATIENT',
       });
       expect((result.data as any).password).toBeUndefined();
@@ -106,6 +110,7 @@ describe('AuthService', () => {
         phoneNumber: '+250788999888',
         gender: 'Female' as const,
         password: 'Password@123',
+        householdRole: 'SPOUSE' as const,
       };
       const expectedAge = calculateAge(minimalPatientDto.dateOfBirth);
 
@@ -140,6 +145,8 @@ describe('AuthService', () => {
         phoneNumber: '+250788999888',
         email: null,
         gender: 'Female',
+        householdRole: 'SPOUSE',
+        canManageFamily: true,
         role: 'PATIENT',
       });
     });
@@ -151,6 +158,48 @@ describe('AuthService', () => {
           ...validPatientDto,
           dateOfBirth: `${futureYear}-01-01`,
         }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a patient who turns 18 tomorrow, and says when they can register', async () => {
+      const today = todayIso();
+      const [y, m, d] = today.split('-').map(Number);
+      const tomorrow = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+      const dob = `${Number(tomorrow.slice(0, 4)) - 18}${tomorrow.slice(4)}`;
+
+      const attempt = authService.registerPatient({ ...validPatientDto, nationalId: undefined, dateOfBirth: dob });
+      await expect(attempt).rejects.toThrow(BadRequestException);
+      await expect(attempt).rejects.toThrow(/at least 18/);
+      expect(mockDb.query).not.toHaveBeenCalled();
+    });
+
+    it('accepts a patient whose 18th birthday is today', async () => {
+      const today = todayIso();
+      const dob = `${Number(today.slice(0, 4)) - 18}${today.slice(4)}`;
+      if (dob.endsWith('-02-29')) return; // not a real date 18 years ago
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [] }) // email patient check
+        .mockResolvedValueOnce({ rows: [] }) // email pharmacy check
+        .mockResolvedValueOnce({ rows: [] }) // phone patient check
+        .mockResolvedValueOnce({ rows: [] }) // phone pharmacy check
+        .mockResolvedValueOnce({ rows: [{ patient_id: '9', full_name: 'New Adult', date_of_birth: dob, phone_number: '+250788000111', gender: 'Female', household_role: 'OTHER_ADULT' }] });
+
+      const res = await authService.registerPatient({ ...validPatientDto, nationalId: undefined, dateOfBirth: dob, householdRole: 'OTHER_ADULT' });
+      expect((res.data as any).age).toBe(18);
+      expect((res.data as any).canManageFamily).toBe(false);
+      expect(mockDb.query.mock.calls[4][1][8]).toBe('OTHER_ADULT'); // saved
+    });
+
+    it('rejects a date of birth that does not match the birth year in a Rwandan National ID', async () => {
+      await expect(
+        authService.registerPatient({ ...validPatientDto, nationalId: '1199080012345012', dateOfBirth: '1995-03-10' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockDb.query).not.toHaveBeenCalled();
+    });
+
+    it('rejects an impossible calendar date', async () => {
+      await expect(
+        authService.registerPatient({ ...validPatientDto, dateOfBirth: '1990-02-30' }),
       ).rejects.toThrow(BadRequestException);
     });
 

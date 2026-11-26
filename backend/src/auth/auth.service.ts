@@ -18,16 +18,19 @@ import type { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import type { ResetPasswordDto } from './dto/reset-password.dto.js';
 import type { ApiResponse } from '../common/interfaces/api-response.interface.js';
 import type { UserRole } from '../common/interfaces/jwt-payload.interface.js';
+import {
+  MIN_SELF_REGISTRATION_AGE,
+  ageOn,
+  birthYearFromRwandanNid,
+  birthdayAtAge,
+  isRealDate,
+  todayIso,
+} from '../common/utils/age.js';
 
 export function calculateAge(dob: string | Date): number {
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
+  // Strings are calendar dates; Date objects (from pg) are read in local server time.
+  const iso = typeof dob === 'string' ? dob.slice(0, 10) : formatDate(dob);
+  return ageOn(iso, todayIso());
 }
 
 export function formatDate(date: string | Date): string {
@@ -58,20 +61,25 @@ export class AuthService {
    * Email and National ID are optional.
    */
   async registerPatient(dto: RegisterPatientDto): Promise<ApiResponse> {
-    const { fullName, dateOfBirth, phoneNumber, gender, password } = dto;
+    const { fullName, dateOfBirth, phoneNumber, gender, password, householdRole } = dto;
 
     // Normalize optional fields — empty strings become null
     const cleanEmail = dto.email?.trim().toLowerCase() || null;
     const cleanNationalId = dto.nationalId?.trim() || null;
     const cleanPhone = phoneNumber.trim();
 
-    // 1. Validate dateOfBirth logic (must be in the past, reasonable age between 0 and 130)
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const birthDateStart = new Date(birthDate.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+    // 1. Validate dateOfBirth: a real past date, and the patient must be an adult (18+).
+    //    Compared as calendar dates in Rwanda's time zone.
+    const today = todayIso();
+    if (!isRealDate(dateOfBirth)) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Validation failed.',
+        errors: { dateOfBirth: 'Date of birth must be a real calendar date.' },
+      });
+    }
 
-    if (birthDateStart > todayStart) {
+    if (dateOfBirth > today) {
       throw new BadRequestException({
         success: false,
         message: 'Validation failed.',
@@ -81,13 +89,36 @@ export class AuthService {
       });
     }
 
-    const calculatedAge = calculateAge(dateOfBirth);
+    const calculatedAge = ageOn(dateOfBirth, today);
     if (calculatedAge < 0 || calculatedAge > 130) {
       throw new BadRequestException({
         success: false,
         message: 'Validation failed.',
         errors: {
           dateOfBirth: 'Date of birth must correspond to a valid human age (between 0 and 130 years).',
+        },
+      });
+    }
+
+    if (calculatedAge < MIN_SELF_REGISTRATION_AGE) {
+      const eligibleOn = birthdayAtAge(dateOfBirth, MIN_SELF_REGISTRATION_AGE);
+      throw new BadRequestException({
+        success: false,
+        message: `You must be at least ${MIN_SELF_REGISTRATION_AGE} years old to create a PharmaTrack account.`,
+        errors: {
+          dateOfBirth: `You must be at least ${MIN_SELF_REGISTRATION_AGE} to register. You can register from ${eligibleOn}; until then a parent or guardian can add you to their family.`,
+        },
+      });
+    }
+
+    // A Rwandan National ID carries the birth year; it must match the date of birth.
+    const nidBirthYear = birthYearFromRwandanNid(cleanNationalId);
+    if (nidBirthYear !== null && nidBirthYear !== Number(dateOfBirth.slice(0, 4))) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Validation failed.',
+        errors: {
+          dateOfBirth: `Your National ID shows ${nidBirthYear} as your birth year. Check your date of birth or National ID.`,
         },
       });
     }
@@ -137,10 +168,10 @@ export class AuthService {
     try {
       const result = await this.db.query(
         `INSERT INTO public.patients 
-          (national_id, full_name, age, date_of_birth, phone_number, email, gender, password_hash, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-         RETURNING patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender`,
-        [cleanNationalId, fullName.trim(), calculatedAge, dateOfBirth, cleanPhone, cleanEmail, gender, passwordHash],
+          (national_id, full_name, age, date_of_birth, phone_number, email, gender, password_hash, is_active, household_role)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9)
+         RETURNING patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender, household_role`,
+        [cleanNationalId, fullName.trim(), calculatedAge, dateOfBirth, cleanPhone, cleanEmail, gender, passwordHash, householdRole],
       );
 
       const patient = result.rows[0];
@@ -157,6 +188,8 @@ export class AuthService {
           phoneNumber: patient.phone_number,
           email: patient.email || null,
           gender: patient.gender,
+          householdRole: patient.household_role ?? householdRole,
+          canManageFamily: ['FAMILY_HEAD', 'SPOUSE'].includes(patient.household_role ?? householdRole),
           role: 'PATIENT',
         },
       };
@@ -678,8 +711,9 @@ export class AuthService {
   async getProfile(userId: number, role: UserRole): Promise<ApiResponse> {
     if (role === 'PATIENT') {
       const result = await this.db.query(
-        `SELECT patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender, is_active, created_at 
-         FROM public.patients 
+        `SELECT patient_id, national_id, full_name, age, to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth, phone_number, email, gender, is_active, created_at,
+                household_role
+         FROM public.patients
          WHERE patient_id = $1`,
         [userId],
       );
@@ -702,6 +736,8 @@ export class AuthService {
           phoneNumber: p.phone_number,
           email: p.email || null,
           gender: p.gender,
+          householdRole: p.household_role || null,
+          canManageFamily: ['FAMILY_HEAD', 'SPOUSE'].includes(p.household_role),
           role: 'PATIENT',
         },
       };

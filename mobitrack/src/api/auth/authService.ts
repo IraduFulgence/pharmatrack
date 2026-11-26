@@ -1,11 +1,14 @@
 import { ApiRequest } from "../config";
 import * as SecureStore from 'expo-secure-store';
 
+export type HouseholdRole = 'FAMILY_HEAD' | 'SPOUSE' | 'OTHER_ADULT';
+
 export interface PatientRegisterData{
  fullName: string;
   dateOfBirth: string;
   phoneNumber: string;
   gender: 'Male' | 'Female' | 'Other';
+  householdRole: HouseholdRole;
   email?: string;
   password?: string;
 }

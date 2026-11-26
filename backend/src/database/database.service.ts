@@ -316,6 +316,18 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS medicine_image_path VARCHAR(500);
       `);
 
+      // Patients: role in their household. Family heads and spouses can build the family tree.
+      await this.pool.query(`
+        ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS household_role VARCHAR(20);
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'patients_household_role_check') THEN
+            ALTER TABLE public.patients ADD CONSTRAINT patients_household_role_check
+              CHECK (household_role IS NULL OR household_role IN ('FAMILY_HEAD', 'SPOUSE', 'OTHER_ADULT'));
+          END IF;
+        END $$;
+      `);
+
       // ============================================================
       // Migration 007: Inventory Management and Transactions
       // ============================================================

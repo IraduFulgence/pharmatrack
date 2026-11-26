@@ -9,6 +9,9 @@ import {
   Matches,
 } from 'class-validator';
 
+export const HOUSEHOLD_ROLES = ['FAMILY_HEAD', 'SPOUSE', 'OTHER_ADULT'] as const;
+export type HouseholdRole = (typeof HOUSEHOLD_ROLES)[number];
+
 export class RegisterPatientDto {
   @ApiPropertyOptional({
     example: '1234567890123456',
@@ -30,7 +33,7 @@ export class RegisterPatientDto {
 
   @ApiProperty({
     example: '1998-05-15',
-    description: 'Date of birth in YYYY-MM-DD format',
+    description: 'Date of birth in YYYY-MM-DD format. Patients must be 18 or older to register themselves.',
   })
   @IsNotEmpty({ message: 'Date of birth is required.' })
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
@@ -70,6 +73,18 @@ export class RegisterPatientDto {
     message: 'Gender must be Male, Female, or Other.',
   })
   gender: 'Male' | 'Female' | 'Other';
+
+  @ApiProperty({
+    example: 'FAMILY_HEAD',
+    enum: HOUSEHOLD_ROLES,
+    description:
+      'Role in the household: FAMILY_HEAD, SPOUSE, or OTHER_ADULT. Family heads and spouses can later build the family tree in their profile.',
+  })
+  @IsNotEmpty({ message: 'Tell us your role in your household.' })
+  @IsIn(HOUSEHOLD_ROLES as unknown as string[], {
+    message: 'Household role must be FAMILY_HEAD, SPOUSE or OTHER_ADULT.',
+  })
+  householdRole: HouseholdRole;
 
   @ApiProperty({
     example: 'John@12345',

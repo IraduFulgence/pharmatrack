@@ -10,6 +10,25 @@ import { useState } from "react";
 import AuthHeader from "@/components/topheader/auth_header";
 import { AuthService } from "@/src/api/auth/authService";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import type { HouseholdRole } from '@/src/api/auth/authService';
+
+// Patients must be 18+ to register themselves (the server checks this too).
+const MIN_PATIENT_AGE = 18;
+const toIso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Latest date of birth allowed today: exactly 18 years ago (29 Feb -> 28 Feb).
+const latestAdultDob = () => {
+  const t = new Date();
+  const d = new Date(t.getFullYear() - MIN_PATIENT_AGE, t.getMonth(), t.getDate());
+  if (d.getMonth() !== t.getMonth()) d.setDate(0);
+  return d;
+};
+
+const HOUSEHOLD_ROLES: { value: HouseholdRole; label: string; hint: string }[] = [
+  { value: 'FAMILY_HEAD', label: 'Head of the family', hint: 'You can add your spouse and children later.' },
+  { value: 'SPOUSE', label: 'Spouse', hint: 'You can help manage your family later.' },
+  { value: 'OTHER_ADULT', label: 'Another adult', hint: 'For example an adult child or relative.' },
+];
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -22,6 +41,7 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
+  const [householdRole, setHouseholdRole] = useState<HouseholdRole | ''>('');
   
   // Validation State
   const [errors, setErrors] = useState<{[key: string]: string}>({});
@@ -30,7 +50,10 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(new Date(2000, 0, 1));
+  const [tempDate, setTempDate] = useState(() => {
+    const d = new Date(2000, 0, 1);
+    return d > latestAdultDob() ? latestAdultDob() : d;
+  });
 
   const handleSwitch = () => {
     router.replace('/auth/login');
@@ -46,6 +69,16 @@ export default function RegisterScreen() {
       
       case 'dateOfBirth':
         if (!value.trim()) return `${t('auth.signup.DOBFail')}`;
+        if (value > toIso(latestAdultDob())) {
+          return t('auth.signup.under18', {
+            defaultValue: 'You must be at least {{age}} to create an account. A parent or guardian can add you to their family instead.',
+            age: MIN_PATIENT_AGE,
+          });
+        }
+        return "";
+
+      case 'householdRole':
+        if (!value) return t('auth.signup.householdRoleFail', 'Choose your role in your household.');
         return "";
 
       case 'phone':
@@ -111,6 +144,7 @@ export default function RegisterScreen() {
     
     newErrors.fullName = validateField('fullName', fullName);
     newErrors.dateOfBirth = validateField('dateOfBirth', dateOfBirth);
+    newErrors.householdRole = validateField('householdRole', householdRole);
     newErrors.phone = validateField('phone', phone);
     newErrors.email = validateField('email', email);
     newErrors.password = validateField('password', password);
@@ -133,7 +167,8 @@ export default function RegisterScreen() {
         dateOfBirth: dateOfBirth.trim(),
         phoneNumber: phone.trim(),
         gender: Gender,
-        email: email.trim() || undefined, 
+        householdRole: householdRole as HouseholdRole,
+        email: email.trim() || undefined,  
         password: password,
       });
       
@@ -240,7 +275,9 @@ export default function RegisterScreen() {
                   {dateOfBirth || "YYYY-MM-DD"}
                 </Text>
               </TouchableOpacity>
-              {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
+              {errors.dateOfBirth
+                ? <Text style={styles.errorText}>{errors.dateOfBirth}</Text>
+                : <Text style={styles.hintText}>{t('auth.signup.ageHint', { defaultValue: 'You must be {{age}} or older.', age: MIN_PATIENT_AGE })}</Text>}
             </View>
 
             {showDatePicker && (
@@ -250,7 +287,7 @@ export default function RegisterScreen() {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleDateChange}
-                  maximumDate={new Date()} 
+                  maximumDate={latestAdultDob()} 
                   themeVariant="light"
                 />
                 {Platform.OS === 'ios' && (
@@ -268,6 +305,38 @@ export default function RegisterScreen() {
                 {renderRadioOption(t('auth.signup.genderlabelMale'), "Male")}
                 {renderRadioOption(t('auth.signup.genderlabelFemale'), "Female")}
               </View>
+            </View>
+
+            {/* Household role (family heads and spouses can build the family tree later) */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.signup.householdRole', 'Your role in your household')}</Text>
+              <View style={{ gap: 8 }}>
+                {HOUSEHOLD_ROLES.map((r) => {
+                  const selected = householdRole === r.value;
+                  return (
+                    <TouchableOpacity
+                      key={r.value}
+                      style={[styles.radioOption, styles.roleOption, selected && styles.radioOptionSelected]}
+                      onPress={() => {
+                        setHouseholdRole(r.value);
+                        if (errors.householdRole) setErrors((prev) => ({ ...prev, householdRole: '' }));
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
+                        {selected && <View style={styles.radioInnerCircle} />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.radioLabel, selected && styles.radioLabelSelected]}>
+                          {t(`auth.signup.role_${r.value}`, r.label)}
+                        </Text>
+                        <Text style={styles.hintText}>{t(`auth.signup.roleHint_${r.value}`, r.hint)}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {errors.householdRole && <Text style={styles.errorText}>{errors.householdRole}</Text>}
             </View>
 
             {/* Email */}
@@ -469,6 +538,16 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     marginTop: 4,
     fontWeight: '500',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#667085',
+    marginTop: 4,
+  },
+  // Full-width, stacked radio cards (radioOption is laid out for a row).
+  roleOption: {
+    flex: 0,
+    alignItems: 'flex-start',
   },
 
   radioGroup: { 
