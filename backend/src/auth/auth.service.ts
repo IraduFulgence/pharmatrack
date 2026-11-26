@@ -346,6 +346,7 @@ export class AuthService {
       `SELECT patient_id, full_name, email, phone_number, password_hash, is_active 
        FROM public.patients 
        WHERE LOWER(email) = $1 OR phone_number = $2 
+       ORDER BY (password_hash IS NULL), patient_id
        LIMIT 1`,
       [cleanEmail, identifier],
     );

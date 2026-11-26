@@ -1,4 +1,5 @@
 import { ApiRequest } from "./auth";
+import { downloadFile } from "./catalogueService";
 
 const getPharmacyId = () => {
   try {
@@ -146,6 +147,10 @@ export const inventoryService = {
       body: formData,
     });
   },
+
+  // The server's template (the columns it reads), as Excel or CSV.
+  downloadImportTemplate: (format = 'xlsx') =>
+    downloadFile(`/inventory/template?format=${format}`, `pharmatrack_inventory_template.${format}`),
 
   importStock: async (pharmacyId, formData) => {
     return ApiRequest(`/inventory/import?pharmacyId=${pharmacyId}`, {

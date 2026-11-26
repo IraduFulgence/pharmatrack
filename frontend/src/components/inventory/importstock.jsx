@@ -3,7 +3,6 @@ import {
   UploadCloud, FileSpreadsheet, Loader2, 
   CheckCircle2, AlertCircle, Download, X 
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { inventoryService } from '../../services/inventoryService';
 
 const BulkStockImport = ({ pharmacyId, onSuccess }) => {
@@ -13,6 +12,8 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
   const [error, setError] = useState(null);
   const [previewErrors, setPreviewErrors] = useState([]);
   const [isValid, setIsValid] = useState(false);
+  const [summary, setSummary] = useState(null); // { totalRows, validRows, invalidRows }
+  const [result, setResult] = useState(null);
 
   const handleFileUpload = (e) => {
     const selectedFile = e.target.files[0];
@@ -22,6 +23,12 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
     setError(null);
     setPreviewErrors([]);
     setIsValid(false);
+    setSummary(null);
+    setResult(null);
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      setError('The file must be 5 MB or smaller.');
+      return;
+    }
     
     // Automatically trigger preview when file is selected
     handlePreview(selectedFile);
@@ -38,14 +45,17 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
       formData.append('file', fileToPreview);
 
       const response = await inventoryService.previewImport(pharmacyId, formData);
-      
-      // Check if backend returned validation errors
-      if (response.data?.errors && response.data.errors.length > 0) {
-        setPreviewErrors(response.data.errors);
-        setIsValid(false);
-      } else {
-        setIsValid(true);
-      }
+      const data = response.data || {};
+      // The server checks every row and returns them in `preview`, each with its own errors.
+      const invalid = (data.preview || []).filter((r) => !r.isValid);
+      setSummary({ totalRows: data.totalRows || 0, validRows: data.validRows || 0, invalidRows: data.invalidRows || 0 });
+      setPreviewErrors(invalid.map((r) => ({
+        row: r.rowNumber,
+        message: `Row ${r.rowNumber}${r.medicineName ? ` (${r.medicineName})` : ''}: ${r.errors.join(' ')}`,
+      })));
+      if ((data.totalRows || 0) === 0) setError('The file has no rows, or could not be read. Use the template.');
+      // Valid rows can be imported; invalid ones are skipped and listed.
+      setIsValid((data.validRows || 0) > 0);
     } catch (err) {
       setError(err.message || "Failed to validate the file.");
     } finally {
@@ -62,7 +72,8 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
       const formData = new FormData();
       formData.append('file', file);
 
-      await inventoryService.importStock(pharmacyId, formData);
+      const res = await inventoryService.importStock(pharmacyId, formData);
+      setResult(res.message || 'Import complete.');
       onSuccess();
     } catch (err) {
       setError(err.message || "Failed to import records.");
@@ -71,21 +82,13 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
     }
   };
 
-  const downloadTemplate = () => {
-    const templateData = [
-      {
-        'Medicine Name': 'Paracetamol 500mg',
-        'Batch Number': 'BATCH-2026-001',
-        'Quantity': 100,
-        'Unit Price': 15.5,
-        'Expiry Date': '2027-12-31',
-        'Reorder Level': 10,
-      }
-    ];
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Inventory Template');
-    XLSX.writeFile(wb, 'Pharmatrack_Inventory_Template.xlsx');
+  // Use the server's template so the columns always match what the import reads.
+  const downloadTemplate = async () => {
+    try {
+      await inventoryService.downloadImportTemplate('xlsx');
+    } catch (err) {
+      setError(err.message || 'Could not download the template.');
+    }
   };
 
   return (
@@ -141,7 +144,7 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
                 <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
               </div>
             </div>
-            <button onClick={() => { setFile(null); setIsValid(false); setPreviewErrors([]); setError(null); }} className="text-gray-400 hover:text-red-500">
+            <button onClick={() => { setFile(null); setIsValid(false); setPreviewErrors([]); setError(null); setSummary(null); setResult(null); }} className="text-gray-400 hover:text-red-500">
               <X size={20} />
             </button>
           </div>
@@ -155,7 +158,7 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
           {previewErrors.length > 0 && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
               <h4 className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2">
-                <AlertCircle size={16} /> Found {previewErrors.length} errors:
+                <AlertCircle size={16} /> {previewErrors.length} row{previewErrors.length === 1 ? '' : 's'} will be skipped:
               </h4>
               <ul className="text-xs text-red-600 space-y-1 list-disc list-inside max-h-32 overflow-y-auto">
                 {previewErrors.map((err, idx) => (
@@ -169,15 +172,15 @@ const BulkStockImport = ({ pharmacyId, onSuccess }) => {
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-700">
               <CheckCircle2 size={24} />
               <div>
-                <p className="text-sm font-bold">File is valid!</p>
-                <p className="text-xs">Ready to import.</p>
+                <p className="text-sm font-bold">{result || `${summary?.validRows} of ${summary?.totalRows} rows ready to import`}</p>
+                {!result && <p className="text-xs">{summary?.invalidRows ? 'Rows with errors will be skipped.' : 'Every row is valid.'}</p>}
               </div>
             </div>
           )}
 
           <button 
             onClick={handleImport}
-            disabled={isImporting || !isValid || isPreviewing}
+            disabled={isImporting || !isValid || isPreviewing || !!result}
             className="w-full flex justify-center items-center py-3 bg-[#007a55] text-white rounded-lg font-bold hover:bg-[#006645] transition-colors disabled:opacity-50"
           >
             {isImporting ? <Loader2 className="animate-spin mr-2" size={20} /> : null}

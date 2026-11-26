@@ -31,6 +31,7 @@ import ManagePatients from './pages/admin/ManagePatients';
 import ManagePharmacies from './pages/admin/ManagePharmacies';
 import ManageAdmins from './pages/admin/ManageAdmins';
 import AdminProfile from './pages/admin/AdminProfileTab';
+import ManageMedicines from './pages/admin/ManageMedicines';
 import InventoryList from './pages/dashboard/InventoryList';
 import StockIn from './pages/dashboard/StockIn';
 import AdjustStock from './pages/dashboard/AdjustStock';
@@ -147,6 +148,7 @@ function App() {
           <Route index element={<AdminDashboardOverView />}/>
           <Route path="pharmacies" element={<ManagePharmacies />} />
           <Route path="patients" element={<ManagePatients />} />
+          <Route path="medicines" element={<ManageMedicines />} />
           <Route path="admins" element={<ManageAdmins />} />      
           <Route path="profile" element={<AdminProfile />} />
          

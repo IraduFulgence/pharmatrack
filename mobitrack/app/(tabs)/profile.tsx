@@ -9,6 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { AuthService } from '@/src/api/auth/authService';
+import { actingSession } from '@/src/api/family/familyService';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export default function ProfileScreen() {
   
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Set while a family manager is acting for this member.
+  const [actingFor, setActingFor] = useState<{ patientId: number; fullName: string } | null>(null);
   
   // Wallet States
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
@@ -28,8 +31,9 @@ export default function ProfileScreen() {
   const fetchProfile = async () => {
     try {
       setIsLoading(true);
-      const response = await AuthService.getProfile();
+      const [response, acting] = await Promise.all([AuthService.getProfile(), actingSession.current()]);
       setProfile(response.data || response);
+      setActingFor(acting);
     } catch (error: any) {
       console.error("Profile Fetch Error:", error);
       Alert.alert("Error", "Could not load profile.");
@@ -50,11 +54,17 @@ export default function ProfileScreen() {
           onPress: async () => {
             await SecureStore.deleteItemAsync('token');
             await SecureStore.deleteItemAsync('user');
+            await actingSession.clear();
             router.replace('/auth/login');
           } 
         }
       ]
     );
+  };
+
+  const switchBack = async () => {
+    await actingSession.stop();
+    router.replace('/(tabs)/home');
   };
 
   const getInitials = (name: string) => {
@@ -137,6 +147,18 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
+        {actingFor && (
+          <View style={styles.actingBanner}>
+            <Ionicons name="swap-horizontal" size={18} color="#175CD3" />
+            <Text style={styles.actingText}>
+              {t('family.actingFor', 'You are acting for {{name}}.', { name: actingFor.fullName })}
+            </Text>
+            <TouchableOpacity onPress={switchBack}>
+              <Text style={styles.actingLink}>{t('family.switchBack', 'Switch back')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarCircle}>
@@ -282,6 +304,21 @@ export default function ProfileScreen() {
 
         {/* Actions */}
         <View style={styles.actionsContainer}>
+          <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/family')}>
+            <View style={styles.actionLeft}>
+              <MaterialCommunityIcons name="account-group-outline" size={20} color="#344054" />
+              <View>
+                <Text style={styles.actionText}>{t('profile.myFamily', 'My family')}</Text>
+                <Text style={styles.actionHint}>
+                  {profile?.canManageFamily
+                    ? t('profile.familyHintManager', 'Add members and order for them')
+                    : t('profile.familyHint', 'Family members and invitations')}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#98A2B3" />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/orders')}>
             <View style={styles.actionLeft}>
               <Ionicons name="receipt-outline" size={20} color="#344054" />
@@ -432,4 +469,11 @@ const styles = StyleSheet.create({
   modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center' },
   modalCloseButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 },
   fullScreenImage: { width: '100%', height: '80%' },
+  actingBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFF8FF',
+    borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#B2DDFF', marginBottom: 16,
+  },
+  actingText: { flex: 1, color: '#175CD3', fontSize: 13, fontWeight: '600' },
+  actingLink: { color: '#175CD3', fontWeight: '800' },
+  actionHint: { fontSize: 12, color: '#667085', marginTop: 2 },
 });

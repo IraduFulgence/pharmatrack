@@ -11,6 +11,11 @@ export interface CatalogueMedicine {
   dosage_form?: string | null;
   description?: string | null;
   requires_prescription: boolean;
+  category_name?: string | null;      // e.g. Painkillers
+  indications?: string[];             // what it treats, e.g. ["Fever", "Headache"]
+  min_age_years?: number | null;      // youngest age it may be given to
+  max_age_years?: number | null;      // oldest age it may be given to
+  dosage_notes?: string | null;
   image_url?: string | null;          // e.g. /medicines/12/image (null until a photo is uploaded)
   lowest_price?: number | string | null;
   pharmacy_count?: number;

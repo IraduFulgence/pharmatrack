@@ -22,6 +22,8 @@ import {
   prescriptionQuantityProblems,
   type Queryable,
 } from '../common/utils/prescription-balance.js';
+import { ageOn } from '../common/utils/age.js';
+import { ageLimitProblems } from '../common/utils/age-limits.js';
 import {
   ReceiptData,
   generateHtmlReceipt,
@@ -923,6 +925,34 @@ export class SalesService {
         linkedPrescriptionId = check.prescription.prescriptionId;
       } else {
         recordNewPrescription = true;
+      }
+    }
+
+    // Age limits on the medicines ("not for children under 12"), when we know the patient.
+    if (patientId) {
+      const limited = await this.db.query(
+        `SELECT medicine_id, medicine_name, min_age_years, max_age_years
+         FROM public.medicines
+         WHERE medicine_id = ANY($1::BIGINT[]) AND (min_age_years IS NOT NULL OR max_age_years IS NOT NULL)`,
+        [[...new Set((validatedItems as any[]).map((i) => Number(i.medicineId)))]],
+      );
+      if (limited?.rows?.length) {
+        const pRes = await this.db.query(
+          `SELECT full_name, to_char(date_of_birth, 'YYYY-MM-DD') AS dob, age FROM public.patients WHERE patient_id = $1`,
+          [patientId],
+        );
+        const p = pRes.rows[0];
+        const age = p?.dob ? ageOn(p.dob) : p?.age != null ? Number(p.age) : null;
+        const problems = ageLimitProblems(
+          age,
+          p?.full_name || 'this patient',
+          limited.rows.map((m: any) => ({
+            name: m.medicine_name,
+            minAge: m.min_age_years === null ? null : Number(m.min_age_years),
+            maxAge: m.max_age_years === null ? null : Number(m.max_age_years),
+          })),
+        );
+        if (problems.length > 0) throw new BadRequestException(problems.join(' '));
       }
     }
 

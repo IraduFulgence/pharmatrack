@@ -65,5 +65,9 @@ export const AuthService = {
   logout: async () => {
     await SecureStore.deleteItemAsync('token');
     await SecureStore.deleteItemAsync('user');
+    // Also forget any "acting for a family member" session.
+    await SecureStore.deleteItemAsync('ownerToken');
+    await SecureStore.deleteItemAsync('ownerUser');
+    await SecureStore.deleteItemAsync('actingFor');
   }
 };

@@ -15,4 +15,6 @@ export interface JwtPayload {
   mustChangePassword?: boolean;
   pharmacyId?: number;
   pharmacyUserId?: number;
+  /** Set when a family manager is acting for this patient: the manager's patient ID. */
+  actedBy?: number;
 }

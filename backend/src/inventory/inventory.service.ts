@@ -1980,9 +1980,10 @@ export class InventoryService {
           `SELECT medicine_id FROM public.medicines
            WHERE (pharmacy_id = $1 OR pharmacy_id IS NULL)
              AND LOWER(medicine_name) = $2
-           ORDER BY (pharmacy_id IS NOT NULL) DESC
+             AND ($3::TEXT IS NULL OR LOWER(COALESCE(strength, '')) = LOWER($3))
+           ORDER BY (pharmacy_id IS NOT NULL) DESC, medicine_id ASC
            LIMIT 1`,
-          [pharmacyId, row.medicineName.trim().toLowerCase()],
+          [pharmacyId, row.medicineName.trim().toLowerCase(), row.strength?.trim() || null],
         );
 
         if (medRes.rows.length > 0) {

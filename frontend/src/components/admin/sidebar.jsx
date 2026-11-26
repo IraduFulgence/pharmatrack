@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Users, 
   Settings, HelpCircle, X,
-  LogOut, Building2, LayoutDashboard, Activity, ShieldAlert
+  LogOut, Building2, LayoutDashboard, Activity, ShieldAlert, Pill
 } from 'lucide-react';
 import { NavLink, Link } from 'react-router-dom';
 import logo from "../../assets/logo.png";
@@ -12,6 +12,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
     { icon: <LayoutDashboard size={20} />, label: 'System Overview', path: '/admin/dashboard' },
     { icon: <Building2 size={20} />, label: 'Pharmacies', path: '/admin/dashboard/pharmacies' },
     { icon: <Users size={20} />, label: 'Patients', path: '/admin/dashboard/patients' },
+    { icon: <Pill size={20} />, label: 'Medicines', path: '/admin/dashboard/medicines' },
     { icon: <ShieldAlert size={20} />, label: 'System Users', path: '/admin/dashboard/admins' },
     { icon: <Activity size={20} />, label: 'System Logs', path: '/admin/logs' },
   ];

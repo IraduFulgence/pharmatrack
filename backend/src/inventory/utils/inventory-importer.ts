@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { cell, isoDate, num, readSheetRows, text } from '../../common/utils/spreadsheet.js';
 
 export interface ImportRowData {
   rowNumber: number;
@@ -119,43 +120,39 @@ export function parseAndValidateFile(
   buffer: Buffer,
   existingBatches: Set<string> = new Set(),
 ): ImportPreviewResult {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
-  const firstSheetName = wb.SheetNames[0];
-  if (!firstSheetName) {
+  let rawRows: Record<string, unknown>[];
+  try {
+    // cellDates: Excel dates come back as real dates, not serial numbers like 47299.
+    rawRows = readSheetRows(buffer);
+  } catch {
     return { totalRows: 0, validRows: 0, invalidRows: 0, preview: [] };
   }
 
-  const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], {
-    defval: '',
-  });
-
   const parsedRows: ImportRowData[] = [];
   const seenBatchesInFile = new Set<string>();
+  const today = new Date().toISOString().slice(0, 10);
 
   rawRows.forEach((row, idx) => {
     const rowNumber = idx + 2; // +1 for 1-based, +1 for header
     const errors: string[] = [];
 
-    // Helper for flexible column keys
-    const getVal = (col: string) => {
-      const direct = row[col];
-      if (direct !== undefined && direct !== '') return String(direct).trim();
-      const lowerKey = Object.keys(row).find((k) => k.toLowerCase() === col.toLowerCase());
-      return lowerKey && row[lowerKey] !== undefined ? String(row[lowerKey]).trim() : '';
-    };
+    // Column names are matched ignoring case, spaces and punctuation; common alternatives accepted.
+    const get = (...names: string[]) => text(cell(row, ...names));
 
-    const medicineName = getVal('Medicine name');
-    const genericName = getVal('Generic name') || medicineName;
-    const brandName = getVal('Brand name') || null;
-    const strength = getVal('Strength') || null;
-    const dosageForm = getVal('Dosage form') || 'Tablet';
-    const packagingUnit = getVal('Packaging unit') || null;
-    const unitsPerPackageRaw = getVal('Units per package');
-    const batchNumber = getVal('Batch number');
-    const quantityRaw = getVal('Quantity');
-    const purchasePriceRaw = getVal('Purchase price');
-    const sellingPriceRaw = getVal('Selling price');
-    const expiryDate = getVal('Expiry date');
+    const medicineName = get('Medicine name', 'Medicine', 'Name');
+    const genericName = get('Generic name', 'Generic') || medicineName;
+    const brandName = get('Brand name', 'Brand') || null;
+    const strength = get('Strength') || null;
+    const dosageForm = get('Dosage form', 'Form') || 'Tablet';
+    const packagingUnit = get('Packaging unit', 'Package unit', 'Packaging') || null;
+    const unitsPerPackageRaw = cell(row, 'Units per package', 'Units per pack', 'Pack size');
+    const batchNumber = get('Batch number', 'Batch', 'Batch no', 'Lot number');
+    const quantity = num(cell(row, 'Quantity', 'Qty', 'Units'));
+    const purchasePrice = num(cell(row, 'Purchase price', 'Cost price', 'Buying price', 'Cost'));
+    // "Unit price" was the column name in the old web template: it is the selling price.
+    const sellingPrice = num(cell(row, 'Selling price', 'Unit price', 'Price', 'Sale price'));
+    const expiryCell = cell(row, 'Expiry date', 'Expiry', 'Expires', 'Exp date');
+    const expiryDate = isoDate(expiryCell);
 
     if (!medicineName) {
       errors.push('Medicine name is required.');
@@ -174,41 +171,34 @@ export function parseAndValidateFile(
       }
     }
 
-    const quantity = Number(quantityRaw);
-    if (!quantityRaw || isNaN(quantity) || quantity <= 0 || !Number.isInteger(quantity)) {
-      errors.push('Quantity must be an integer greater than 0.');
+    if (quantity === null || !Number.isInteger(quantity) || quantity <= 0) {
+      errors.push('Quantity must be a whole number greater than 0.');
     }
 
-    const purchasePrice = Number(purchasePriceRaw);
-    if (purchasePriceRaw !== '' && (isNaN(purchasePrice) || purchasePrice < 0)) {
-      errors.push('Purchase price cannot be negative.');
+    if (purchasePrice !== null && (Number.isNaN(purchasePrice) || purchasePrice < 0)) {
+      errors.push('Purchase price must be a number, 0 or more.');
     }
 
-    const sellingPrice = Number(sellingPriceRaw);
-    if (isNaN(sellingPrice) || sellingPrice <= 0) {
-      errors.push('Selling price must be greater than 0.');
+    if (sellingPrice === null || Number.isNaN(sellingPrice) || sellingPrice <= 0) {
+      errors.push('Selling price must be a number greater than 0.');
     }
 
     let unitsPerPackage = 1;
-    if (unitsPerPackageRaw) {
-      const parsedUnits = Number(unitsPerPackageRaw);
-      if (isNaN(parsedUnits) || parsedUnits <= 0 || !Number.isInteger(parsedUnits)) {
-        errors.push('Units per package must be an integer greater than 0.');
+    const units = num(unitsPerPackageRaw);
+    if (units !== null) {
+      if (!Number.isInteger(units) || units <= 0) {
+        errors.push('Units per package must be a whole number greater than 0.');
       } else {
-        unitsPerPackage = parsedUnits;
+        unitsPerPackage = units;
       }
     }
 
-    // Expiry date validation
-    if (!expiryDate) {
+    if (text(expiryCell) === '') {
       errors.push('Expiry date is required.');
-    } else {
-      const parsedDate = new Date(expiryDate);
-      if (isNaN(parsedDate.getTime())) {
-        errors.push('Expiry date must be in YYYY-MM-DD format.');
-      } else if (parsedDate <= new Date()) {
-        errors.push('Expiry date must be in the future.');
-      }
+    } else if (!expiryDate) {
+      errors.push(`Expiry date "${text(expiryCell)}" is not a date. Use YYYY-MM-DD or DD/MM/YYYY.`);
+    } else if (expiryDate <= today) {
+      errors.push(`Expiry date ${expiryDate} has passed. Only stock that is still in date can be added.`);
     }
 
     parsedRows.push({
@@ -221,10 +211,10 @@ export function parseAndValidateFile(
       packagingUnit: packagingUnit || undefined,
       unitsPerPackage,
       batchNumber,
-      quantity,
-      purchasePrice: isNaN(purchasePrice) ? 0 : purchasePrice,
-      sellingPrice: isNaN(sellingPrice) ? 0 : sellingPrice,
-      expiryDate,
+      quantity: quantity !== null && !Number.isNaN(quantity) ? quantity : 0,
+      purchasePrice: purchasePrice !== null && !Number.isNaN(purchasePrice) ? purchasePrice : 0,
+      sellingPrice: sellingPrice !== null && !Number.isNaN(sellingPrice) ? sellingPrice : 0,
+      expiryDate: expiryDate || text(expiryCell),
       isValid: errors.length === 0,
       errors,
     });
@@ -240,4 +230,3 @@ export function parseAndValidateFile(
     preview: parsedRows,
   };
 }
-

@@ -155,6 +155,40 @@ export default function ProductDetailScreen() {
               </View>
             )}
             {medicine.description ? <Text style={styles.description}>{medicine.description}</Text> : null}
+
+            {medicine.category_name || (medicine.indications || []).length > 0 ? (
+              <View style={styles.tags}>
+                {medicine.category_name ? (
+                  <View style={[styles.tag, styles.categoryTag]}>
+                    <Ionicons name="pricetag-outline" size={12} color="#175CD3" />
+                    <Text style={[styles.tagText, { color: '#175CD3' }]}>{medicine.category_name}</Text>
+                  </View>
+                ) : null}
+                {(medicine.indications || []).map((it) => (
+                  <View key={it} style={styles.tag}><Text style={styles.tagText}>{it}</Text></View>
+                ))}
+              </View>
+            ) : null}
+
+            {medicine.min_age_years != null || medicine.max_age_years != null ? (
+              <View style={styles.ageNote}>
+                <Ionicons name="people-outline" size={16} color="#B54708" />
+                <Text style={styles.ageNoteText}>
+                  {medicine.min_age_years != null && medicine.max_age_years != null
+                    ? t('product.ageRange', 'For ages {{min}} to {{max}} only.', { min: medicine.min_age_years, max: medicine.max_age_years })
+                    : medicine.min_age_years != null
+                      ? t('product.ageMin', 'Not for children under {{min}}.', { min: medicine.min_age_years })
+                      : t('product.ageMax', 'Only for ages up to {{max}}.', { max: medicine.max_age_years })}
+                </Text>
+              </View>
+            ) : null}
+
+            {medicine.dosage_notes ? (
+              <View style={styles.dosageBox}>
+                <Text style={styles.dosageTitle}>{t('product.howToTake', 'How to take it')}</Text>
+                <Text style={styles.dosageText}>{medicine.dosage_notes}</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.sectionHeader}>
@@ -270,4 +304,13 @@ const styles = StyleSheet.create({
   stepperValue: { minWidth: 24, textAlign: 'center', fontWeight: '700', color: '#0F2926' },
   addButton: { backgroundColor: '#007a55', paddingHorizontal: 18, paddingVertical: 9, borderRadius: 10, minWidth: 64, alignItems: 'center' },
   addButtonText: { color: 'white', fontWeight: '700' },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#ECFDF3', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  categoryTag: { backgroundColor: '#EFF8FF' },
+  tagText: { color: '#027A48', fontSize: 12, fontWeight: '700' },
+  ageNote: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFAEB', borderRadius: 10, padding: 10, marginTop: 12 },
+  ageNoteText: { flex: 1, color: '#B54708', fontSize: 13, fontWeight: '600' },
+  dosageBox: { backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#EAECF0' },
+  dosageTitle: { fontSize: 13, fontWeight: '800', color: '#0F2926', marginBottom: 4 },
+  dosageText: { fontSize: 13, color: '#344054', lineHeight: 19 },
 });

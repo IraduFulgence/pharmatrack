@@ -15,6 +15,8 @@ import { PharmacyMarketplaceModule } from './pharmacy-marketplace/pharmacy-marke
 import { StaffModule } from './staff/staff.module.js';
 import { InsuranceModule } from './insurance/insurance.module.js';
 import { ProfileModule } from './profile/profile.module.js';
+import { FamilyModule } from './family/family.module.js';
+import { MedicineCatalogueModule } from './medicine-catalogue/medicine-catalogue.module.js';
 
 
 
@@ -33,6 +35,8 @@ import { ProfileModule } from './profile/profile.module.js';
     ProfileModule,
     StaffModule,
     InsuranceModule,
+    FamilyModule,
+    MedicineCatalogueModule,
   ],
     
   

@@ -328,6 +328,116 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         END $$;
       `);
 
+      // Families: a family head or spouse manages the members (with full privileges over them).
+      // Children and other dependents often have no phone, so patients' phone becomes optional
+      // (still unique; self-registration still requires one).
+      await this.pool.query(`
+        ALTER TABLE public.patients ALTER COLUMN phone_number DROP NOT NULL;
+        CREATE TABLE IF NOT EXISTS public.families (
+          family_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          family_name VARCHAR(100),
+          created_by BIGINT NOT NULL REFERENCES public.patients (patient_id) ON DELETE RESTRICT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- A patient belongs to at most one family.
+        -- can_manage: heads and spouses with their own account manage the family.
+        -- is_managed_profile: no login of their own (children, dependents); fully run by managers.
+        CREATE TABLE IF NOT EXISTS public.family_members (
+          family_member_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          family_id BIGINT NOT NULL REFERENCES public.families (family_id) ON DELETE CASCADE,
+          patient_id BIGINT NOT NULL UNIQUE REFERENCES public.patients (patient_id) ON DELETE CASCADE,
+          relationship VARCHAR(20) NOT NULL
+            CHECK (relationship IN ('HEAD', 'SPOUSE', 'CHILD', 'PARENT', 'SIBLING', 'OTHER')),
+          can_manage BOOLEAN NOT NULL DEFAULT FALSE,
+          is_managed_profile BOOLEAN NOT NULL DEFAULT FALSE,
+          added_by BIGINT REFERENCES public.patients (patient_id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_family_members_family ON public.family_members (family_id);
+
+        -- Adults with their own account join only by accepting an invitation.
+        CREATE TABLE IF NOT EXISTS public.family_invitations (
+          invitation_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          family_id BIGINT NOT NULL REFERENCES public.families (family_id) ON DELETE CASCADE,
+          invited_patient_id BIGINT NOT NULL REFERENCES public.patients (patient_id) ON DELETE CASCADE,
+          relationship VARCHAR(20) NOT NULL
+            CHECK (relationship IN ('SPOUSE', 'CHILD', 'PARENT', 'SIBLING', 'OTHER')),
+          invited_by BIGINT REFERENCES public.patients (patient_id) ON DELETE SET NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+            CHECK (status IN ('PENDING', 'ACCEPTED', 'DECLINED', 'CANCELLED')),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          responded_at TIMESTAMPTZ
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_family_invitation_pending
+          ON public.family_invitations (family_id, invited_patient_id) WHERE status = 'PENDING';
+        CREATE INDEX IF NOT EXISTS idx_family_invitations_invited
+          ON public.family_invitations (invited_patient_id) WHERE status = 'PENDING';
+      `);
+
+      // Medicine ownership (Migration 010's medicines part; the original sits in a commented-out
+      // block and never ran). pharmacy_id NULL = shared catalogue managed by admins;
+      // set = a medicine a pharmacy added for itself.
+      await this.pool.query(`
+        ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS pharmacy_id BIGINT REFERENCES public.pharmacies (pharmacy_id) ON DELETE CASCADE;
+        ALTER TABLE public.medicines DROP CONSTRAINT IF EXISTS medicines_medicine_name_strength_dosage_form_brand_name_key;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_medicines_pharmacy_scoped ON public.medicines
+          (pharmacy_id, LOWER(medicine_name), COALESCE(LOWER(strength), ''), COALESCE(LOWER(dosage_form), ''), COALESCE(LOWER(brand_name), ''))
+          WHERE pharmacy_id IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_medicines_global_catalogue ON public.medicines
+          (LOWER(medicine_name), COALESCE(LOWER(strength), ''), COALESCE(LOWER(dosage_form), ''), COALESCE(LOWER(brand_name), ''))
+          WHERE pharmacy_id IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_medicines_pharmacy_id ON public.medicines (pharmacy_id);
+      `);
+
+      // Medicine categories (e.g. Painkillers), what a medicine treats, who may take it, how.
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS public.medicine_categories (
+          category_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          category_name VARCHAR(100) NOT NULL,
+          description TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_medicine_categories_name ON public.medicine_categories (LOWER(category_name));
+        INSERT INTO public.medicine_categories (category_name, description) VALUES
+          ('Painkillers', 'Pain and fever relief (analgesics, antipyretics, NSAIDs)'),
+          ('Antibiotics', 'Bacterial infections'),
+          ('Antimalarials', 'Prevention and treatment of malaria'),
+          ('Antifungals', 'Fungal infections'),
+          ('Antivirals', 'Viral infections'),
+          ('Antihistamines & allergy', 'Allergies, hay fever, itching'),
+          ('Cough, cold & respiratory', 'Cough, cold, asthma and breathing'),
+          ('Stomach & digestion', 'Acidity, ulcers, diarrhoea, constipation, nausea'),
+          ('Heart & blood pressure', 'Hypertension, cholesterol, heart conditions'),
+          ('Diabetes', 'Blood sugar control'),
+          ('Vitamins & supplements', 'Vitamins, minerals, nutritional supplements'),
+          ('Rehydration', 'Oral rehydration and electrolytes'),
+          ('Skin care', 'Creams and ointments for skin conditions'),
+          ('Other', 'Anything not covered by another category')
+        ON CONFLICT DO NOTHING;
+
+        ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS category_id BIGINT REFERENCES public.medicine_categories (category_id) ON DELETE SET NULL;
+        -- What it treats, e.g. {Fever, Headache}; searchable.
+        ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS indications TEXT[] NOT NULL DEFAULT '{}';
+        -- Who may take it, in whole years (NULL = no limit), and how to take it.
+        ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS min_age_years SMALLINT;
+        ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS max_age_years SMALLINT;
+        ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS dosage_notes TEXT;
+        CREATE INDEX IF NOT EXISTS idx_medicines_category ON public.medicines (category_id);
+        CREATE INDEX IF NOT EXISTS idx_medicines_indications ON public.medicines USING GIN (indications);
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'medicines_age_limits_check') THEN
+            ALTER TABLE public.medicines ADD CONSTRAINT medicines_age_limits_check CHECK (
+              (min_age_years IS NULL OR min_age_years BETWEEN 0 AND 130)
+              AND (max_age_years IS NULL OR max_age_years BETWEEN 0 AND 130)
+              AND (min_age_years IS NULL OR max_age_years IS NULL OR min_age_years <= max_age_years)
+            );
+          END IF;
+        END $$;
+      `);
+
       // ============================================================
       // Migration 007: Inventory Management and Transactions
       // ============================================================

@@ -10,6 +10,8 @@ import { DatabaseService } from '../database/database.service.js';
 import { PatientsService } from '../patients/patients.service.js';
 import { UploadService } from '../upload/upload.service.js';
 import { rankByFuzzy } from '../common/utils/fuzzy-match.js';
+import { ageOn } from '../common/utils/age.js';
+import { ageLimitProblems } from '../common/utils/age-limits.js';
 import {
   getPrescriptionBalance,
   prescriptionQuantityProblems,
@@ -163,15 +165,19 @@ export class MarketplaceService {
       // Typo tolerant: "paractmol" still finds Paracetamol. The in-stock catalogue is small,
       // so rank the names here and load only the requested page.
       const candidates = await this.databaseService.query(
-        `SELECT medicine_id, medicine_name, generic_name, brand_name
+        `SELECT medicine_id, medicine_name, generic_name, brand_name, indications,
+                (SELECT category_name FROM public.medicine_categories c WHERE c.category_id = medicines.category_id) AS category_name
          FROM public.medicines
          WHERE ${IN_STOCK_SOMEWHERE}
          ORDER BY medicine_name ASC, medicine_id ASC`,
       );
+      // Also matches what a medicine treats ("headache") and its category ("painkillers").
       const ranked = rankByFuzzy(candidates.rows, searchTerm, (m: any) => [
         m.medicine_name,
         m.generic_name,
         m.brand_name,
+        m.category_name,
+        ...(m.indications || []),
       ]);
       total = ranked.length;
       pageIds = ranked.slice(offset, offset + limit).map((m: any) => Number(m.medicine_id));
@@ -203,6 +209,11 @@ export class MarketplaceService {
           dosage_form,
           description,
           requires_prescription,
+          indications,
+          min_age_years,
+          max_age_years,
+          dosage_notes,
+          (SELECT category_name FROM public.medicine_categories c WHERE c.category_id = medicines.category_id) AS category_name,
           CASE WHEN medicine_image_path IS NOT NULL THEN '/medicines/' || medicine_id || '/image?v=' || LEFT(MD5(medicine_image_path), 8) END AS image_url,
           (
             SELECT MIN(COALESCE(ib.selling_price, ib.unit_price))
@@ -265,6 +276,11 @@ export class MarketplaceService {
           dosage_form,
           description,
           requires_prescription,
+          indications,
+          min_age_years,
+          max_age_years,
+          dosage_notes,
+          (SELECT category_name FROM public.medicine_categories c WHERE c.category_id = medicines.category_id) AS category_name,
           CASE WHEN medicine_image_path IS NOT NULL THEN '/medicines/' || medicine_id || '/image?v=' || LEFT(MD5(medicine_image_path), 8) END AS image_url
         FROM public.medicines
         WHERE medicine_id = $1
@@ -303,6 +319,11 @@ export class MarketplaceService {
           dosage_form,
           description,
           requires_prescription,
+          indications,
+          min_age_years,
+          max_age_years,
+          dosage_notes,
+          (SELECT category_name FROM public.medicine_categories c WHERE c.category_id = medicines.category_id) AS category_name,
           CASE WHEN medicine_image_path IS NOT NULL THEN '/medicines/' || medicine_id || '/image?v=' || LEFT(MD5(medicine_image_path), 8) END AS image_url
         FROM public.medicines
         WHERE medicine_id = $1
@@ -950,7 +971,9 @@ export class MarketplaceService {
             ci.quantity,
             ci.unit_price,
             m.medicine_name,
-            m.requires_prescription
+            m.requires_prescription,
+            m.min_age_years,
+            m.max_age_years
           FROM public.marketplace_cart_items ci
           INNER JOIN public.medicines m
             ON m.medicine_id = ci.medicine_id
@@ -974,6 +997,33 @@ export class MarketplaceService {
         throw new BadRequestException(
           `A prescription is needed for: ${rxNames.join(', ')}. Add the prescription number or a photo of it.`,
         );
+      }
+
+      // Age limits ("not for children under 12"): the patient is whoever the order is for,
+      // including a child a family manager is ordering for.
+      const ageLimited = cartItemsResult.rows.filter(
+        (item: any) => item.min_age_years !== null && item.min_age_years !== undefined
+          || item.max_age_years !== null && item.max_age_years !== undefined,
+      );
+      if (ageLimited.length > 0) {
+        const patientRes = await client.query(
+          `SELECT full_name, to_char(date_of_birth, 'YYYY-MM-DD') AS dob, age FROM public.patients WHERE patient_id = $1`,
+          [patientId],
+        );
+        const p = patientRes.rows[0];
+        const age = p?.dob ? ageOn(p.dob) : p?.age != null ? Number(p.age) : null;
+        const problems = ageLimitProblems(
+          age,
+          p?.full_name ? String(p.full_name).split(' ')[0] : 'the patient',
+          ageLimited.map((item: any) => ({
+            name: item.medicine_name,
+            minAge: item.min_age_years === null ? null : Number(item.min_age_years),
+            maxAge: item.max_age_years === null ? null : Number(item.max_age_years),
+          })),
+        );
+        if (problems.length > 0) {
+          throw new BadRequestException(`${problems.join(' ')} Remove it from your cart or ask the pharmacy for an alternative.`);
+        }
       }
 
       if (prescriptionReference) {
