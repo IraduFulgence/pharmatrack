@@ -7,14 +7,7 @@ import { useLanguageStore } from "../stores/language";
 export function syncLanguageWithI18n(){
     i18n.changeLanguage(useLanguageStore.getState().language);
 
-    // subscribe to change
-
-    useLanguageStore.subscribe((state)=>{
-        if(i18n.language !== state.language){
-            i18n.changeLanguage(state.language);
-        }
-    });
-
+    // Follow later changes (one subscription, removed by the returned function).
     const unsubscribe = useLanguageStore.subscribe((state) => {
     if (i18n.language !== state.language) {
       i18n.changeLanguage(state.language);

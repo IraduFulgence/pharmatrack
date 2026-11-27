@@ -61,6 +61,7 @@ export class MarketplaceController {
   @Get('prescriptions/lookup')
   @ApiOperation({
     summary: 'Find one of your prescriptions by its number or SMS code, with the medicines on it',
+    description: 'Family heads and spouses also find prescriptions written for members of their family.',
   })
   @ApiQuery({ name: 'reference', required: true, description: 'Prescription number or SMS code' })
   async lookupPrescription(
@@ -199,7 +200,8 @@ export class MarketplaceController {
     summary: 'Place an order from the current cart',
     description:
       'JSON, or multipart/form-data with an optional "prescription" photo (JPEG/PNG/WebP, max 5 MB). ' +
-      'Orders with prescription-only medicine need prescriptionReference or the photo.',
+      'Orders with prescription-only medicine need prescriptionReference or the photo. ' +
+      'Family heads and spouses can send forPatientId to order for a member of their family.',
   })
   @ApiConsumes('application/json', 'multipart/form-data')
   @UseInterceptors(
@@ -213,6 +215,8 @@ export class MarketplaceController {
       mobileMoneyProvider?: 'MTN_MOMO' | 'AIRTEL_MONEY';
       paymentPhoneNumber?: string;
       prescriptionReference?: string;
+      /** Family member the order is for (family heads and spouses only). Omit for yourself. */
+      forPatientId?: number | string;
     },
     @UploadedFile() prescription?: Express.Multer.File,
   ) {
@@ -220,6 +224,8 @@ export class MarketplaceController {
       Number(user.sub),
       body,
       prescription,
+      // Set when a family manager is acting for this patient: record who really placed it.
+      user.actedBy ? Number(user.actedBy) : undefined,
     );
   }
 

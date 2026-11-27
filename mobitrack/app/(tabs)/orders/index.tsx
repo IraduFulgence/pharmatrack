@@ -46,7 +46,8 @@ export default function OrdersScreen() {
   );
 
   const renderOrder = ({ item }: { item: OrderSummary }) => {
-    const status = ORDER_STATUS_LABEL[item.status] || { label: item.status, color: '#475467', bg: '#F2F4F7' };
+    const statusStyle = ORDER_STATUS_LABEL[item.status] || { label: item.status, color: '#475467', bg: '#F2F4F7' };
+    const status = { ...statusStyle, label: t(`orders.status.${item.status}`, statusStyle.label) };
     return (
       <TouchableOpacity
         style={styles.orderCard}
@@ -59,6 +60,11 @@ export default function OrdersScreen() {
             <Text style={styles.meta}>
               #{item.order_id} · {new Date(item.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </Text>
+            {item.ordered_for_name ? (
+              <Text style={styles.forText} numberOfLines={1}>
+                {t('orders.forMember', { defaultValue: 'For {{name}}', name: item.ordered_for_name })}
+              </Text>
+            ) : null}
           </View>
           <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
@@ -79,13 +85,6 @@ export default function OrdersScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('orders.title', 'My orders')}</Text>
-        <View style={{ width: 32 }} />
-      </View>
 
       {isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#007a55" /></View>
@@ -134,6 +133,7 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   pharmacyName: { fontSize: 16, fontWeight: '700', color: '#0F2926' },
   meta: { fontSize: 12, color: '#667085', marginTop: 2 },
+  forText: { fontSize: 12, color: '#175CD3', fontWeight: '600', marginTop: 2 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   statusText: { fontSize: 12, fontWeight: '700' },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },

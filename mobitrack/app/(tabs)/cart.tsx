@@ -12,6 +12,8 @@ import {
   prescriptionDraftStore,
 } from '@/src/api/marketplace/marketplaceService';
 import ProductImage from '@/components/marketplace/ProductImage';
+import QuantityInput from '@/components/marketplace/QuantityInput';
+import { FamilyMember, RELATIONSHIP_LABEL, familyService } from '@/src/api/family/familyService';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -31,6 +33,34 @@ export default function CartScreen() {
   const [rxReference, setRxReference] = useState('');
   const [rxImage, setRxImage] = useState<PickedImage | null>(null);
 
+  // Family heads and spouses choose who the order is for (themselves or a family member).
+  const [family, setFamily] = useState<{ meId: number; members: FamilyMember[] } | null>(null);
+  const [forPatientId, setForPatientId] = useState<number | null>(null);
+
+  const loadFamily = useCallback(async () => {
+    try {
+      const res = await familyService.getFamily();
+      const me = res.data?.me;
+      const members = res.data?.members || [];
+      if (me?.canManage && members.length > 1) {
+        // You first, then everyone else.
+        const sorted = [...members].sort((a, b) =>
+          a.patientId === me.patientId ? -1 : b.patientId === me.patientId ? 1 : 0);
+        setFamily({ meId: me.patientId, members: sorted });
+        // Keep the earlier choice if that person is still in the family.
+        setForPatientId((current) =>
+          current && members.some((m) => m.patientId === current) ? current : me.patientId);
+      } else {
+        setFamily(null);
+        setForPatientId(null);
+      }
+    } catch {
+      // No family (or it couldn't load): the order is for you.
+      setFamily(null);
+      setForPatientId(null);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const res = await marketplaceService.getCart();
@@ -46,13 +76,17 @@ export default function CartScreen() {
   useFocusEffect(useCallback(() => {
     setIsLoading(true);
     load();
+    loadFamily();
     // Fill in the prescription number the patient looked up, unless they typed one already.
     const draft = prescriptionDraftStore.get();
     if (draft) setRxReference((current) => current || draft);
-  }, [load]));
+    // A family member's prescription was looked up: order for them (kept if they're in the family).
+    const draftFor = prescriptionDraftStore.getFor();
+    if (draftFor) setForPatientId(draftFor);
+  }, [load, loadFamily]));
 
   const changeQty = async (item: CartItem, next: number) => {
-    if (next < 1) return removeItem(item);
+    if (next < 1) return confirmRemove(item);
     setBusyItem(item.item_id);
     try {
       await marketplaceService.updateCartItem(item.item_id, next);
@@ -75,6 +109,16 @@ export default function CartScreen() {
       setBusyItem(null);
     }
   };
+
+  const confirmRemove = (item: CartItem) =>
+    Alert.alert(
+      t('cart.removeTitle', 'Remove from cart?'),
+      item.medicine_name,
+      [
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+        { text: t('cart.remove', 'Remove'), style: 'destructive', onPress: () => removeItem(item) },
+      ],
+    );
 
   const pickPrescription = async (source: 'camera' | 'library') => {
     const permission = source === 'camera'
@@ -123,10 +167,11 @@ export default function CartScreen() {
       const prescription = hasRx
         ? { prescriptionReference: rxReference.trim() || undefined, prescriptionImage: rxImage }
         : {};
+      const recipient = orderingForOther ? { forPatientId: forPatientId as number } : {};
       const res = await marketplaceService.placeOrder(
         paymentMethod === 'MOBILE_MONEY'
-          ? { paymentMethod, mobileMoneyProvider: provider, paymentPhoneNumber: momoPhone.trim(), ...prescription }
-          : { paymentMethod, ...prescription },
+          ? { paymentMethod, mobileMoneyProvider: provider, paymentPhoneNumber: momoPhone.trim(), ...prescription, ...recipient }
+          : { paymentMethod, ...prescription, ...recipient },
       );
       setRxReference('');
       setRxImage(null);
@@ -148,16 +193,12 @@ export default function CartScreen() {
 
   const items = cart?.items || [];
   const hasRx = items.some((i) => i.requires_prescription);
+  const orderingForOther = Boolean(family && forPatientId && forPatientId !== family.meId);
+  const recipientMember = family?.members.find((m) => m.patientId === forPatientId) || null;
+  const firstName = (name: string) => name.split(' ')[0] || name;
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('cart.title', 'Your cart')}</Text>
-        <View style={{ width: 32 }} />
-      </View>
 
       {isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#007a55" /></View>
@@ -173,6 +214,59 @@ export default function CartScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+          {family && (
+            <>
+              <Text style={styles.sectionTitle}>{t('cart.orderFor', 'Who is this order for?')}</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.memberRow}
+                accessibilityRole="radiogroup"
+              >
+                {family.members.map((m) => {
+                  const selected = m.patientId === forPatientId;
+                  const isMe = m.patientId === family.meId;
+                  return (
+                    <TouchableOpacity
+                      key={m.patientId}
+                      style={[styles.memberCard, selected && styles.memberCardActive]}
+                      onPress={() => setForPatientId(m.patientId)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.memberAvatar, selected && styles.memberAvatarActive]}>
+                        <Text style={[styles.memberInitial, selected && { color: 'white' }]}>
+                          {(m.fullName || '?').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={styles.memberName} numberOfLines={1}>
+                        {isMe ? t('cart.me', 'Me') : firstName(m.fullName)}
+                      </Text>
+                      <Text style={styles.memberMeta} numberOfLines={1}>
+                        {t(`family.rel_${m.relationship}`, RELATIONSHIP_LABEL[m.relationship])}
+                        {m.age != null ? ` · ${t('cart.ageYears', { defaultValue: '{{age}} yrs', age: m.age })}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              {orderingForOther && recipientMember && (
+                <Text style={styles.memberHint}>
+                  {hasRx
+                    ? t('cart.orderForHintRx', {
+                        defaultValue: 'Ordering for {{name}}. The pharmacy will see this. Use a prescription written for {{name}}.',
+                        name: firstName(recipientMember.fullName),
+                      })
+                    : t('cart.orderForHint', {
+                        defaultValue: 'Ordering for {{name}}. The pharmacy will see this.',
+                        name: firstName(recipientMember.fullName),
+                      })}
+                </Text>
+              )}
+            </>
+          )}
+
           {cart?.cart?.pharmacy_address ? (
             <View style={styles.pharmacyCard}>
               <Ionicons name="storefront-outline" size={18} color="#007a55" />
@@ -197,13 +291,21 @@ export default function CartScreen() {
                 {busyItem === item.item_id ? (
                   <ActivityIndicator color="#007a55" />
                 ) : (
-                  <View style={styles.stepper}>
-                    <TouchableOpacity onPress={() => changeQty(item, item.quantity - 1)} style={styles.stepperBtn}>
-                      <Ionicons name={item.quantity === 1 ? 'trash-outline' : 'remove'} size={16} color="#0F2926" />
-                    </TouchableOpacity>
-                    <Text style={styles.stepperValue}>{item.quantity}</Text>
-                    <TouchableOpacity onPress={() => changeQty(item, item.quantity + 1)} style={styles.stepperBtn}>
-                      <Ionicons name="add" size={16} color="#0F2926" />
+                  <View style={styles.itemActions}>
+                    <QuantityInput
+                      value={item.quantity}
+                      onChange={(next) => changeQty(item, next)}
+                      accessibilityLabel={t('cart.quantityOf', { defaultValue: 'Quantity of {{name}}', name: item.medicine_name })}
+                    />
+                    <TouchableOpacity
+                      onPress={() => confirmRemove(item)}
+                      style={styles.removeButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('cart.removeItem', { defaultValue: 'Remove {{name}}', name: item.medicine_name })}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#B42318" />
+                      <Text style={styles.removeText}>{t('cart.remove', 'Remove')}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -333,6 +435,9 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 15, fontWeight: '700', color: '#0F2926' },
   rx: { color: '#B42318', fontSize: 12, fontWeight: '800' },
   itemPrice: { fontSize: 12, color: '#667085', marginTop: 2 },
+  itemActions: { alignItems: 'flex-end', gap: 6 },
+  removeButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
+  removeText: { fontSize: 12, fontWeight: '700', color: '#B42318' },
   stepper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F4F7', borderRadius: 10 },
   stepperBtn: { padding: 8 },
   stepperValue: { minWidth: 24, textAlign: 'center', fontWeight: '700', color: '#0F2926' },
@@ -350,6 +455,21 @@ const styles = StyleSheet.create({
   rxRemove: { fontSize: 13, color: '#B42318', fontWeight: '600', marginTop: 4 },
 
   sectionTitle: { marginHorizontal: 16, marginTop: 20, fontSize: 14, fontWeight: '700', color: '#344054' },
+  memberRow: { paddingHorizontal: 16, paddingTop: 10, gap: 10 },
+  memberCard: {
+    width: 108, alignItems: 'center', padding: 12, borderRadius: 14,
+    backgroundColor: 'white', borderWidth: 1.5, borderColor: '#EAECF0',
+  },
+  memberCardActive: { borderColor: '#007a55', backgroundColor: '#e6f4ef' },
+  memberAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F4F7',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  },
+  memberAvatarActive: { backgroundColor: '#007a55' },
+  memberInitial: { fontSize: 16, fontWeight: '800', color: '#344054' },
+  memberName: { fontSize: 14, fontWeight: '700', color: '#0F2926' },
+  memberMeta: { fontSize: 11, color: '#667085', marginTop: 2 },
+  memberHint: { marginHorizontal: 16, marginTop: 8, fontSize: 12, color: '#175CD3' },
   optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   optionLabel: { flex: 1, fontSize: 15, color: '#0F2926' },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#D0D5DD' },

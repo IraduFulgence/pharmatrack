@@ -4,6 +4,7 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service.js';
@@ -867,13 +868,29 @@ export class MarketplaceService {
       mobileMoneyProvider?: MobileMoneyProvider;
       paymentPhoneNumber?: string;
       prescriptionReference?: string;
+      /** A family member the order is for; omitted or the buyer's own ID means the buyer. */
+      forPatientId?: number | string | null;
     },
     prescriptionFile?: Express.Multer.File,
+    /** Family manager acting for this patient, who is really placing the order. */
+    placedByInput?: number,
   ) {
     const patientId = this.validatePositiveInteger(
       patientIdInput,
       'Patient ID',
     );
+
+    // Multipart forms send numbers as strings; an empty value means "for me".
+    const forPatientRaw = input?.forPatientId;
+    const recipientId =
+      forPatientRaw === undefined || forPatientRaw === null || String(forPatientRaw).trim() === ''
+        ? patientId
+        : this.validatePositiveInteger(forPatientRaw, 'Family member');
+    const forFamilyMember = recipientId !== patientId;
+    const placedBy =
+      placedByInput && Number(placedByInput) !== patientId
+        ? this.validatePositiveInteger(placedByInput, 'Acting manager')
+        : null;
 
     if (!input || !input.paymentMethod) {
       throw new BadRequestException('Payment method is required.');
@@ -945,6 +962,10 @@ export class MarketplaceService {
         'Pharmacy ID',
       );
 
+      if (forFamilyMember) {
+        await this.assertCanOrderFor(client, patientId, recipientId);
+      }
+
       const pharmacyResult = await client.query(
         `
           SELECT pharmacy_id
@@ -1008,7 +1029,7 @@ export class MarketplaceService {
       if (ageLimited.length > 0) {
         const patientRes = await client.query(
           `SELECT full_name, to_char(date_of_birth, 'YYYY-MM-DD') AS dob, age FROM public.patients WHERE patient_id = $1`,
-          [patientId],
+          [recipientId],
         );
         const p = patientRes.rows[0];
         const age = p?.dob ? ageOn(p.dob) : p?.age != null ? Number(p.age) : null;
@@ -1034,7 +1055,10 @@ export class MarketplaceService {
             medicineName: item.medicine_name,
             quantity: Number(item.quantity),
           }));
-        const problems = await this.checkOrderPrescription(client, patientId, prescriptionReference, rxItems);
+        // The prescription must be written for whoever the medicine is for.
+        const problems = await this.checkOrderPrescription(
+          client, recipientId, prescriptionReference, rxItems, forFamilyMember,
+        );
         if (problems.length > 0) {
           throw new BadRequestException(problems.join(' '));
         }
@@ -1117,7 +1141,9 @@ export class MarketplaceService {
             subtotal,
             total,
             prescription_reference,
-            prescription_image_path
+            prescription_image_path,
+            ordered_for_patient_id,
+            placed_by_patient_id
           )
           VALUES (
             $1,
@@ -1130,11 +1156,14 @@ export class MarketplaceService {
             $6,
             $6,
             $7,
-            $8
+            $8,
+            $9,
+            $10
           )
           RETURNING
             order_id,
             patient_id,
+            ordered_for_patient_id,
             pharmacy_id,
             status,
             payment_method,
@@ -1154,6 +1183,8 @@ export class MarketplaceService {
           total,
           prescriptionReference,
           prescriptionImagePath,
+          forFamilyMember ? recipientId : null,
+          placedBy,
         ],
       );
 
@@ -1223,6 +1254,28 @@ export class MarketplaceService {
   }
 
   /**
+   * A buyer may order for someone else only when both are in the same family
+   * and the buyer manages it (the family head or a spouse).
+   */
+  private async assertCanOrderFor(client: any, buyerId: number, recipientId: number) {
+    const res = await client.query(
+      `SELECT buyer.can_manage
+       FROM public.family_members buyer
+       JOIN public.family_members recipient
+         ON recipient.family_id = buyer.family_id
+       WHERE buyer.patient_id = $1
+         AND recipient.patient_id = $2`,
+      [buyerId, recipientId],
+    );
+    if (res.rows.length === 0) {
+      throw new BadRequestException('You can only order for members of your own family.');
+    }
+    if (!res.rows[0].can_manage) {
+      throw new ForbiddenException('Only the family head or a spouse can order for other family members.');
+    }
+  }
+
+  /**
    * Problems with ordering these prescription-only quantities on this prescription number.
    * A number PharmaTrack doesn't know is accepted: the pharmacy checks it (or the photo).
    * Locks the prescription so two orders can't both claim what is left.
@@ -1232,6 +1285,7 @@ export class MarketplaceService {
     patientId: number,
     reference: string,
     rxItems: Array<{ medicineId: number; medicineName: string; quantity: number }>,
+    forFamilyMember = false,
   ): Promise<string[]> {
     const res = await client.query(
       `SELECT prescription_id, patient_id, status
@@ -1243,7 +1297,11 @@ export class MarketplaceService {
     const pr = res.rows[0];
     if (!pr) return [];
     if (Number(pr.patient_id) !== patientId) {
-      return ['This prescription number is not on your account. Check the number, or attach a photo of your prescription instead.'];
+      return [
+        forFamilyMember
+          ? 'This prescription number was not written for the family member you are ordering for. Check the number, or attach a photo of their prescription instead.'
+          : 'This prescription number is not on your account. Check the number, or attach a photo of your prescription instead.',
+      ];
     }
     const status = String(pr.status || '').toUpperCase();
     if (status === 'FULFILLED') return ['This prescription has already been fully dispensed.'];
@@ -1261,7 +1319,7 @@ export class MarketplaceService {
    * Another patient's prescription is reported as not found.
    */
   async lookupPrescription(patientIdInput: number, referenceInput: string) {
-    const patientId = this.validatePositiveInteger(patientIdInput, 'Patient ID');
+    const requesterId = this.validatePositiveInteger(patientIdInput, 'Patient ID');
     const reference = (referenceInput ?? '').trim();
     if (!reference) {
       throw new BadRequestException('Enter your prescription number or SMS code.');
@@ -1270,19 +1328,37 @@ export class MarketplaceService {
       throw new BadRequestException('Prescription number cannot exceed 100 characters.');
     }
 
+    // Your own prescriptions, plus those of your family members when you manage the family
+    // (the family head or a spouse). Anyone else's is reported as not found.
     const prescriptionResult = await this.databaseService.query(
-      `SELECT prescription_id, prescription_reference, status,
-              to_char(issued_date, 'YYYY-MM-DD') AS issued_date
-       FROM public.prescriptions
-       WHERE LOWER(prescription_reference) = LOWER($1) AND patient_id = $2`,
-      [reference, patientId],
+      `SELECT rx.prescription_id, rx.prescription_reference, rx.status, rx.patient_id,
+              to_char(rx.issued_date, 'YYYY-MM-DD') AS issued_date,
+              owner.full_name AS patient_name
+       FROM public.prescriptions rx
+       JOIN public.patients owner ON owner.patient_id = rx.patient_id
+       WHERE LOWER(rx.prescription_reference) = LOWER($1)
+         AND (
+           rx.patient_id = $2
+           OR EXISTS (
+             SELECT 1
+             FROM public.family_members manager
+             JOIN public.family_members member
+               ON member.family_id = manager.family_id
+             WHERE manager.patient_id = $2
+               AND manager.can_manage = TRUE
+               AND member.patient_id = rx.patient_id
+           )
+         )`,
+      [reference, requesterId],
     );
     const prescription = prescriptionResult.rows[0];
     if (!prescription) {
       throw new NotFoundException(
-        'No prescription with that number was found on your account. Check the number, or attach a photo of the prescription when you order.',
+        'No prescription with that number was found on your account or your family\'s. Check the number, or attach a photo of the prescription when you order.',
       );
     }
+    // Whose prescription it is: the order must be placed for them.
+    const patientId = Number(prescription.patient_id);
 
     const itemsResult = await this.databaseService.query(
       `SELECT
@@ -1344,6 +1420,9 @@ export class MarketplaceService {
           issued_date: prescription.issued_date,
           usable: problem === null,
           problem,
+          patient_id: patientId,
+          patient_name: prescription.patient_name,
+          for_family_member: patientId !== requesterId,
         },
         items: itemsResult.rows.map((row: any) => {
           const b = balanceByMedicine.get(Number(row.medicine_id));
@@ -1386,12 +1465,16 @@ export class MarketplaceService {
           o.subtotal,
           o.total,
           o.rejection_reason,
+          o.ordered_for_patient_id,
+          fp.full_name AS ordered_for_name,
           o.created_at,
           o.updated_at,
           COUNT(oi.order_item_id)::INTEGER AS item_count
         FROM public.marketplace_orders o
         LEFT JOIN public.pharmacies p
           ON p.pharmacy_id = o.pharmacy_id
+        LEFT JOIN public.patients fp
+          ON fp.patient_id = o.ordered_for_patient_id
         LEFT JOIN public.marketplace_order_items oi
           ON oi.order_id = o.order_id
         WHERE o.patient_id = $1
@@ -1400,7 +1483,8 @@ export class MarketplaceService {
           o.pharmacy_id,
           p.pharmacy_name,
           p.phone_number,
-          p.location_address
+          p.location_address,
+          fp.full_name
         ORDER BY o.created_at DESC, o.order_id DESC
       `,
       [patientId],
@@ -1449,11 +1533,15 @@ export class MarketplaceService {
           o.rejection_reason,
           o.prescription_reference,
           (o.prescription_image_path IS NOT NULL) AS has_prescription_image,
+          o.ordered_for_patient_id,
+          fp.full_name AS ordered_for_name,
           o.created_at,
           o.updated_at
         FROM public.marketplace_orders o
         LEFT JOIN public.pharmacies p
           ON p.pharmacy_id = o.pharmacy_id
+        LEFT JOIN public.patients fp
+          ON fp.patient_id = o.ordered_for_patient_id
         WHERE o.order_id = $1
           AND o.patient_id = $2
         LIMIT 1

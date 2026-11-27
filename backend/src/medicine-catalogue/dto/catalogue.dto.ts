@@ -17,7 +17,7 @@ import {
 // Trim strings; turn "" into undefined so optional fields can be cleared with null only.
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 // Accept ["Fever", "Headache"] or "Fever; Headache".
-const toList = ({ value }: { value: unknown }) => {
+export const toList = ({ value }: { value: unknown }) => {
   const parts = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[;,\n]/) : value;
   if (!Array.isArray(parts)) return parts;
   const seen = new Set<string>();

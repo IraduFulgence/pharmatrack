@@ -82,7 +82,7 @@ export default function SecondScreen(){
 
                     <View style={styles.signInRow}>
             <Text style={styles.signInText}>
-              {t('welcome.secondScreen.buttomMessage')}{t(' ')}
+              {t('welcome.secondScreen.buttomMessage')}{' '}
             </Text>
 
             <TouchableOpacity

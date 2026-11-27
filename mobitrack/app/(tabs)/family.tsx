@@ -272,13 +272,6 @@ export default function FamilyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('family.title', 'My family')}</Text>
-        <View style={{ width: 32 }} />
-      </View>
 
       {isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#007a55" /></View>

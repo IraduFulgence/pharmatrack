@@ -135,7 +135,7 @@ export const actingSession = {
     try { return JSON.parse(raw); } catch { return null; }
   },
 
-  /** Forget everything (on sign-out). */
+  
   clear: async () => {
     await SecureStore.deleteItemAsync(OWNER_TOKEN);
     await SecureStore.deleteItemAsync(OWNER_USER);

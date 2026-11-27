@@ -29,24 +29,34 @@ export class PatientsService {
       throw new BadRequestException('Search term cannot exceed 150 characters.');
     }
 
-    // Typo tolerant: "paractmol" still finds Paracetamol.
+    // Typo tolerant: "paractmol" still finds Paracetamol. Also matches a tag ("headache")
+    // or a category ("painkillers"), so patients can search by what they need it for.
     const allMedicines = await this.db.query(
       `SELECT
-         medicine_id,
-         medicine_name,
-         generic_name,
-         brand_name,
-         strength,
-         dosage_form,
-         requires_prescription
-       FROM public.medicines
-       ORDER BY medicine_name ASC`,
+         m.medicine_id,
+         m.medicine_name,
+         m.generic_name,
+         m.brand_name,
+         m.strength,
+         m.dosage_form,
+         m.requires_prescription,
+         m.category_id,
+         mc.category_name,
+         m.indications,
+         m.min_age_years,
+         m.max_age_years,
+         m.dosage_notes
+       FROM public.medicines m
+       LEFT JOIN public.medicine_categories mc ON mc.category_id = m.category_id
+       ORDER BY m.medicine_name ASC`,
     );
     const medicineResult = {
       rows: rankByFuzzy(allMedicines.rows, name, (m: any) => [
         m.medicine_name,
         m.generic_name,
         m.brand_name,
+        m.category_name,
+        ...(m.indications || []),
       ]).slice(0, 10),
     };
 

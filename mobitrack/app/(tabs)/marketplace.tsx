@@ -10,6 +10,7 @@ import {
   CatalogueMedicine, formatRwf, marketplaceService,
 } from '@/src/api/marketplace/marketplaceService';
 import ProductImage from '@/components/marketplace/ProductImage';
+import MedicineMeta from '@/components/marketplace/MedicineMeta';
 
 const PAGE_SIZE = 40;
 const GAP = 12;
@@ -82,6 +83,13 @@ export default function MarketplaceScreen() {
             {item.medicine_name}{item.strength && !item.medicine_name.includes(item.strength) ? ` ${item.strength}` : ''}
           </Text>
           {item.dosage_form ? <Text style={styles.cardMeta} numberOfLines={1}>{item.dosage_form}</Text> : null}
+          <MedicineMeta
+            category_name={item.category_name}
+            indications={item.indications}
+            min_age_years={item.min_age_years}
+            max_age_years={item.max_age_years}
+            maxTags={1}
+          />
           <Text style={styles.cardPrice}>
             {t('marketplace.from', 'From')} {formatRwf(item.lowest_price)}
           </Text>
@@ -95,20 +103,6 @@ export default function MarketplaceScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('marketplace.title', 'Order medicines')}</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => router.push('/orders')} style={styles.iconButton}>
-            <Ionicons name="receipt-outline" size={22} color="#0F2926" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/cart')} style={styles.iconButton}>
-            <Ionicons name="cart-outline" size={24} color="#0F2926" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{cartCount}</Text></View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <View style={styles.searchBox}>
         <Ionicons name="search" size={18} color="#98A2B3" />

@@ -30,7 +30,7 @@ export default function PharmacyCTA() {
 
           {/* Button */}
           <Link
-            to="/auth/register"
+            to="/register"
             className="w-full md:w-auto px-8 py-3 bg-brand-primary hover:bg-brand-dark text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-lg whitespace-nowrap text-center"
           >
             {t('cta.pharmacy_btn', 'Become a Partner')}

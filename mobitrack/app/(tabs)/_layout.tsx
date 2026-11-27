@@ -1,14 +1,29 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import AppHeader from "@/components/topheader/AppHeader";
+import { useInactivityLogout } from "@/src/session/inactivity";
+
+
 export default function TabLayout(){
 
   const {t} = useTranslation();
+ 
+  const onActivity = useInactivityLogout();
+
   return (
+    
+    <View
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => { onActivity(); return false; }}
+    >
     <Tabs 
+    backBehavior="history"
     screenOptions={{
-      headerShown:false,
+      // One header for every logged-in screen: back button, title, cart and account menu.
+      headerShown:true,
+      header: (props) => <AppHeader {...props} />,
       tabBarActiveTintColor:'#206B5F',
       tabBarInactiveTintColor:'#98A2B3',
 
@@ -74,53 +89,38 @@ export default function TabLayout(){
 />
      <Tabs.Screen 
   name="chat/[id]" 
-  options={{ 
-   href:null,
-  }} 
+  options={{ href: null, title: t("chat.title", "Messages") }} 
    />
    <Tabs.Screen
       name="orders/index"
-      options={{
-        href:null,
-      }}
+      options={{ href: null, title: t("orders.title", "My orders") }}
    />
     <Tabs.Screen
       name="orders/[id]"
-      options={{
-        href:null,
-      }}
+      options={{ href: null, title: t("orders.order", "Order") }}
    />
    <Tabs.Screen
       name="pharmacy/[id]"
-      options={{
-        href:null,
-      }}
+      options={{ href: null, title: t("pharmacy.title", "Pharmacy") }}
    />
    <Tabs.Screen
       name="cart"
-      options={{
-        href:null,
-      }}
+      options={{ href: null, title: t("cart.title", "Your cart") }}
    />
    <Tabs.Screen
       name="product/[id]"
-      options={{
-        href:null,
-      }}
+      options={{ href: null, title: t("product.title", "Product details") }}
    />
    <Tabs.Screen
       name="prescription"
-      options={{
-        href:null,
-      }}
+      options={{ href: null, title: t("rxLookup.title", "My prescription") }}
    />
    <Tabs.Screen
       name="family"
-      options={{
-        href:null,
-      }}
+      options={{ href: null, title: t("family.title", "My family") }}
    />
 
     </Tabs>
+    </View>
   )
 }

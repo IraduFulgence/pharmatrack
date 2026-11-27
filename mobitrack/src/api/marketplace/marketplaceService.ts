@@ -83,6 +83,9 @@ export interface OrderSummary {
   rejection_reason?: string | null;
   prescription_reference?: string | null;
   has_prescription_image?: boolean;
+  /** Set when the order was placed for a family member. */
+  ordered_for_patient_id?: number | null;
+  ordered_for_name?: string | null;
   created_at: string;
   updated_at: string;
   item_count: number;
@@ -113,6 +116,8 @@ export interface PlaceOrderInput {
   paymentPhoneNumber?: string;
   prescriptionReference?: string;
   prescriptionImage?: PickedImage | null;
+  /** Family member the order is for (family heads and spouses). Omit to order for yourself. */
+  forPatientId?: number;
 }
 
 export interface PrescriptionLookup {
@@ -123,6 +128,10 @@ export interface PrescriptionLookup {
     issued_date: string;
     usable: boolean;
     problem: string | null;
+    /** Whose prescription it is (you, or a family member when you manage the family). */
+    patient_id?: number;
+    patient_name?: string | null;
+    for_family_member?: boolean;
   };
   items: Array<CatalogueMedicine & {
     quantity: number;               // prescribed
@@ -134,11 +143,18 @@ export interface PrescriptionLookup {
   }>;
 }
 
-// The prescription number the patient last looked up, so the cart can fill it in at checkout.
+// The prescription number the patient last looked up, so the cart can fill it in at checkout,
+// and the family member it was written for (the cart then orders for them).
 let prescriptionDraft: string | null = null;
+let prescriptionDraftFor: number | null = null;
 export const prescriptionDraftStore = {
   get: () => prescriptionDraft,
-  set: (reference: string | null) => { prescriptionDraft = reference?.trim() || null; },
+  /** Family member the prescription belongs to, or null when it is your own. */
+  getFor: () => prescriptionDraftFor,
+  set: (reference: string | null, forPatientId: number | null = null) => {
+    prescriptionDraft = reference?.trim() || null;
+    prescriptionDraftFor = prescriptionDraft ? forPatientId : null;
+  },
 };
 
 /** Full URL for an image path returned by the API (null when there is no photo). */

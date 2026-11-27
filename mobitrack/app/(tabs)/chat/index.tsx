@@ -93,9 +93,6 @@ export default function ChatListScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('chat.title', 'Messages')}</Text>
-      </View>
 
       {isLoading ? (
         <View style={styles.center}>
