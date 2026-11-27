@@ -32,7 +32,16 @@ export default function AppHeader({ navigation, route, options }: BottomTabHeade
   const [menuOpen, setMenuOpen] = useState(false);
 
   const isHome = route.name === HOME_ROUTE;
-  const title = typeof options.title === 'string' ? options.title : route.name;
+  const baseTitle = typeof options.title === 'string' ? options.title : route.name;
+  const params = (route.params || {}) as { id?: string | string[]; name?: string | string[] };
+  const param = (v?: string | string[]) => (Array.isArray(v) ? v[0] : v)?.trim() || '';
+  // Screens opened for one thing show its name or number.
+  const title =
+    route.name === 'orders/[id]' && param(params.id)
+      ? `${baseTitle} #${param(params.id)}`
+      : (route.name === 'chat/[id]' || route.name === 'pharmacy/[id]') && param(params.name)
+        ? param(params.name)
+        : baseTitle;
 
   // Refresh who is signed in and the cart badge whenever the screen changes.
   useEffect(() => {

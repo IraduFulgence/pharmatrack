@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { actingSession } from '@/src/api/family/familyService';
 
-/** Signed-in patients are signed out after this long without touching the app. */
+
 export const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 const LAST_ACTIVITY_KEY = 'lastActivityAt';

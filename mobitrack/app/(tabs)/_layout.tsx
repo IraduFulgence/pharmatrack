@@ -5,17 +5,15 @@ import { useTranslation } from "react-i18next";
 import AppHeader from "@/components/topheader/AppHeader";
 import { useInactivityLogout } from "@/src/session/inactivity";
 
-// Title for screens opened with a name, e.g. a pharmacy or a chat.
-const paramTitle = (route: any, fallback: string) =>
-  typeof route?.params?.name === "string" && route.params.name.trim() ? route.params.name : fallback;
+
 export default function TabLayout(){
 
   const {t} = useTranslation();
-  // Signed out after 5 minutes without a touch (see src/session/inactivity.ts).
+ 
   const onActivity = useInactivityLogout();
 
   return (
-    // Every touch anywhere in the logged-in app counts as activity (without taking the touch).
+    
     <View
       style={{ flex: 1 }}
       onStartShouldSetResponderCapture={() => { onActivity(); return false; }}
@@ -91,7 +89,7 @@ export default function TabLayout(){
 />
      <Tabs.Screen 
   name="chat/[id]" 
-  options={({ route }) => ({ href: null, title: paramTitle(route, t("chat.title", "Messages")) })} 
+  options={{ href: null, title: t("chat.title", "Messages") }} 
    />
    <Tabs.Screen
       name="orders/index"
@@ -99,11 +97,11 @@ export default function TabLayout(){
    />
     <Tabs.Screen
       name="orders/[id]"
-      options={({ route }: any) => ({ href: null, title: `${t("orders.order", "Order")} #${route?.params?.id ?? ""}` })}
+      options={{ href: null, title: t("orders.order", "Order") }}
    />
    <Tabs.Screen
       name="pharmacy/[id]"
-      options={({ route }) => ({ href: null, title: paramTitle(route, t("pharmacy.title", "Pharmacy")) })}
+      options={{ href: null, title: t("pharmacy.title", "Pharmacy") }}
    />
    <Tabs.Screen
       name="cart"
