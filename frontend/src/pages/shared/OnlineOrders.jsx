@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShoppingBag, Loader2, AlertCircle, X, CheckCircle2, XCircle, PackageCheck,
-  Store, RefreshCw, User, Phone, Lock, AlertTriangle, FileText,
+  Store, RefreshCw, User, Phone, Lock, AlertTriangle, FileText, Users, Crown,
 } from 'lucide-react';
 // import { marketplaceService, ORDER_STATUS, PAYMENT_LABELS } from '../../services/marketplaceService';
 import { marketplaceService, ORDER_STATUS, PAYMENT_LABELS } from '../../services/marketplaceService';
@@ -21,6 +21,99 @@ const TABS = [
 
 const money = (n) => `${Number(n || 0).toLocaleString()} RWF`;
 const when = (v) => (v ? new Date(v).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '');
+
+const RELATIONSHIP = {
+  HEAD: 'Head of family', SPOUSE: 'Spouse', CHILD: 'Child', PARENT: 'Parent', SIBLING: 'Sibling', OTHER: 'Relative',
+};
+const ageLabel = (age) => (age === null || age === undefined ? null : `${age} yr${Number(age) === 1 ? '' : 's'}`);
+/**
+ * Who is involved in an order, the same way for every kind of order:
+ * - placed by a patient for themself,
+ * - placed for a family member from the checkout picker (ordered_for_*),
+ * - placed by a family manager acting for the patient (placed_by_*).
+ */
+const orderPeople = (o) => {
+  const acting = o?.placed_by_patient_id != null && Number(o.placed_by_patient_id) !== Number(o.patient_id);
+  const picked = o?.ordered_for_patient_id != null && Number(o.ordered_for_patient_id) !== Number(o.patient_id);
+  const buyer = acting
+    ? { id: o.placed_by_patient_id, name: o.placed_by_name, phone: o.placed_by_phone, age: null }
+    : { id: o.patient_id, name: o.patient_name || `Patient #${o.patient_id}`, phone: o.patient_phone, age: o.patient_age };
+  const member = acting
+    ? { name: o.patient_name, relationship: o.patient_relationship, age: o.patient_age, gender: null }
+    : picked
+      ? { name: o.ordered_for_name, relationship: o.ordered_for_relationship, age: o.ordered_for_age, gender: o.ordered_for_gender }
+      : null;
+  const headId = o?.family_head_patient_id != null ? Number(o.family_head_patient_id) : null;
+  return {
+    buyer,
+    member,
+    acting,
+    buyerIsHead: headId !== null && headId === Number(buyer.id),
+    headName: o?.family_head_name || null,
+  };
+};
+
+/** Who placed the order, who the medicine is for (with age), and their family head. */
+function OrderPeople({ order, compact = false }) {
+  const { buyer, member, acting, buyerIsHead, headName } = orderPeople(order);
+  const relationship = (r) => (r ? RELATIONSHIP[r] || r : null);
+  if (compact) {
+    return (
+      <>
+        <p className="font-medium text-gray-900 dark:text-white">
+          {buyer.name}
+          {!member && ageLabel(buyer.age) && <span className="ml-1 text-xs font-normal text-gray-500">· {ageLabel(buyer.age)}</span>}
+          {buyerIsHead && (
+            <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"><Crown size={10} /> Family head</span>
+          )}
+        </p>
+        {buyer.phone && <p className="text-xs text-gray-500">{buyer.phone}</p>}
+        {member && (
+          <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mt-0.5">
+            For {member.name}
+            {relationship(member.relationship) ? ` (${relationship(member.relationship)})` : ''}
+            {ageLabel(member.age) ? ` · ${ageLabel(member.age)}` : ''}
+          </p>
+        )}
+        {headName && !buyerIsHead && <p className="text-xs text-gray-500">Family head: {headName}</p>}
+      </>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-xs uppercase tracking-wide text-gray-500">{member ? 'Ordered by' : 'Patient'}</p>
+        <p className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+          <User size={14} /> {buyer.name}
+          {!member && ageLabel(buyer.age) && <span className="font-normal text-gray-500">· {ageLabel(buyer.age)}</span>}
+        </p>
+        {buyer.phone && <p className="flex items-center gap-2 text-gray-500 mt-1"><Phone size={14} /> {buyer.phone}</p>}
+        {acting && <p className="text-xs text-gray-500 mt-1">Placed from the family member's account, managed by this person.</p>}
+      </div>
+      {member && (
+        <div className="p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+          <p className="text-xs uppercase tracking-wide text-blue-700 dark:text-blue-300">For family member</p>
+          <p className="flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-100">
+            <Users size={14} /> {member.name}
+          </p>
+          <p className="text-xs text-blue-800 dark:text-blue-200 mt-0.5">
+            {[
+              relationship(member.relationship),
+              ageLabel(member.age) ? `Age ${ageLabel(member.age)}` : 'Age unknown',
+              member.gender || null,
+            ].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+      )}
+      {headName && (
+        <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+          <Crown size={14} className="text-amber-600" />
+          <span className="text-gray-500">Family head:</span> {buyerIsHead ? `${headName} (placed this order)` : headName}
+        </p>
+      )}
+    </div>
+  );
+}
 
 const StatusBadge = ({ status }) => {
   const s = ORDER_STATUS[status] || { label: status, tone: 'bg-gray-100 text-gray-600' };
@@ -222,8 +315,7 @@ const OnlineOrders = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900 dark:text-white">{o.patient_name || `Patient #${o.patient_id}`}</p>
-                      {o.patient_phone && <p className="text-xs text-gray-500">{o.patient_phone}</p>}
+                      <OrderPeople order={o} compact />
                     </td>
                     <td className="px-4 py-3 text-right">{o.item_count}</td>
                     <td className="px-4 py-3 text-right font-medium">{money(o.total)}</td>
@@ -255,8 +347,7 @@ const OnlineOrders = () => {
                 <>
                   <div className="grid sm:grid-cols-2 gap-3 text-sm">
                     <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                      <p className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white"><User size={14} /> {order.patient_name || `Patient #${order.patient_id}`}</p>
-                      {order.patient_phone && <p className="flex items-center gap-2 text-gray-500 mt-1"><Phone size={14} /> {order.patient_phone}</p>}
+                      <OrderPeople order={order} />
                     </div>
                     <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300">
                       <p><span className="text-gray-500">Payment:</span> {PAYMENT_LABELS[order.payment_method] || order.payment_method}

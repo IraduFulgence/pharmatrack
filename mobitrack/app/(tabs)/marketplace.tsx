@@ -95,20 +95,6 @@ export default function MarketplaceScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('marketplace.title', 'Order medicines')}</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => router.push('/orders')} style={styles.iconButton}>
-            <Ionicons name="receipt-outline" size={22} color="#0F2926" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/cart')} style={styles.iconButton}>
-            <Ionicons name="cart-outline" size={24} color="#0F2926" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{cartCount}</Text></View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <View style={styles.searchBox}>
         <Ionicons name="search" size={18} color="#98A2B3" />

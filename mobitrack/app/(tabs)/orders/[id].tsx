@@ -103,13 +103,6 @@ export default function OrderDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.navigate('/orders')} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('orders.order', 'Order')} #{orderId}</Text>
-        <View style={{ width: 32 }} />
-      </View>
 
       {isLoading && !order ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#007a55" /></View>
@@ -151,6 +144,15 @@ export default function OrderDetailScreen() {
               </Text>
             )}
           </View>
+
+          {order.ordered_for_name ? (
+            <View style={[styles.card, styles.forCard]}>
+              <Ionicons name="people-outline" size={18} color="#175CD3" />
+              <Text style={styles.forText}>
+                {t('orders.orderedFor', { defaultValue: 'Ordered for {{name}}', name: order.ordered_for_name })}
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{order.pharmacy_name || t('orders.pharmacy', 'Pharmacy')}</Text>
@@ -246,6 +248,8 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0F2926' },
   meta: { fontSize: 13, color: '#667085' },
+  forCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFF8FF', borderColor: '#B2DDFF' },
+  forText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#175CD3' },
   contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   secondaryButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9,

@@ -36,7 +36,14 @@ export default function PrescriptionLookupScreen() {
     try {
       const res = await marketplaceService.lookupPrescription(value);
       setResult(res.data);
-      if (res.data.prescription.usable) prescriptionDraftStore.set(res.data.prescription.prescription_reference);
+      const found = res.data.prescription;
+      if (found.usable) {
+        // A family member's prescription: the cart will order for them.
+        prescriptionDraftStore.set(
+          found.prescription_reference,
+          found.for_family_member && found.patient_id ? found.patient_id : null,
+        );
+      }
     } catch (err: any) {
       setError(err?.message || t('rxLookup.error', 'Could not find this prescription.'));
     } finally {
@@ -51,13 +58,6 @@ export default function PrescriptionLookupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('rxLookup.title', 'My prescription')}</Text>
-        <View style={{ width: 32 }} />
-      </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>{t('rxLookup.label', 'Prescription number or SMS code')}</Text>
@@ -83,7 +83,7 @@ export default function PrescriptionLookupScreen() {
           </TouchableOpacity>
         </View>
         <Text style={styles.hint}>
-          {t('rxLookup.hint', 'Only prescriptions issued to you can be found. No number? Add your medicines from the shop and attach a photo of the prescription at checkout.')}
+          {t('rxLookup.hint', 'Prescriptions issued to you (or to your family, if you manage it) can be found. No number? Add your medicines from the shop and attach a photo of the prescription at checkout.')}
         </Text>
 
         {error ? (
@@ -100,6 +100,11 @@ export default function PrescriptionLookupScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.rxRef}>{rx.prescription_reference}</Text>
                 <Text style={styles.rxMeta}>{t('rxLookup.issued', 'Issued {{date}}', { date: rx.issued_date })}</Text>
+                {rx.for_family_member && rx.patient_name ? (
+                  <Text style={styles.rxFor}>
+                    {t('rxLookup.forMember', { defaultValue: 'For {{name}} (family member)', name: rx.patient_name })}
+                  </Text>
+                ) : null}
               </View>
               <View style={[styles.statusPill, !rx.usable && styles.statusPillBad]}>
                 <Text style={[styles.statusText, !rx.usable && styles.statusTextBad]}>
@@ -210,6 +215,7 @@ const styles = StyleSheet.create({
   },
   rxRef: { fontSize: 16, fontWeight: '800', color: '#0F2926' },
   rxMeta: { fontSize: 12, color: '#667085', marginTop: 2 },
+  rxFor: { fontSize: 12, color: '#175CD3', fontWeight: '700', marginTop: 2 },
   statusPill: { backgroundColor: '#ECFDF3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   statusPillBad: { backgroundColor: '#FEF3F2' },
   statusText: { color: '#027A48', fontWeight: '800', fontSize: 12 },

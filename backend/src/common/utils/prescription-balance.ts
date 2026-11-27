@@ -71,7 +71,7 @@ export async function getPrescriptionBalance(
          SELECT SUM(oi.quantity)
          FROM public.marketplace_order_items oi
          JOIN public.marketplace_orders o ON o.order_id = oi.order_id
-         WHERE o.patient_id = $2
+         WHERE COALESCE(o.ordered_for_patient_id, o.patient_id) = $2
            AND LOWER(o.prescription_reference) = LOWER($3)
            AND o.status IN ('PENDING', 'ACCEPTED', 'READY_FOR_COLLECTION')
            AND ($4::BIGINT IS NULL OR o.order_id <> $4)

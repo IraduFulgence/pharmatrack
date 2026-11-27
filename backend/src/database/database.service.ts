@@ -15,6 +15,7 @@ import {
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import type { PoolClient, QueryResult } from 'pg';
+import { seedTestPrescriptions } from './seeds/test-prescriptions.js';
 
 const { Pool } = pg;
 
@@ -64,6 +65,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('Successfully connected to PostgreSQL database.');
       client.release();
       await this.runMigrations();
+      // Test data for checking prescription (Rx) verification; off unless asked for.
+      if (process.env.SEED_TEST_PRESCRIPTIONS === 'true') {
+        try {
+          await seedTestPrescriptions(this.pool, this.logger);
+        } catch (err: any) {
+          this.logger.error(`Could not create test prescriptions: ${err.message}`);
+        }
+      }
     } catch (err: any) {
       this.logger.error(`Database connection error: ${err.message}`);
     }
@@ -311,6 +320,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         -- Prescription the patient attaches when ordering prescription-only medicine
         ALTER TABLE public.marketplace_orders ADD COLUMN IF NOT EXISTS prescription_reference VARCHAR(100);
         ALTER TABLE public.marketplace_orders ADD COLUMN IF NOT EXISTS prescription_image_path VARCHAR(500);
+
+        -- Family member the order is for, when a family manager buys for someone else (NULL = the buyer).
+        ALTER TABLE public.marketplace_orders
+          ADD COLUMN IF NOT EXISTS ordered_for_patient_id BIGINT REFERENCES public.patients(patient_id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS idx_marketplace_orders_ordered_for
+          ON public.marketplace_orders (ordered_for_patient_id) WHERE ordered_for_patient_id IS NOT NULL;
+
+        -- Family manager who placed the order while acting for this patient (NULL = the patient themself).
+        ALTER TABLE public.marketplace_orders
+          ADD COLUMN IF NOT EXISTS placed_by_patient_id BIGINT REFERENCES public.patients(patient_id) ON DELETE SET NULL;
 
         -- Product photos (uploaded by system admins, shown in the marketplace)
         ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS medicine_image_path VARCHAR(500);

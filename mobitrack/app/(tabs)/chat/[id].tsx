@@ -146,12 +146,8 @@ export default function ChatRoomScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.navigate('/chat')} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-
+        {/* Name and back button are in the app header; this bar keeps the status and call button. */}
         <View style={styles.headerInfo}>
-          <Text style={styles.pharmacyName} numberOfLines={1}>{pharmacyName}</Text>
           {isClosed && <Text style={styles.closedStatus}>{t('chat.closed', 'Closed')}</Text>}
         </View>
 
@@ -251,12 +247,11 @@ const styles = StyleSheet.create({
   /* Header */
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'white',
+    paddingHorizontal: 20, paddingVertical: 6, backgroundColor: 'white',
     borderBottomWidth: 1, borderBottomColor: '#EAECF0',
-    paddingTop: Platform.OS === 'android' ? 40 : 16,
   },
   backButton: { padding: 4 },
-  headerInfo: { flex: 1, alignItems: 'center', marginHorizontal: 12 },
+  headerInfo: { flex: 1, alignItems: 'flex-start' },
   pharmacyName: { fontSize: 16, fontWeight: '700', color: '#0F2926' },
   closedStatus: { fontSize: 12, color: '#667085', fontWeight: '500', marginTop: 2 },
   callButton: { padding: 8 },

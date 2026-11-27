@@ -264,10 +264,6 @@ export default function PharmacyDetailScreen() {
           )}
         </MapView>
 
-        {/* Back Button */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
       </View>
 
       {/* Bottom Info Sheet */}

@@ -11,6 +11,7 @@ import {
 } from '@/src/api/marketplace/marketplaceService';
 import ProductImage from '@/components/marketplace/ProductImage';
 import { useLocation } from '@/hooks/useLocation';
+import QuantityInput from '@/components/marketplace/QuantityInput';
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -57,20 +58,17 @@ export default function ProductDetailScreen() {
     return withDistance.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
   }, [offers, here?.latitude, here?.longitude]);
 
-  const changeQty = (offer: PharmacyOffer, delta: number) => {
-    const current = quantities[offer.pharmacy_id] || startQty(offer);
-    if (delta > 0 && current >= maxFor(offer)) {
-      Alert.alert(
-        t('product.maxTitle', 'Maximum reached'),
-        rxMax !== null && rxMax <= Number(offer.available_quantity)
-          ? t('product.maxRx', 'Your prescription allows {{count}}.', { count: rxMax })
-          : t('product.maxStock', 'This pharmacy has {{count}} available to order.', { count: offer.available_quantity }),
-      );
-      return;
-    }
-    const next = Math.max(1, Math.min(maxFor(offer), current + delta));
-    setQuantities((q) => ({ ...q, [offer.pharmacy_id]: next }));
-  };
+  // Explain why the quantity can't go higher: the prescription, or the pharmacy's stock.
+  const explainMax = (offer: PharmacyOffer) =>
+    Alert.alert(
+      t('product.maxTitle', 'Maximum reached'),
+      rxMax !== null && rxMax <= Number(offer.available_quantity)
+        ? t('product.maxRx', 'Your prescription allows {{count}}.', { count: rxMax })
+        : t('product.maxStock', 'This pharmacy has {{count}} available to order.', { count: offer.available_quantity }),
+    );
+
+  const setQty = (offer: PharmacyOffer, next: number) =>
+    setQuantities((q) => ({ ...q, [offer.pharmacy_id]: Math.max(1, Math.min(maxFor(offer), next)) }));
 
   const addToCart = async (offer: PharmacyOffer) => {
     if (!medicine) return;
@@ -121,15 +119,6 @@ export default function ProductDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{t('product.title', 'Product details')}</Text>
-        <TouchableOpacity onPress={() => router.push('/cart')} style={styles.backButton}>
-          <Ionicons name="cart-outline" size={24} color="#0F2926" />
-        </TouchableOpacity>
-      </View>
 
       {isLoading && !medicine ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#007a55" /></View>
@@ -237,11 +226,12 @@ export default function ProductDetailScreen() {
                       ) : null}
                     </View>
                     <View style={styles.actions}>
-                      <View style={styles.stepper}>
-                        <TouchableOpacity onPress={() => changeQty(offer, -1)} style={styles.stepperBtn}><Ionicons name="remove" size={16} color="#0F2926" /></TouchableOpacity>
-                        <Text style={styles.stepperValue}>{qty}</Text>
-                        <TouchableOpacity onPress={() => changeQty(offer, 1)} style={styles.stepperBtn}><Ionicons name="add" size={16} color="#0F2926" /></TouchableOpacity>
-                      </View>
+                      <QuantityInput
+                        value={qty}
+                        max={maxFor(offer)}
+                        onChange={(next) => setQty(offer, next)}
+                        onExceed={() => explainMax(offer)}
+                      />
                       <TouchableOpacity
                         style={[styles.addButton, addingTo === offer.pharmacy_id && { opacity: 0.6 }]}
                         onPress={() => addToCart(offer)}

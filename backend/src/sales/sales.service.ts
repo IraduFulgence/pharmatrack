@@ -879,7 +879,7 @@ export class SalesService {
     // An online order being collected: it must be this pharmacy's, accepted, and for this patient.
     if (marketplaceOrderId) {
       const orderRes = await this.db.query(
-        `SELECT order_id, patient_id, status FROM public.marketplace_orders WHERE order_id = $1 AND pharmacy_id = $2`,
+        `SELECT order_id, patient_id, ordered_for_patient_id, status FROM public.marketplace_orders WHERE order_id = $1 AND pharmacy_id = $2`,
         [marketplaceOrderId, pharmacyId],
       );
       if (orderRes.rows.length === 0) {
@@ -889,7 +889,9 @@ export class SalesService {
       if (order.status !== 'ACCEPTED' && order.status !== 'READY_FOR_COLLECTION') {
         throw new BadRequestException(`This online order is ${String(order.status).toLowerCase().replace(/_/g, ' ')} and can't be completed.`);
       }
-      if (patientId && Number(patientId) !== Number(order.patient_id)) {
+      // The sale goes to whoever the medicine is for: the buyer, or the family member they ordered for.
+      const orderPatients = [order.patient_id, order.ordered_for_patient_id].filter((id) => id != null).map(Number);
+      if (patientId && !orderPatients.includes(Number(patientId))) {
         throw new BadRequestException('This online order belongs to a different patient.');
       }
     }

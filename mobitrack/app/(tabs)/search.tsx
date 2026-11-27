@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useLocation } from '@/hooks/useLocation';
 import { pharmacyService } from '@/src/api/pharmacy/pharmacyService';
 import { useTranslation } from 'react-i18next';
+import QuantityInput from '@/components/marketplace/QuantityInput';
 
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371;
@@ -145,15 +146,6 @@ export default function SearchScreen() {
   if (hasPermission === null) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#0F2926" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {t('searchScreen.searchText', 'Search')}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#007a55" />
           <Text style={styles.loadingText}>
@@ -167,15 +159,6 @@ export default function SearchScreen() {
   if (hasPermission === false) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#0F2926" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {t('searchScreen.searchText', 'Search')}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
         <View style={styles.center}>
           <View style={styles.iconCircle}>
             <Feather name="map-pin" size={32} color="#007a55" />
@@ -206,11 +189,17 @@ export default function SearchScreen() {
 
   const rowKey = (medicineId: number, pharmacyId: number) => `${medicineId}-${pharmacyId}`;
 
-  const changeQty = (key: string, available: number, delta: number) =>
+  const setQty = (key: string, available: number, next: number) =>
     setQuantities((q) => ({
       ...q,
-      [key]: Math.max(1, Math.min(Math.max(1, available), (q[key] || 1) + delta)),
+      [key]: Math.max(1, Math.min(Math.max(1, available), next)),
     }));
+
+  const explainStock = (available: number) =>
+    Alert.alert(
+      t('product.maxTitle', 'Maximum reached'),
+      t('product.maxStock', 'This pharmacy has {{count}} available to order.', { count: available }),
+    );
 
   const bookMedicine = async (medicine: any, pharmacy: any) => {
     const medicineId = Number(medicine?.medicine_id);
@@ -348,15 +337,12 @@ export default function SearchScreen() {
             </TouchableOpacity>
             {canBook ? (
               <View style={styles.bookRow}>
-                <View style={styles.stepper}>
-                  <TouchableOpacity style={styles.stepperBtn} onPress={() => changeQty(key, available, -1)}>
-                    <Ionicons name="remove" size={16} color="#0F2926" />
-                  </TouchableOpacity>
-                  <Text style={styles.stepperValue}>{qty}</Text>
-                  <TouchableOpacity style={styles.stepperBtn} onPress={() => changeQty(key, available, 1)}>
-                    <Ionicons name="add" size={16} color="#0F2926" />
-                  </TouchableOpacity>
-                </View>
+                <QuantityInput
+                  value={qty}
+                  max={Math.max(1, available)}
+                  onChange={(next) => setQty(key, available, next)}
+                  onExceed={() => explainStock(available)}
+                />
                 <TouchableOpacity
                   style={[styles.bookButton, bookingKey === key && { opacity: 0.6 }]}
                   onPress={() => bookMedicine(item.medicine, pharmacy)}
@@ -383,18 +369,6 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {t('searchScreen.searchText', 'Search Medicine')}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
 
       <View style={styles.searchWrapper}>
         <View style={styles.searchContainer}>

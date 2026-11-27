@@ -137,13 +137,6 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('profile.title', 'My Profile')}</Text>
-        <View style={{ width: 24 }} />
-      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
