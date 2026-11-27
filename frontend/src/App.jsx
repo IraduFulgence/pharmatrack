@@ -21,6 +21,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PendingVerification from './pages/PendingVerification';
 import CTA from './components/Cta';
 import PharmacyCTA from './components/pharmacyCTA';
+import PatientAppCTA from './components/PatientAppCTA';
 import AboutSection from './components/about';
 import FeatureSection from './components/feautures';
 import ContactSection from './components/contact';
@@ -74,6 +75,7 @@ const Home = () =>(
       <AboutSection />
       {/* <HowItWorks /> */}
        <FeatureSection />
+      <PatientAppCTA />
       <CTA />
       
       <ContactSection />
