@@ -170,7 +170,14 @@ export default function ProductDetailScreen() {
                       : t('product.ageMax', 'Only for ages up to {{max}}.', { max: medicine.max_age_years })}
                 </Text>
               </View>
-            ) : null}
+            ) : (
+              <View style={[styles.ageNote, { backgroundColor: '#F2F4F7' }]}>
+                <Ionicons name="people-outline" size={16} color="#667085" />
+                <Text style={[styles.ageNoteText, { color: '#475467' }]}>
+                  {t('product.allAges', 'Suitable for all ages.')}
+                </Text>
+              </View>
+            )}
 
             {medicine.dosage_notes ? (
               <View style={styles.dosageBox}>

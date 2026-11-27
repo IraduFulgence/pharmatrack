@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
 import BulkStockImport from '../../components/inventory/importstock';
+import MedicineClassificationFields, { MedicineClassificationBadges, agesAreValid, classificationPayload } from '../../components/inventory/MedicineClassificationFields';
 
 const StockIn = () => {
   const navigate = useNavigate();
@@ -27,7 +28,13 @@ const StockIn = () => {
     strength: '',
     dosageForm: 'Tablet',
     description: '',
-    requiresPrescription: false
+    requiresPrescription: false,
+    // What patients search by, and who may take it.
+    categoryId: '',
+    indications: [],
+    minAgeYears: '',
+    maxAgeYears: '',
+    dosageNotes: '',
   });
 
   
@@ -100,10 +107,17 @@ const StockIn = () => {
 
   const handleRegisterMedicine = async (e) => {
     e.preventDefault();
+    if (!agesAreValid(newMedicineData)) {
+      setError('Minimum age cannot be above the maximum age.');
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      const res = await inventoryService.registerMedicine(newMedicineData);
+      const res = await inventoryService.registerMedicine({
+        ...newMedicineData,
+        ...classificationPayload(newMedicineData),
+      });
       const createdMed = res.data.medicine || res.data; 
       
       setSelectedMedicine(createdMed);
@@ -311,6 +325,11 @@ const StockIn = () => {
                     <label className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Requires Prescription</label>
                   </div>
                 </div>
+                <MedicineClassificationFields
+                  idPrefix="new-med"
+                  value={newMedicineData}
+                  onChange={(patch) => setNewMedicineData((prev) => ({ ...prev, ...patch }))}
+                />
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                   <textarea name="description" rows="2" value={newMedicineData.description} onChange={handleNewMedicineInputChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white resize-none" placeholder="e.g. Broad-spectrum antibiotic for bacterial infections." />

@@ -227,13 +227,20 @@ export class SalesService {
         m.brand_name,
         m.strength,
         m.dosage_form,
-        m.requires_prescription
+        m.requires_prescription,
+        mc.category_name,
+        m.indications,
+        m.min_age_years,
+        m.max_age_years
        FROM public.medicines m
        JOIN public.inventory_batches ib ON ib.medicine_id = m.medicine_id
-       WHERE ib.pharmacy_id = $1 
-         AND ib.quantity > 0 
+       LEFT JOIN public.medicine_categories mc ON mc.category_id = m.category_id
+       WHERE ib.pharmacy_id = $1
+         AND ib.quantity > 0
          AND (ib.expiry_date IS NULL OR ib.expiry_date >= CURRENT_DATE)
-         AND (m.medicine_name ILIKE $2 OR m.generic_name ILIKE $2 OR m.brand_name ILIKE $2 OR m.strength ILIKE $2)
+         AND (m.medicine_name ILIKE $2 OR m.generic_name ILIKE $2 OR m.brand_name ILIKE $2 OR m.strength ILIKE $2
+              OR mc.category_name ILIKE $2
+              OR EXISTS (SELECT 1 FROM unnest(m.indications) AS tag WHERE tag ILIKE $2))
        ORDER BY m.medicine_name ASC
        LIMIT 25`,
       [pharmacyId, term],

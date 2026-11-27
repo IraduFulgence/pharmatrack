@@ -10,6 +10,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { pharmacyService } from '@/src/api/pharmacy/pharmacyService';
 import { useTranslation } from 'react-i18next';
 import QuantityInput from '@/components/marketplace/QuantityInput';
+import MedicineMeta from '@/components/marketplace/MedicineMeta';
 
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371;
@@ -258,7 +259,17 @@ export default function SearchScreen() {
           <View style={styles.pillIcon}>
             <FontAwesome5 name="pills" size={18} color="#007a55" />
           </View>
-          <Text style={[styles.medicineName, { flex: 1 }]}>{item.medicineName}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.medicineName}>{item.medicineName}</Text>
+            {item.medicine ? (
+              <MedicineMeta
+                category_name={item.medicine.category_name}
+                indications={item.medicine.indications}
+                min_age_years={item.medicine.min_age_years}
+                max_age_years={item.medicine.max_age_years}
+              />
+            ) : null}
+          </View>
           {item.medicine?.requires_prescription ? (
             <View style={styles.rxBadge}><Text style={styles.rxBadgeText}>Rx</Text></View>
           ) : null}

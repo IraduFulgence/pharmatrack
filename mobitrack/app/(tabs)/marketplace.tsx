@@ -10,6 +10,7 @@ import {
   CatalogueMedicine, formatRwf, marketplaceService,
 } from '@/src/api/marketplace/marketplaceService';
 import ProductImage from '@/components/marketplace/ProductImage';
+import MedicineMeta from '@/components/marketplace/MedicineMeta';
 
 const PAGE_SIZE = 40;
 const GAP = 12;
@@ -82,6 +83,13 @@ export default function MarketplaceScreen() {
             {item.medicine_name}{item.strength && !item.medicine_name.includes(item.strength) ? ` ${item.strength}` : ''}
           </Text>
           {item.dosage_form ? <Text style={styles.cardMeta} numberOfLines={1}>{item.dosage_form}</Text> : null}
+          <MedicineMeta
+            category_name={item.category_name}
+            indications={item.indications}
+            min_age_years={item.min_age_years}
+            max_age_years={item.max_age_years}
+            maxTags={1}
+          />
           <Text style={styles.cardPrice}>
             {t('marketplace.from', 'From')} {formatRwf(item.lowest_price)}
           </Text>

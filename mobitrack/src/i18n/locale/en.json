@@ -138,7 +138,7 @@
     },
     "searchScreen":{
         "searchText":"Search Medicine",
-        "search":"Type medicine name (e.g: paracetamol)",
+        "search":"Medicine name, what it treats or category (e.g. fever)",
         "searchMessage":"Searching pharmacies",
         "NotFound":"Not available in any nearby pharmacy.",
         "inStock":"In Stock",
@@ -354,7 +354,8 @@
         "availableAt":"Available at",
         "useLocation":"Show distance",
         "nearestFirst":"Nearest first",
-        "rxAllows":"Prescription: up to {{count}}"
+        "rxAllows":"Prescription: up to {{count}}",
+        "allAges":"Suitable for all ages."
     },
     "rxLookup":{
         "title":"My prescription",
@@ -457,7 +458,7 @@
         "onePharmacy":"1 pharmacy",
         "nPharmacies":"{{count}} pharmacies",
         "loadError":"Could not load medicines.",
-        "search":"Search medicines",
+        "search":"Search by name, what it treats or category",
         "haveRx":"Have a prescription number? Find your medicines",
         "noResults":"No medicines found.",
         "nothingAvailable":"No pharmacy has medicines available online yet.",
@@ -495,5 +496,11 @@
     "session":{
         "signedOutTitle":"Signed out",
         "signedOutBody":"You were signed out after 5 minutes without activity. Log in again to continue."
+    },
+    "medicine":{
+        "agesRange":"Ages {{min}}–{{max}}",
+        "agesMin":"Ages {{min}}+",
+        "agesMax":"Up to age {{max}}",
+        "allAges":"All ages"
     }
 }

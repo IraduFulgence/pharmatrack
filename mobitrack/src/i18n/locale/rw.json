@@ -138,7 +138,7 @@
     },
     "searchScreen":{
         "searchText":"Shaka Umuti",
-        "search":"Andika umuti ushaka (e.g: paracetamol)",
+        "search":"Izina ry’umuti, icyo uvura cyangwa icyiciro (urugero: umuriro)",
         "searchMessage":"Turi gushakisha farumasi",
         "NotFound":"nta farumasi ikwegereye ifite uwo muti",
         "inStock":"Ibihari",
@@ -354,7 +354,8 @@
         "availableAt":"Iboneka kuri",
         "useLocation":"Erekana intera",
         "nearestFirst":"Iziri hafi mbere",
-        "rxAllows":"Ordonnance: kugeza kuri {{count}}"
+        "rxAllows":"Ordonnance: kugeza kuri {{count}}",
+        "allAges":"Ukwiriye abantu b’imyaka yose."
     },
     "rxLookup":{
         "title":"Ordonnance yanjye",
@@ -457,7 +458,7 @@
         "onePharmacy":"Farumasi 1",
         "nPharmacies":"Farumasi {{count}}",
         "loadError":"Ntibyakunze kuzana imiti.",
-        "search":"Shaka imiti",
+        "search":"Shaka ukoresheje izina, icyo uvura cyangwa icyiciro",
         "haveRx":"Ufite nimero ya ordonnance? Shaka imiti yawe",
         "noResults":"Nta muti wabonetse.",
         "nothingAvailable":"Nta farumasi irashyira imiti kuri interineti.",
@@ -495,5 +496,11 @@
     "session":{
         "signedOutTitle":"Wasohowe",
         "signedOutBody":"Wasohowe muri konti nyuma y'iminota 5 nta cyo ukora. Ongera winjire kugira ngo ukomeze."
+    },
+    "medicine":{
+        "agesRange":"Imyaka {{min}}–{{max}}",
+        "agesMin":"Imyaka {{min}} kuzamura",
+        "agesMax":"Kugeza ku myaka {{max}}",
+        "allAges":"Imyaka yose"
     }
 }

@@ -10,6 +10,7 @@ import { salesService } from '../../services/salesService';
 import { marketplaceService, PAYMENT_LABELS } from '../../services/marketplaceService';
 import PatientSelectorModal from '../../components/sales/PatientSelectorModal';
 import SalesHistory from './SalesHistory';
+import { MedicineClassificationBadges } from '../../components/inventory/MedicineClassificationFields';
 
 // MOCK DATA
 const MOCK_HISTORY = [
@@ -107,16 +108,19 @@ const SalesPOS = () => {
               batchNumber: batch.batch_number,
               unitPrice: Number(batch.unit_price),
               availableQuantity: Number(batch.quantity),
-              requires_prescription: med.requires_prescription || false, 
+              requires_prescription: med.requires_prescription || false,
+              // Shown in the results; the sale itself is still checked against the patient's age.
+              category_name: med.category_name || null,
+              indications: med.indications || [],
+              min_age_years: med.min_age_years ?? null,
+              max_age_years: med.max_age_years ?? null,
             });
           });
         }
       });
 
-      const lowerQuery = searchQuery.toLowerCase();
-      setSearchResults(flattened.filter(item => 
-        item.medicineName.toLowerCase().includes(lowerQuery)
-      ));
+      // The server already matched name, category or tag.
+      setSearchResults(flattened);
     } catch (err) {
       console.error(err);
     } finally {
@@ -462,6 +466,7 @@ const SalesPOS = () => {
                           <div>
                             <p className="font-bold">{batch.medicineName} {batch.strength}</p>
                             <p className="text-xs text-gray-500">Batch: {batch.batchNumber} • {batch.availableQuantity} left</p>
+                            <MedicineClassificationBadges medicine={batch} />
                           </div>
                           <p className="font-bold text-[#007a55]">{batch.unitPrice} RWF</p>
                         </div>
