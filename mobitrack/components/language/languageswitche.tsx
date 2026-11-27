@@ -9,10 +9,12 @@ import { useLanguageStore, Language } from '@/src/stores/language';
 interface Props {
   textColor?: string;
   variant?: 'light' | 'dark';
+  /** Small trigger (flag + EN/RW) for tight spaces like the app header. */
+  compact?: boolean;
 }
 
-export function LanguageSwitcher({ textColor = '#344054', variant = 'light' }: Props) {
-  const { i18n } = useTranslation();
+export function LanguageSwitcher({ textColor = '#344054', variant = 'light', compact = false }: Props) {
+  const { i18n, t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -38,15 +40,17 @@ export function LanguageSwitcher({ textColor = '#344054', variant = 'light' }: P
     <View>
       {/* Trigger Button */}
       <TouchableOpacity 
-        style={[styles.trigger, { borderColor }]}
+        style={[styles.trigger, compact && styles.triggerCompact, { borderColor }]}
         onPress={() => setIsOpen(true)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('language.change', { defaultValue: 'Language: {{name}}. Change language', name: currentOption.label })}
       >
-        <Text style={styles.flag}>{currentOption.flag}</Text>
+        <Text style={[styles.flag, compact && { marginRight: 4 }]}>{currentOption.flag}</Text>
         <Text style={[styles.triggerText, { color: finalTextColor }]}>
-          {currentOption.label}
+          {compact ? currentOption.code.toUpperCase() : currentOption.label}
         </Text>
-        <Feather name="chevron-down" size={14} color={iconColor} style={{ marginLeft: 4 }} />
+        {!compact && <Feather name="chevron-down" size={14} color={iconColor} style={{ marginLeft: 4 }} />}
       </TouchableOpacity>
 
       {/* Dropdown Modal */}
@@ -62,12 +66,15 @@ export function LanguageSwitcher({ textColor = '#344054', variant = 'light' }: P
           onPress={() => setIsOpen(false)}
         >
           <View style={styles.menu}>
+            <Text style={styles.menuTitle}>{t('language.choose', 'Choose language')}</Text>
             {options.map((opt) => (
               <TouchableOpacity 
                 key={opt.code} 
                 style={styles.menuItem}
                 onPress={() => handleLanguageChange(opt.code)}
                 activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: language === opt.code }}
               >
                 <View style={styles.menuItemLeft}>
                   <Text style={styles.menuFlag}>{opt.flag}</Text>
@@ -96,6 +103,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: 'transparent',
   },
+  triggerCompact: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
   flag: {
     fontSize: 16,
     marginRight: 6,
@@ -122,6 +133,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 10,
+  },
+  menuTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#667085',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   menuItem: {
     flexDirection: 'row',

@@ -36,7 +36,7 @@ export default function ProfileScreen() {
       setActingFor(acting);
     } catch (error: any) {
       console.error("Profile Fetch Error:", error);
-      Alert.alert("Error", "Could not load profile.");
+      Alert.alert(t('common.error', 'Error'), t('profile.loadError', 'Could not load profile.'));
     } finally {
       setIsLoading(false);
     }
@@ -231,7 +231,9 @@ export default function ProfileScreen() {
             {hasInsurance ? (
               <>
                 <Text style={styles.insuranceDetail}>
-                  {profile?.insuranceCardNumber ? `Card: ${profile.insuranceCardNumber}` : t('profile.noCardNumber')}
+                  {profile?.insuranceCardNumber
+                    ? t('profile.cardNumber', { defaultValue: 'Card: {{number}}', number: profile.insuranceCardNumber })
+                    : t('profile.noCardNumber', 'No card number')}
                 </Text>
                 {profile?.coveragePercentage && (
                   <View style={styles.coverageBadge}>

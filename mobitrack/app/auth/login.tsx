@@ -69,13 +69,13 @@ export default function LoginScreen() {
         router.replace('/(tabs)/home');
       } else if (user.role === 'PHARMACY') {
         Alert.alert(
-          "Pharmacy Account", 
-          "This mobile app is for patients. Please use the web portal.",
-          [{ text: "OK", onPress: () => AuthService.logout() }]
+          t('auth.login.pharmacyAccountTitle', 'Pharmacy account'),
+          t('auth.login.pharmacyAccountBody', 'This mobile app is for patients. Please use the web portal.'),
+          [{ text: t('common.ok', 'OK'), onPress: () => AuthService.logout() }]
         );
       } else {
-        Alert.alert("Notice", "Admin accounts must use the web portal.", [
-          { text: "OK", onPress: () => AuthService.logout() }
+        Alert.alert(t('auth.login.noticeTitle', 'Notice'), t('auth.login.adminWebOnly', 'Admin accounts must use the web portal.'), [
+          { text: t('common.ok', 'OK'), onPress: () => AuthService.logout() }
         ]);
       }
 

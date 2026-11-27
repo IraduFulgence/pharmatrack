@@ -97,7 +97,10 @@ export default function OrderDetailScreen() {
     }
   };
 
-  const status = order ? ORDER_STATUS_LABEL[order.status] : null;
+  const statusStyle = order ? ORDER_STATUS_LABEL[order.status] : null;
+  const status = statusStyle && order
+    ? { ...statusStyle, label: t(`orders.status.${order.status}`, statusStyle.label) }
+    : null;
   const stepIndex = order ? STEPS.indexOf(order.status) : -1;
   const ended = order?.status === 'REJECTED' || order?.status === 'CANCELLED';
 

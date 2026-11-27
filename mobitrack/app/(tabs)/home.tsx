@@ -154,7 +154,7 @@ export default function HomeScreen() {
         setOtherPharmacies(outsideRadius);
       } catch (error: any) {
         console.error("Fetch Error:", error);
-        Alert.alert("Connection Error", "Could not load nearby pharmacies.");
+        Alert.alert(t('homescreen.connectionErrorTitle', 'Connection error'), t('homescreen.connectionErrorBody', 'Could not load nearby pharmacies.'));
       } finally {
         setIsLoading(false);
         fetchingRef.current = false;
@@ -178,7 +178,7 @@ export default function HomeScreen() {
   // Handle Code Redemption
   const handleRedeemCode = async () => {
     if (!prescriptionCode.trim()) {
-      Alert.alert("Error", "Please enter the code from your SMS.");
+      Alert.alert(t('common.error', 'Error'), t('homescreen.enterSmsCode', 'Please enter the code from your SMS.'));
       return;
     }
 
@@ -197,7 +197,7 @@ export default function HomeScreen() {
         params: { initialQuery: firstMedicine },
       });
     } catch (error: any) {
-      Alert.alert("Invalid Code", error.message);
+      Alert.alert(t('homescreen.invalidCode', 'Invalid code'), error.message);
     } finally {
       setIsVerifyingCode(false);
     }

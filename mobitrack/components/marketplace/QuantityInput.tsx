@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   value: number;
@@ -20,8 +21,10 @@ interface Props {
  * Typed values are applied when the keyboard closes and kept between min and max.
  */
 export default function QuantityInput({
-  value, onChange, min = 1, max, onExceed, disabled, accessibilityLabel = 'Quantity',
+  value, onChange, min = 1, max, onExceed, disabled, accessibilityLabel,
 }: Props) {
+  const { t } = useTranslation();
+  const label = accessibilityLabel || t('quantity.label', 'Quantity');
   const [text, setText] = useState(String(value));
 
   // Follow changes made elsewhere (e.g. the cart reloading from the server).
@@ -57,7 +60,7 @@ export default function QuantityInput({
         style={styles.button}
         disabled={disabled || atMin}
         accessibilityRole="button"
-        accessibilityLabel={`Decrease ${accessibilityLabel.toLowerCase()}`}
+        accessibilityLabel={t('quantity.decrease', { defaultValue: 'Decrease: {{label}}', label })}
         hitSlop={6}
       >
         <Ionicons name="remove" size={16} color={atMin ? '#98A2B3' : '#0F2926'} />
@@ -73,14 +76,14 @@ export default function QuantityInput({
         selectTextOnFocus
         editable={!disabled}
         maxLength={4}
-        accessibilityLabel={accessibilityLabel}
+        accessibilityLabel={label}
       />
       <TouchableOpacity
         onPress={() => (atMax ? onExceed?.(max as number) : commit(value + 1))}
         style={styles.button}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={`Increase ${accessibilityLabel.toLowerCase()}`}
+        accessibilityLabel={t('quantity.increase', { defaultValue: 'Increase: {{label}}', label })}
         hitSlop={6}
       >
         <Ionicons name="add" size={16} color={atMax ? '#98A2B3' : '#0F2926'} />

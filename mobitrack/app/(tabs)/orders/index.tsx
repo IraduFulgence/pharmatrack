@@ -46,7 +46,8 @@ export default function OrdersScreen() {
   );
 
   const renderOrder = ({ item }: { item: OrderSummary }) => {
-    const status = ORDER_STATUS_LABEL[item.status] || { label: item.status, color: '#475467', bg: '#F2F4F7' };
+    const statusStyle = ORDER_STATUS_LABEL[item.status] || { label: item.status, color: '#475467', bg: '#F2F4F7' };
+    const status = { ...statusStyle, label: t(`orders.status.${item.status}`, statusStyle.label) };
     return (
       <TouchableOpacity
         style={styles.orderCard}

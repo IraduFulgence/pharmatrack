@@ -3,6 +3,7 @@ import { Alert, AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { actingSession } from '@/src/api/family/familyService';
+import i18n from '@/src/i18n';
 
 
 export const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -36,8 +37,8 @@ export function useInactivityLogout() {
     await SecureStore.deleteItemAsync(LAST_ACTIVITY_KEY);
     router.replace('/auth/login');
     Alert.alert(
-      'Signed out',
-      'You were signed out after 5 minutes without activity. Log in again to continue.',
+      i18n.t('session.signedOutTitle', 'Signed out'),
+      i18n.t('session.signedOutBody', 'You were signed out after 5 minutes without activity. Log in again to continue.'),
     );
   }, [router]);
 

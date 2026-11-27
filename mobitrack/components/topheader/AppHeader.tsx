@@ -8,6 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 import type { BottomTabHeaderProps } from '@react-navigation/bottom-tabs';
 import { marketplaceService } from '@/src/api/marketplace/marketplaceService';
 import { actingSession } from '@/src/api/family/familyService';
+import { LanguageSwitcher } from '@/components/language/languageswitche';
 
 const logo = require('../../assets/images/Green-logo.png');
 
@@ -109,6 +110,7 @@ export default function AppHeader({ navigation, route, options }: BottomTabHeade
         </View>
 
         <View style={styles.right}>
+          <LanguageSwitcher compact />
           <TouchableOpacity
             onPress={() => router.push('/cart')}
             style={styles.iconButton}
@@ -193,7 +195,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
   left: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, marginRight: 8 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   logo: { height: 30, width: 140 },
   title: { flex: 1, fontSize: 18, fontWeight: '700', color: '#0F2926' },
   iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },

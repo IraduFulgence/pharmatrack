@@ -181,13 +181,13 @@ export default function RegisterScreen() {
       });
       
       Alert.alert(
-        "Success", 
+        t('common.success', 'Success'),
         `${t('auth.signup.AccountSuccess')}`, 
-        [{ text: "OK", onPress: () => router.replace('/auth/login') }]
+        [{ text: t('common.ok', 'OK'), onPress: () => router.replace('/auth/login') }]
       );
       
     } catch (error: any) {
-      Alert.alert("Registration Failed", error.message);
+      Alert.alert(t('auth.signup.failedTitle', 'Registration failed'), error.message);
     } finally {
       setIsLoading(false);
     }
@@ -297,7 +297,7 @@ export default function RegisterScreen() {
                 />
                 {Platform.OS === 'ios' && (
                   <TouchableOpacity style={styles.iosDoneButton} onPress={confirmIOSDate}>
-                    <Text style={styles.iosDoneText}>Done</Text>
+                    <Text style={styles.iosDoneText}>{t('common.done', 'Done')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
