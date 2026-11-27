@@ -1,0 +1,59 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pharmatrack-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env    
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./backend/uploads:/app/uploads
+    command: npm run start:dev
+    networks:
+      - pharmatrack-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: pharmatrack-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3000/api
+    depends_on:
+      - backend
+    networks:
+      - pharmatrack-network
+
+  mobitrack:
+    build:
+      context: ./mobitrack
+      dockerfile: Dockerfile
+    container_name: pharmatrack-mobile
+    restart: unless-stopped
+    ports:
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+      - "8081:8081"
+    volumes:
+      - ./mobitrack:/app
+      - /app/node_modules
+    environment:
+      REACT_NATIVE_PACKAGER_HOSTNAME: 192.168.1.50
+    networks:
+      - pharmatrack-network
+
+networks:
+  pharmatrack-network:
+    driver: bridge

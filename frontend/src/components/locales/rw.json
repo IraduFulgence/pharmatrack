@@ -1,0 +1,116 @@
+{
+  "nav": {
+    "home": "Ahabanza",
+    "about": "Ibyerekeye",
+    "howItWorks": "Uko bikora",
+    "features": "Ibiranga",
+    "contact": "Twandikire",
+    "login": "Injira",
+    "signUp": "Iyandikishe"
+  },
+  "hero": {
+    "title1": "Shakisha imiti",
+    "title2": "iboneka",
+    "title3": "Hafi yawe",
+    "desc": "Pharmatrack igufasha kubona vuba amafarumasi hafi aho kandi afite imiti wandikiwe. Izigame igihe, wirinde ingendo zidakenewe, kandi ubone imiti ukeneye vuba.",
+    "feat1": "Shakisha farumasi",
+    "feat2": "Reba iboneka ako kanya",
+    "feat3": "Izigame igihe n'amafaranga",
+    "floating": "Amafarumasi hafi"
+  },
+  "why": {
+    "title": "KUKI PHARMATRACK",
+    "subtitle": "Yakorewe abarwayi n' amafarumasi",
+    "card1_title": "Ibintu biboneka ako kanya",
+    "card1_desc": "Reba farumasi ifite imiti mu bubiko.",
+    "card2_title": "Gushakisha hashingiwe ku karere",
+    "card2_desc": "Shakisha farumasi hafi yawe hamwe n' intera n' icyerekezo.",
+    "card3_title": "Izigama igihe n'amafaranga",
+    "card3_desc": "Irinda ingendo zidakenewe kandi ubone ibyo ukeneye vuba."
+  },
+   "how": {
+    "title": "Uko Bikora",
+    "subtitle": "Bona iboneka ry'imiti mu ntambwe nke zoroshye.",
+    "step1_title": "Shakisha imiti yawe",
+    "step1_desc": "Andika izina ry'imiti yawe. Ako kanya tukwereka amafarumasi ari hafi afite imiti mu bubiko.",
+    "step1_feature": "Kubona ibiri mu bubiko ako kanya",
+    "step2_title": "Genda byoroshye",
+    "step2_desc": "wayibonye? Kanda urebe aho iherereye ku ikarita yacu. Bona icyerekezo utavuye muri porogaramu.",
+    "step2_feature": "Ikarita ya GPS iri muri porogaramu",
+    "step3_title": "Koresha SMS y'ibitaro",
+    "step3_desc": "Ufite kode y'ibitaro? Yandike hano. Ako kanya tukwereke farumasi ikwegereye ifite iyo miti.",
+    "step3_feature": "Kwikoresha inyandiko ako kanya",
+    "step4_title": "Fata & Vugana",
+    "step4_desc": "Jya gufata imiti yawe. Ufite ikibazo? Andikira umufarumasi mu buryo butaziguye muri porogaramu.",
+    "step4_feature": "Ganira na farumasi mu buryo butaziguye"
+  },
+  "footer1": {
+    "title": "Ubuzima bwawe ni ingenzi. Shaka imiti yawe uyu munsi.",
+    "desc": "Iyunge ku ma farumasi arenga igihumbi akoresha sisitemu ya Pharmatrack.",
+    "getStarted": "Tangira",
+    "login": "Injira"
+  },
+    "footer": {
+    "desc": "Pharmatrack ni urubuga rufasha abarwayi kubona imiti.dukorana gusa n'amafarumasi y'abafatanyabikorwa bafite ibyangombwa.",
+    "explore": "Shakisha",
+    "about": "Ibitwerekeyeho",
+    "articles": "Inkuru z'ubuzima",
+    "help": "Ikigo cy'ubufasha",
+    "partner": "Uri farumasi? Fatanya natwe",
+    "legal": "Amategeko",
+    "terms": "Amabwiriza yo gukoresha",
+    "privacy": "Politiki y'ibanga",
+    "cookie": "Politiki y'ama-cookies",
+    "rights": "© 2026 Pharmatrack. Uburenganzira bwose burafitwe."
+  },
+   "cta":{
+    "title":"Witeguye gushakisha farumasi?",
+    "subtitle":"Iyunge ku bantu ibihumbi babasha kumenya niba imiti ihari ako kanya, bityo bakizigamira igihe muri za farumasi zibegereye.",
+    "primaryBtn":"Tangira nonaha",
+    "secondaryBtn":"Saba ubufasha",
+    "pharmacy_title":"Uri farumasi?",
+    "pharmacy_subtitle":"Dufatanye kugira ngo mugere ku barwayi benshi kandi mukoreshe ikoranabuhanga mu micungire y’ibicuruzwa byanyu.",
+    "pharmacy_btn":"Ba umufatanyabikorwa"
+
+  },
+   "about":{
+    "quote":"Mfite umuti nandikiwe, ariko sinzi farumasi ifite uwo muti.",
+    "label":"KUKI PHAMATRACK?",
+    "p1":"Mu Rwanda, kubonana na muganga akakwandikira  imiti ni igice kimwe gusa cy’urugendo. Ikindi gice ni ukuzenguruka muri za farumasi zitandukanye, wizeye ko wenda imwe muri zo yaba ifite umuti nyawo muganga wawe yanditse.",
+    "p2":"Twashyizeho Pharmatrack kugira ngo abarwayi n’imiryango yabo badakomeza gukeka aho imiti yabo iri. Ushobora kumenya neza farumasi ifite imiti yawe n’aho iherereye, mbere y’uko uva kwa muganga."
+
+  },
+  "contact": {
+    "title": "Ukeneye ubufasha?",
+    "subtitle": "Duhe ubutumwa bugufi kandi turagusubiza mu gihe gito.",
+    "call": "Duhamagare",
+    "email": "Tuvugishe kuri email",
+    "name": "Izina ryawe",
+    "phone": "Numero ya telefone",
+    "emailAddress": "Aderesi ya email",
+    "message": "Twagufasha gute?",
+    "send": "Ohereza Ubutumwa"
+  },
+  "auth":{
+  "pharmacyDetails": "Amakuru yerekeye Farumasi",
+  "tinNumber": "TIN  ",
+  "uploadDocs": "Inyandiko zo kugenzura ",
+  "uploadLicense": "Shyiraho uruhushya rwa farumasi",
+  "uploadRdb": "Shiraho icyemezo cy'ubucuruzi, RDB",
+  "clickToUpload": "Kanda kugira ngo wohereze",
+  "supportedFormats": "PNG, JPG or PDF",
+  "back": "Subira inyuma",
+  "continue": "Komeza",
+  "createAccountBtn": "Iyandikishe",
+  "loginTitle":"Murakaza neza",
+  "noAccount":"nta konti mufite?",
+  "signUpHere":"Iyandikishe hano",
+  "LoginFails":"Kwinjira byanze",
+  "emailOrPhone":"Imeyi cwangwa telefoni",
+  "password":"Ijambo banga",
+  "forgotPassword":"Wibagiwe ijambo banga?",
+  "loading":"Uri kwinjira...",
+  "Buttonsignin":"Injira",
+  "orContinueWith":"cyangwa ukomeze na"
+  }
+}

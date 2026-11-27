@@ -1,0 +1,52 @@
+[
+  {
+    "rxNumber": "RX-998877",
+    "patientId": 101,
+    "patientName": "Jean Paul Habimana",
+    "patientPhone": "+250788123456",
+    "insuranceProviderId": 1,
+    "insuranceName": "RSSB / RAMA",
+    "hospital": "CHUK",
+    "date": "2026-11-10",
+    "insuranceCardNumber": "RAMA-123456789",
+    "items": [
+      {
+        "medicineName": "Amoxicillin 500mg capsule",
+        "dosage": "1 tablet 3 times a day for 7 days",
+        "quantity": 21,
+        "inventoryId": 4,
+        "batchNumber": "BATCH-2026-001",
+        "unitPrice": 15
+      },
+      {
+        "medicineName": "Paracetamol 500mg",
+        "dosage": "1 tablet when in pain",
+        "quantity": 10,
+        "inventoryId": 5,
+        "batchNumber": "BATCH-2026-002",
+        "unitPrice": 100
+      }
+    ]
+  },
+  {
+    "rxNumber": "RX-112233",
+    "patientId": 102,
+    "patientName": "Marie Claire Uwase",
+    "patientPhone": "+250788654321",
+    "insuranceProviderId": 2,
+    "insuranceName": "MMI (Military Medical Insurance)",
+    "hospital": "King Faisal Hospital",
+    "date": "2026-11-11",
+    "insuranceCardNumber": "MMI-123456789",
+    "items": [
+      {
+        "medicineName": "Ibuprofen 400mg",
+        "dosage": "1 tablet twice a day",
+        "quantity": 14,
+        "inventoryId": 6,
+        "batchNumber": "BATCH-2026-003",
+        "unitPrice": 25
+      }
+    ]
+  }
+]

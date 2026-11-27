@@ -1,0 +1,164 @@
+import React from 'react';
+import {BrowserRouter as Router, Routes, Route} from 'react-router-dom';
+import Navbar from './components/navbar';
+import Hero from './components/hero';
+import WhyChooseUs from './components/whyus';
+import HowItWorks from './components/how';
+import Footer from './components/footer';
+import Login from './pages/login';
+import Register from './pages/register';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import DashboardOverView from './pages/dashboard/dashboardoverview';
+import Dashboard from './pages/dashboard/dashboard';
+import Inventory from './pages/dashboard/inventory';
+import PharmacyProfile from './pages/dashboard/profile';
+import CreatePharmacyProfile from './pages/dashboard/create-profile';
+import Prescriptions from './pages/dashboard/prescription';
+import OnlineOrders from './pages/shared/OnlineOrders';
+import OnlineCatalogue from './pages/dashboard/OnlineCatalogue';
+import InsuranceSettings from './pages/dashboard/InsuranceSettings';
+import ProtectedRoute from './components/ProtectedRoute';
+import PendingVerification from './pages/PendingVerification';
+import CTA from './components/Cta';
+import PharmacyCTA from './components/pharmacyCTA';
+import AboutSection from './components/about';
+import FeatureSection from './components/feautures';
+import ContactSection from './components/contact';
+// admin pages
+import AdminDashboardOverView from './pages/admin/dashboardoverview';
+import AdminDashboard from './pages/admin/dashboard';
+import ManagePatients from './pages/admin/ManagePatients';
+import ManagePharmacies from './pages/admin/ManagePharmacies';
+import ManageAdmins from './pages/admin/ManageAdmins';
+import AdminProfile from './pages/admin/AdminProfileTab';
+import ManageMedicines from './pages/admin/ManageMedicines';
+import InventoryList from './pages/dashboard/InventoryList';
+import StockIn from './pages/dashboard/StockIn';
+import AdjustStock from './pages/dashboard/AdjustStock';
+import InventoryAlerts from './pages/dashboard/InventoryAlerts';
+import TransactionHistory from './pages/dashboard/TransactionHistory';
+import InventoryReports from './pages/dashboard/InventoryReports';
+import PharmacySettings from './pages/dashboard/PharmacySettings';
+import SalesPOS from './pages/dashboard/SalesPOS';
+import SaleReceipt from './pages/dashboard/SaleReceipt';
+import SalesHistory from './pages/dashboard/SalesHistory';
+import InsuranceClaims from './pages/dashboard/InsuranceClaims';
+import SalesOfficers from './pages/dashboard/salesOfficers';
+import StaffActivity from './pages/dashboard/StaffActivity';
+import StaffReports from './pages/dashboard/StaffReports';
+import InventoryUpdates from './pages/dashboard/InventoryUpdates';
+import ActivateAccount from './pages/activateAccount';
+import Messages from './pages/shared/Messages';
+import StaffDashboard from './pages/staff/staffDashboard';
+import StaffOverview from './pages/staff/StaffOverview';
+import { STAFF_ROLES } from './utils/dashboardBase';
+
+
+
+
+
+
+const Layout =({children}) =>(
+  <div className="min-h-screen w-full bg-white dark:bg-gray-950 transition-colors flex flex-col">
+    <Navbar />
+    <main className="flex-grow">{children}</main>
+    <Footer />
+  </div>
+);
+
+const Home = () =>(
+<>
+      <Hero />
+      <PharmacyCTA />
+      {/* <WhyChooseUs /> */}
+      <AboutSection />
+      {/* <HowItWorks /> */}
+       <FeatureSection />
+      <CTA />
+      
+      <ContactSection />
+</>
+);
+function App() {
+
+  return (
+    <GoogleOAuthProvider>
+      <Router>
+      <Routes>
+        <Route path="/" element={<Layout><Home /></Layout>} />
+        <Route path="/login" element={<Layout><Login /></Layout>} />
+        <Route path="/register" element={<Layout><Register /></Layout>} />
+        
+        <Route path="/pending-verification" element={<PendingVerification />} />
+        <Route path="/activate-account" element={<Layout><ActivateAccount /></Layout>} />
+        {/* protected routes for pharmacy dashboard */}
+        <Route element={
+          <ProtectedRoute
+          allowedRoles={['PHARMACY','PHARMACY_ADMIN']}
+          requireApprovedPharmacy={true}
+          />
+        }>
+        <Route path="/pharmacy/dashboard" element={<Dashboard />}>
+        <Route index element={<DashboardOverView />} />
+        <Route path="inventory" element={<Inventory/>} />
+        <Route path="profile" element={<PharmacyProfile />} />
+        <Route path="createprofile" element={<CreatePharmacyProfile/>}/>
+        <Route path="prescriptions" element={<Prescriptions/>}/>
+        <Route path="orders" element={<OnlineOrders />} />
+        <Route path='online-catalogue' element={<OnlineCatalogue />} />
+        <Route path="inventory/list" element={<InventoryList />} />
+        <Route path="inventory/stock-in" element={<StockIn />} /> 
+        <Route path='inventory/adjust' element={<AdjustStock />} />
+        <Route path='inventory/alerts' element={<InventoryAlerts />} />
+        <Route path='inventory/transactions' element={<TransactionHistory />} />
+        <Route path='inventory/reports' element={<InventoryReports />} />
+        <Route path='inventory/updates' element={<InventoryUpdates />} />
+        <Route path="settings" element={<PharmacySettings />} /> 
+        <Route path="sales/pos" element={<SalesPOS />} />
+        <Route path="sales/:id/receipt" element={<SaleReceipt />} />
+         <Route path="sales/history" element={<SalesHistory />} />
+        <Route path='insurance' element={<InsuranceClaims />} />
+        <Route path='insurers' element={<InsuranceSettings />} />
+        <Route path='staffs' element={<SalesOfficers />} />
+        <Route path='staff/activity' element={<StaffActivity />} />
+        <Route path='staff/reports' element={<StaffReports />} />
+        <Route path='messages' element={<Messages />} />
+
+        </Route>
+        </Route>
+        {/* staff routes */}
+           <Route element={<ProtectedRoute allowedRoles={STAFF_ROLES} />}>
+          <Route path='/staff/dashboard' element={<StaffDashboard />}>
+            <Route index element={<StaffOverview />} />
+            <Route path='sales/pos' element={<SalesPOS />} />
+            <Route path='sales/history' element={<SalesHistory />} />
+            <Route path='sales/:id/receipt' element={<SaleReceipt />} />
+            <Route path='messages' element={<Messages />} />
+            <Route path='orders' element={<OnlineOrders />} />
+          </Route>
+        </Route>
+        {/* admin route */}
+       <Route element={
+        <ProtectedRoute 
+        allowedRoles={['ADMIN']}
+        />
+        
+       }>
+         <Route path='/admin/dashboard' element={<AdminDashboard />}>
+          <Route index element={<AdminDashboardOverView />}/>
+          <Route path="pharmacies" element={<ManagePharmacies />} />
+          <Route path="patients" element={<ManagePatients />} />
+          <Route path="medicines" element={<ManageMedicines />} />
+          <Route path="admins" element={<ManageAdmins />} />      
+          <Route path="profile" element={<AdminProfile />} />
+         
+        </Route>
+       </Route>
+      
+      </Routes>
+    </Router>
+    </GoogleOAuthProvider>
+  );
+}
+
+export default App;

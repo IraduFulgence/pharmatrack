@@ -1,0 +1,792 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { SalesService } from './sales.service.js';
+import { DatabaseService } from '../database/database.service.js';
+import type { JwtPayload } from '../common/interfaces/jwt-payload.interface.js';
+
+describe('SalesService', () => {
+  let service: SalesService;
+  let mockDb: any;
+
+  beforeEach(() => {
+    mockDb = {
+      query: vi.fn(),
+      transaction: vi.fn(),
+    };
+
+    service = new SalesService(mockDb as unknown as DatabaseService);
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 1. Data Isolation & Tenant Resolution
+  // ─────────────────────────────────────────────────────────────
+  describe('resolvePharmacyId', () => {
+    it('should strictly return token sub for PHARMACY role, ignoring requested pharmacyId', async () => {
+      const pharmacyUser: JwtPayload = {
+        sub: 12,
+        email: 'pharmacist@kigali.rw',
+        role: 'PHARMACY',
+      };
+
+      const resolved = await service.resolvePharmacyId(pharmacyUser, 99);
+      expect(resolved).toBe(12);
+    });
+
+    it('should allow ADMIN role to override pharmacyId', async () => {
+      const adminUser: JwtPayload = {
+        sub: 1,
+        email: 'admin@pharmatrack.com',
+        role: 'ADMIN',
+      };
+
+      const resolved = await service.resolvePharmacyId(adminUser, 15);
+      expect(resolved).toBe(15);
+    });
+
+    it('should throw ForbiddenException if PATIENT role attempts access', async () => {
+      const patientUser: JwtPayload = {
+        sub: 7,
+        email: 'patient@example.com',
+        role: 'PATIENT',
+      };
+
+      await expect(service.resolvePharmacyId(patientUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. Sales Dashboard (Section 3)
+  // ─────────────────────────────────────────────────────────────
+  describe('getSalesDashboard', () => {
+    it('should retrieve aggregated metrics from database records', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              total_sales: '20',
+              total_revenue: '150000.00',
+              total_patient_contribution: '75000.00',
+              total_insurance_contribution: '75000.00',
+              private_sales_count: '12',
+              private_revenue: '60000.00',
+              insurance_sales_count: '8',
+              insurance_revenue: '90000.00',
+              outstanding_balances: '15000.00',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ total_medicines_sold: '45' }] })
+        .mockResolvedValueOnce({
+          rows: [{ pending_claims_count: '5', pending_claims_amount: '45000.00' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              sale_id: 1,
+              receipt_number: 'REC-20261109-0001',
+              customer_name: 'John Doe',
+              payment_category: 'PRIVATE',
+            },
+          ],
+        });
+
+      const res = await service.getSalesDashboard(1, { period: 'today' });
+
+      expect(res.success).toBe(true);
+      expect(res.data.summary.totalSales).toBe(20);
+      expect(res.data.summary.totalRevenue).toBe(150000);
+      expect(res.data.summary.totalMedicinesSold).toBe(45);
+      expect(res.data.summary.privateSales.count).toBe(12);
+      expect(res.data.summary.insuranceSales.count).toBe(8);
+      expect(res.data.summary.pendingClaims.count).toBe(5);
+      expect(res.data.recentSales).toHaveLength(1);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 3. Bill Calculation (Section 6 & 7)
+  // ─────────────────────────────────────────────────────────────
+  describe('calculateBill', () => {
+    it('should calculate PRIVATE bill: patient pays 100%, insurance = 0 RWF', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            inventory_id: 10,
+            pharmacy_id: 1,
+            medicine_id: 100,
+            batch_number: 'B-001',
+            quantity: 50,
+            unit_price: '2500.00',
+            expiry_date: '2028-12-31',
+            medicine_name: 'Amoxicillin 500mg',
+            strength: '500mg',
+          },
+        ],
+      });
+
+      const res = await service.calculateBill(1, {
+        paymentCategory: 'PRIVATE',
+        items: [{ inventoryId: 10, quantity: 2 }],
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data.financials.grossTotal).toBe(5000);
+      expect(res.data.financials.insuranceContribution).toBe(0);
+      expect(res.data.financials.patientContribution).toBe(5000);
+    });
+
+    it('should calculate INSURANCE bill with 75% coverage (insurance = 3,750 RWF, patient = 1,250 RWF for 5,000 total)', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ provider_name: 'RSSB', default_coverage_percentage: '75.00' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              inventory_id: 10,
+              pharmacy_id: 1,
+              medicine_id: 100,
+              batch_number: 'B-001',
+              quantity: 50,
+              unit_price: '2500.00',
+              expiry_date: '2028-12-31',
+              medicine_name: 'Amoxicillin 500mg',
+              strength: '500mg',
+            },
+          ],
+        });
+
+      const res = await service.calculateBill(1, {
+        paymentCategory: 'INSURANCE',
+        providerId: 1,
+        items: [{ inventoryId: 10, quantity: 2, isInsuranceCovered: true }],
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data.financials.grossTotal).toBe(5000);
+      expect(res.data.financials.insuranceContribution).toBe(3750);
+      expect(res.data.financials.patientContribution).toBe(1250);
+    });
+
+    it('should support non-covered medicines in an insurance sale: patient pays 100% for non-covered item', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ provider_name: 'MMI', default_coverage_percentage: '85.00' }],
+        })
+        .mockResolvedValueOnce({
+          // Item 1: Covered (3,000 RWF)
+          rows: [
+            {
+              inventory_id: 1,
+              pharmacy_id: 1,
+              medicine_id: 10,
+              batch_number: 'B-1',
+              quantity: 20,
+              unit_price: '3000.00',
+              expiry_date: '2028-12-31',
+              medicine_name: 'Ciprofloxacin',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          // Item 2: Not covered supplement (2,000 RWF)
+          rows: [
+            {
+              inventory_id: 2,
+              pharmacy_id: 1,
+              medicine_id: 20,
+              batch_number: 'B-2',
+              quantity: 20,
+              unit_price: '2000.00',
+              expiry_date: '2028-12-31',
+              medicine_name: 'Vitamin C Supplement',
+            },
+          ],
+        });
+
+      const res = await service.calculateBill(1, {
+        paymentCategory: 'INSURANCE',
+        providerId: 2,
+        items: [
+          { inventoryId: 1, quantity: 1, isInsuranceCovered: true },
+          { inventoryId: 2, quantity: 1, isInsuranceCovered: false },
+        ],
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data.financials.grossTotal).toBe(5000);
+      // Item 1: 3000 * 85% = 2550 insurance, 450 patient
+      // Item 2: 2000 * 0% = 0 insurance, 2000 patient
+      expect(res.data.financials.insuranceContribution).toBe(2550);
+      expect(res.data.financials.patientContribution).toBe(2450);
+    });
+
+    it('should reject bill calculation if requested quantity exceeds available stock', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            inventory_id: 10,
+            pharmacy_id: 1,
+            quantity: 5, // Only 5 in stock
+            unit_price: '1000.00',
+            expiry_date: '2028-12-31',
+            medicine_name: 'Paracetamol',
+            batch_number: 'B-10',
+          },
+        ],
+      });
+
+      await expect(
+        service.calculateBill(1, {
+          paymentCategory: 'PRIVATE',
+          items: [{ inventoryId: 10, quantity: 10 }], // requesting 10!
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject the same batch on two cart lines when together they exceed its stock', async () => {
+      const batch = {
+        inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 5,
+        unit_price: '100.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg',
+      };
+      mockDb.query.mockResolvedValue({ rows: [batch] });
+
+      await expect(
+        service.calculateBill(1, {
+          paymentCategory: 'PRIVATE',
+          items: [{ inventoryId: 10, quantity: 3 }, { inventoryId: 10, quantity: 3 }],
+        }),
+      ).rejects.toThrow(/Requested: 6 units, Available: 5 units/);
+    });
+
+    it('should reject dispensing of expired medicine', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            inventory_id: 10,
+            pharmacy_id: 1,
+            quantity: 50,
+            unit_price: '1000.00',
+            expiry_date: '2020-01-01', // Expired!
+            medicine_name: 'Expired Syrup',
+            batch_number: 'B-OLD',
+          },
+        ],
+      });
+
+      await expect(
+        service.calculateBill(1, {
+          paymentCategory: 'PRIVATE',
+          items: [{ inventoryId: 10, quantity: 1 }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 4. Create Sale (Section 4, 6, 8)
+  // ─────────────────────────────────────────────────────────────
+  describe('createSale', () => {
+    it('should complete sale, deduct stock, and generate receipt', async () => {
+      // 1. Audit user
+      mockDb.query.mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] });
+      // 2. Bill calculation query for batch
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            inventory_id: 10,
+            pharmacy_id: 1,
+            medicine_id: 100,
+            batch_number: 'B-001',
+            quantity: 50,
+            unit_price: '2500.00',
+            expiry_date: '2028-12-31',
+            medicine_name: 'Amoxicillin 500mg',
+          },
+        ],
+      });
+
+      // 3. Database transaction mock
+      mockDb.transaction.mockImplementation(async (cb: any) => {
+        const mockClient = {
+          query: vi
+            .fn()
+            .mockResolvedValueOnce({
+              // insert sale
+              rows: [{ sale_id: 101, receipt_number: 'REC-20261109-A1B2', created_at: new Date() }],
+            })
+            .mockResolvedValueOnce({ rows: [] }) // insert sale_items
+            .mockResolvedValueOnce({
+              // update inventory_batches
+              rows: [{ inventory_id: 10, quantity: 48, reorder_level: 10 }],
+            })
+            .mockResolvedValueOnce({ rows: [] }) // insert inventory_transactions
+            .mockResolvedValueOnce({ rows: [] }), // insert payment
+        };
+        return cb(mockClient);
+      });
+
+      // 4. getReceipt queries for returned receipt
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              sale_id: 101,
+              receipt_number: 'REC-20261109-A1B2',
+              pharmacy_name: 'Kigali City Pharmacy',
+              phone_number: '+250788123456',
+              total_amount: '5000.00',
+              net_total_amount: '5000.00',
+              patient_contribution: '5000.00',
+              insurance_contribution: '0.00',
+              amount_paid: '5000.00',
+              outstanding_balance: '0.00',
+              payment_status: 'PAID',
+              sale_status: 'COMPLETED',
+              payment_category: 'PRIVATE',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              medicine_name: 'Amoxicillin 500mg',
+              batch_number: 'B-001',
+              quantity: 2,
+              unit_price: '2500.00',
+              subtotal: '5000.00',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ payment_method: 'CASH', amount: '5000.00' }],
+        });
+
+      const res = await service.createSale(
+        1,
+        {
+          paymentCategory: 'PRIVATE',
+          paymentMethod: 'CASH',
+          amountPaid: 5000,
+          customerName: 'Alice Walkin',
+          items: [{ inventoryId: 10, quantity: 2 }],
+        },
+        'pharmacist@kigali.rw',
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data.saleId).toBe(101);
+      expect(res.data.paymentStatus).toBe('PAID');
+      expect(res.data.receipt).toBeDefined();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 5. Sales Cancellation and Refund (Section 15)
+  // ─────────────────────────────────────────────────────────────
+  describe('createSale stock race', () => {
+    it('refuses to sell stock another sale took after the bill was checked', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({
+          rows: [{
+            inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 2,
+            unit_price: '100.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg',
+          }],
+        });
+      const client = {
+        query: vi
+          .fn()
+          .mockResolvedValueOnce({ rows: [{ sale_id: 101, receipt_number: 'REC-1', created_at: new Date() }] }) // sale
+          .mockResolvedValueOnce({ rows: [] }) // sale_items
+          .mockResolvedValueOnce({ rows: [] }), // stock update: no longer enough
+      };
+      mockDb.transaction.mockImplementation((cb: any) => cb(client));
+
+      await expect(
+        service.createSale(1, { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', items: [{ inventoryId: 10, quantity: 2 }] }, 'pharmacist@kigali.rw'),
+      ).rejects.toThrow(/just sold elsewhere/);
+      expect(client.query.mock.calls[2][0]).toMatch(/quantity >= \$1/);
+    });
+  });
+
+  describe('refundSale', () => {
+    it('should refund sale, restore inventory quantity, and log inventory transaction', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              sale_id: 101,
+              receipt_number: 'REC-20261109-A1B2',
+              net_total_amount: '5000.00',
+              amount_paid: '5000.00',
+              payment_status: 'PAID',
+              sale_status: 'COMPLETED',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }); // audit user
+
+      mockDb.transaction.mockImplementation(async (cb: any) => {
+        const mockClient = {
+          query: vi
+            .fn()
+            .mockResolvedValueOnce({ rows: [] }) // update sales status to REFUNDED
+            .mockResolvedValueOnce({
+              // get sale_items
+              rows: [
+                {
+                  sale_item_id: 1,
+                  inventory_id: 10,
+                  quantity: 2,
+                },
+              ],
+            })
+            .mockResolvedValueOnce({ rows: [] }) // update returned_quantity
+            .mockResolvedValueOnce({
+              // restore inventory_batches
+              rows: [{ quantity: 50 }],
+            })
+            .mockResolvedValueOnce({ rows: [] }) // insert inventory_transactions ADJUSTMENT_INCREASE
+            .mockResolvedValueOnce({ rows: [] }) // insert refund payment
+            .mockResolvedValueOnce({ rows: [] }), // cancel insurance claim if any
+        };
+        return cb(mockClient);
+      });
+
+      const res = await service.refundSale(1, 101, {
+        reason: 'Patient brought unopened medicine back within 1 hour.',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data.restoredItemsCount).toBe(1);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 6. Insurance Claims Management (Section 12)
+  // ─────────────────────────────────────────────────────────────
+  describe('updateClaimStatus', () => {
+    it('should update claim status and record insurance payment when settled', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              claim_id: 5,
+              sale_id: 101,
+              total_claimed_amount: '3750.00',
+              claim_status: 'PENDING',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] });
+
+      mockDb.transaction.mockImplementation(async (cb: any) => {
+        const mockClient = {
+          query: vi
+            .fn()
+            .mockResolvedValueOnce({
+              // update claim
+              rows: [
+                {
+                  claim_id: 5,
+                  claim_status: 'PAID',
+                  total_claimed_amount: '3750.00',
+                  approved_amount: '3750.00',
+                  paid_amount: '3750.00',
+                },
+              ],
+            })
+            .mockResolvedValueOnce({ rows: [] }), // record insurance payment
+        };
+        return cb(mockClient);
+      });
+
+      const res = await service.updateClaimStatus(1, 5, {
+        claimStatus: 'PAID',
+        approvedAmount: 3750,
+        paidAmount: 3750,
+        paymentReference: 'MMI-SETTLEMENT-9988',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data.claim_status).toBe('PAID');
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // 6. Packaging & Pharmacy Patient Scope
+  // ─────────────────────────────────────────────────────────────
+  describe('Packaging & Pharmacy-Scoped Patients', () => {
+    it('should correctly calculate bill for packaging units (2 Cartons x 100 Units = 200 base units)', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            inventory_id: 10,
+            pharmacy_id: 1,
+            medicine_id: 100,
+            batch_number: 'B-001',
+            quantity: 500,
+            unit_price: '50.00',
+            selling_price: '50.00',
+            expiry_date: '2028-12-31',
+            medicine_name: 'Paracetamol 500mg',
+            strength: '500mg',
+          },
+        ],
+      });
+
+      const res = await service.calculateBill(1, {
+        paymentCategory: 'PRIVATE',
+        items: [
+          {
+            inventoryId: 10,
+            quantity: 2,
+            packagingName: 'Carton',
+            packageQuantity: 2,
+            unitsPerPackage: 100,
+          },
+        ],
+      });
+
+      expect(res.success).toBe(true);
+      // 2 cartons x 100 tablets = 200 tablets at 50 RWF = 10,000 RWF
+      expect(res.data.financials.grossTotal).toBe(10000);
+      expect(res.data.items[0].packagingName).toBe('Carton');
+      expect(res.data.items[0].packageQuantity).toBe(2);
+      expect(res.data.items[0].dispensedBaseQuantity).toBe(200);
+    });
+
+    it('should query patients scoped to the specific pharmacy', async () => {
+      mockDb.query.mockResolvedValueOnce({
+        rows: [
+          {
+            patient_id: 10,
+            full_name: 'Eric Kwizera',
+            phone_number: '+250788000001',
+            insurances: [],
+          },
+        ],
+      });
+
+      const res = await service.searchPatients(1, 'Eric', false);
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0].full_name).toBe('Eric Kwizera');
+      // Confirm query filtered by pharmacy_patients
+      expect(mockDb.query.mock.calls[0][0]).toContain('pharmacy_patients');
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Prescription checking at the POS
+  // ─────────────────────────────────────────────────────────────
+  describe('prescriptions', () => {
+    const rxBatch = {
+      inventory_id: 10,
+      pharmacy_id: 1,
+      medicine_id: 100,
+      batch_number: 'B-001',
+      quantity: 50,
+      unit_price: '2500.00',
+      expiry_date: '2028-12-31',
+      medicine_name: 'Amoxicillin 500mg',
+      requires_prescription: true,
+    };
+
+    it('rejects a sale of prescription-only medicine without a prescription', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({ rows: [rxBatch] }); // bill batch
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, items: [{ inventoryId: 10, quantity: 2 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/prescription is required for: Amoxicillin 500mg/);
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a prescription issued to another patient or for less than the cart', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({ rows: [rxBatch] }) // bill batch
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 99, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 1, dispensed: 0, reserved: 0 }],
+        });
+
+      const attempt = service.createSale(
+        1,
+        {
+          paymentCategory: 'PRIVATE',
+          paymentMethod: 'CASH',
+          patientId: 7,
+          prescriptionReference: 'rx-1',
+          items: [{ inventoryId: 10, quantity: 2 }],
+        },
+        'pharmacist@kigali.rw',
+      );
+      await expect(attempt).rejects.toThrow(BadRequestException);
+      await expect(attempt).rejects.toThrow(/different patient/);
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    it('reports an unknown code as a new prescription to record', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, medicine_id: 100, medicine_name: 'Amoxicillin 500mg', requires_prescription: true }],
+        })
+        .mockResolvedValueOnce({ rows: [] }); // no prescription with that reference
+
+      const res = await service.verifyPrescription(1, {
+        prescriptionReference: ' SMS-555 ',
+        patientId: 7,
+        items: [{ inventoryId: 10, quantity: 2 }],
+      });
+
+      expect(res.data.found).toBe(false);
+      expect(res.data.valid).toBe(true);
+      expect(res.data.willRecordNew).toBe(true);
+      expect(mockDb.query.mock.calls[1][1]).toEqual(['SMS-555']);
+    });
+
+    it('verifies a matching active prescription', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, medicine_id: 100, medicine_name: 'Amoxicillin 500mg', requires_prescription: true }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 2, dispensed: 0, reserved: 0 }],
+        });
+
+      const res = await service.verifyPrescription(1, {
+        prescriptionReference: 'RX-1',
+        patientId: 7,
+        items: [{ inventoryId: 10, quantity: 2 }],
+      });
+
+      expect(res.data.found).toBe(true);
+      expect(res.data.valid).toBe(true);
+      expect(res.data.prescription.prescriptionId).toBe(3);
+    });
+
+    it('only allows what is left after earlier sales on the same prescription', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, medicine_id: 100, medicine_name: 'Amoxicillin 500mg', requires_prescription: true }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 21, dispensed: 14, reserved: 0 }],
+        });
+
+      const res = await service.verifyPrescription(1, {
+        prescriptionReference: 'RX-1',
+        patientId: 7,
+        items: [{ inventoryId: 10, quantity: 10 }],
+      });
+
+      expect(res.data.valid).toBe(false);
+      expect(res.data.problems[0]).toMatch(/10 requested but only 7 of the 21 prescribed are left/);
+      expect(res.data.prescription.items[0]).toMatchObject({ prescribedQuantity: 21, dispensedQuantity: 14, remainingQuantity: 7 });
+    });
+
+    it('re-checks the prescription inside the sale so two tills cannot both dispense the rest', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({ rows: [rxBatch] }) // bill batch
+        .mockResolvedValueOnce({
+          rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 2, dispensed: 0, reserved: 0 }],
+        })
+        .mockResolvedValue({ rows: [] }); // patient lookup, link to pharmacy
+
+      // Meanwhile another sale gave out both units.
+      const client = {
+        query: vi
+          .fn()
+          .mockResolvedValueOnce({
+            rows: [{ prescription_id: 3, prescription_reference: 'RX-1', patient_id: 7, status: 'ACTIVE', issued_date: '2026-11-20' }],
+          })
+          .mockResolvedValueOnce({
+            rows: [{ medicine_id: 100, medicine_name: 'Amoxicillin 500mg', strength: '500mg', prescribed: 2, dispensed: 2, reserved: 0 }],
+          }),
+      };
+      mockDb.transaction.mockImplementation((cb: any) => cb(client));
+
+      await expect(
+        service.createSale(
+          1,
+          {
+            paymentCategory: 'PRIVATE',
+            paymentMethod: 'CASH',
+            patientId: 7,
+            prescriptionReference: 'RX-1',
+            items: [{ inventoryId: 10, quantity: 2 }],
+          },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/all 2 prescribed have already been given out/);
+      expect(client.query.mock.calls[0][0]).toMatch(/FOR UPDATE/);
+      expect(client.query).toHaveBeenCalledTimes(2); // nothing written
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Completing a marketplace order with a POS sale
+  // ─────────────────────────────────────────────────────────────
+  describe('createSale for an online order', () => {
+    it('refuses an online order that is not accepted yet', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] }) // actor
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 50, unit_price: '2500.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg' }],
+        }) // bill batch
+        .mockResolvedValueOnce({ rows: [{ order_id: 12, patient_id: 7, status: 'PENDING' }] }); // order
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, marketplaceOrderId: 12, items: [{ inventoryId: 10, quantity: 1 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/pending and can't be completed/);
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses an online order that belongs to another patient', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ pharmacy_user_id: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [{ inventory_id: 10, pharmacy_id: 1, medicine_id: 100, batch_number: 'B-001', quantity: 50, unit_price: '2500.00', expiry_date: '2028-12-31', medicine_name: 'Paracetamol 500mg' }],
+        })
+        .mockResolvedValueOnce({ rows: [{ order_id: 12, patient_id: 99, status: 'READY_FOR_COLLECTION' }] });
+
+      await expect(
+        service.createSale(
+          1,
+          { paymentCategory: 'PRIVATE', paymentMethod: 'CASH', patientId: 7, marketplaceOrderId: 12, items: [{ inventoryId: 10, quantity: 1 }] },
+          'pharmacist@kigali.rw',
+        ),
+      ).rejects.toThrow(/different patient/);
+    });
+  });
+});

@@ -1,0 +1,113 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "howItWorks": "How it Works",
+    "features": "Features",
+    "contact": "Contact",
+    "login": "Login",
+    "signUp": "Sign Up"
+  },
+  "hero": {
+    "title1": "Find Medicine",
+    "title2": "Availability",
+    "title3": "Near you",
+    "desc": "Pharmatrack helps you quickly find nearby pharmacies where your prescribed medicine is available. Save time, avoid unnecessary travel, and get the medicine you need faster.",
+    "feat1": "Find nearby pharmacy",
+    "feat2": "Check real-time availability",
+    "feat3": "Save Time and Money",
+    "floating": "Nearby Pharmacies"
+  },
+  "why": {
+    "title": "WHY PHARMATRACK",
+    "subtitle": "Built for patients and pharmacies  communities",
+    "card1_title": "Real Time Availability",
+    "card1_desc": "See which pharmacy have the medicine in the stock.",
+    "card2_title": "Location Based Search",
+    "card2_desc": "Find pharmacy near you with distance and direction.",
+    "card3_title": "Save Time and Money",
+    "card3_desc": "Avoid unnecessary travel and get what you need faster."
+  },
+  "how": {
+    "title": "How It Works",
+    "subtitle": "Get medicine availability in just a few simple steps",
+    "step1_title": "Search for your medicine",
+    "step1_desc": "Type the name of your medicine. We instantly show you which nearby pharmacies have it in stock.",
+    "step1_feature":"Real-time stock visibility",
+    "step2_title": "Navigate easily",
+    "step2_desc": "Found it? Tap to see the location on our map. Get driving directions without leaving the app.",
+    "step2_feature":"In-app GPS Map",
+    "step3_title": "Use your hospital SMS",
+    "step3_desc": "Got a code from the hospital? Enter it here. We will instantly show you the nearest pharmacy that can fulfill it.",
+    "step3_feature":"Instant prescription redemption",
+    "step4_title": "Pick up & Chat",
+    "step4_desc": "Walk in to pick up your medicine. Have a question? Message the pharmacist directly through the app.",
+    "step4_feature":"Direct pharmacy chat"
+  },
+    "footer": {
+    "desc": "Pharmatrack is a health coordination platform. Medicines are supplied and dispensed only by licensed partner pharmacies.",
+    "explore": "Explore",
+    "about": "About us",
+    "articles": "Health articles",
+    "help": "Help centre",
+    "partner": "Are you a pharmacy? Partner with us",
+    "legal": "Legal",
+    "terms": "Terms of service",
+    "privacy": "Privacy policy",
+    "cookie": "Cookie policy",
+    "rights": "© 2026 Pharmatrack. All rights reserved."
+  },
+  "auth":{
+  "pharmacyDetails": "Pharmacy Details",
+  "tinNumber": "TIN Number ",
+  "uploadDocs": "Verification Documents",
+  "uploadLicense": "Upload Pharmacy License",
+  "uploadRdb": "Upload RDB Certificate",
+  "clickToUpload": "Click to upload",
+  "supportedFormats": "PNG, JPG or PDF",
+  "back": "Back",
+  "continue": "Continue",
+  "createAccountBtn": "Create Account",
+  "loginTitle":"Welcome Back",
+  "noAccount":"Don't have an account?",
+  "signUpHere":"Sign up here",
+  "LoginFails":"Login Failed",
+  "emailOrPhone":"Email or Phone Number",
+  "password":"Password",
+  "forgotPassword":"Forgot password?",
+  "loading":"Signing in...",
+  "Buttonsignin":"Sign in",
+  "orContinueWith":"Or continue with"
+  },
+  "cta":{
+    "title":"Ready to find your medicine?",
+    "subtitle":"Join thousands of users finding real-time availability, and saving time at pharmacies near them.",
+    "primaryBtn":"Get started now",
+    "secondaryBtn":"Contact support",
+    "pharmacy_title":"Are you a pharmacy?",
+    "pharmacy_subtitle":"Partner with us to reach more patients and digitize your inventory.",
+    "pharmacy_btn":"Become a partner"
+
+  },
+  "about":{
+    "quote":"I have the prescription, but I don't know which pharmacy actually has it in stock.",
+    "label":"WHY PHAMATRACK?",
+    "p1":"In Rwanda, getting a prescription is only half the battle. The other half is walking from pharmacy to pharmacy, hoping that one of them has the specific medicine your doctor ordered.",
+    "p2":"We built Pharmatrack so that patients and their families don't have to guess anymore. You can see exactly who has your medicine, how far away they are, before you even leave the hospital."
+
+  },
+  "contact":{
+    "title":"Need any help?",
+    "subtitle":"Send us a quick message and we will get back to you instantly",
+    "call":"Call us",
+    "email":"Email us",
+    "name":"Your name",
+    "phone":"Phone number",
+    "emailAddress":"Email address",
+    "message":"How can we help?",
+    "send":"Send Message"
+
+  }
+
+
+}
