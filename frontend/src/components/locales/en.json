@@ -107,7 +107,28 @@
     "message":"How can we help?",
     "send":"Send Message"
 
+  },
+  "patientApp": {
+    "eyebrow": "For patients",
+    "title": "Your pharmacy, in your pocket",
+    "subtitle": "Get the free PharmaTrack app to find medicines, order ahead and look after your whole family's prescriptions.",
+    "b1Title": "Find medicine nearby",
+    "b1Text": "See which pharmacies near you have it in stock, with prices and directions.",
+    "b2Title": "Order, then pick up",
+    "b2Text": "Book your medicines and collect them when the pharmacy has them ready.",
+    "b3Title": "Use your prescription",
+    "b3Text": "Enter your prescription number to find exactly what your doctor prescribed.",
+    "b4Title": "Care for your family",
+    "b4Text": "Add your children and order for anyone in your family from one account.",
+    "googleSmall": "Get it on",
+    "appleSmall": "Download on the",
+    "comingSoon": "Coming soon",
+    "register": "Create a free account",
+    "sameAccount": "Sign up here, then log in on the app with the same account.",
+    "mockSearch": "Search medicine",
+    "mockNearby": "Pharmacies near you",
+    "mockOpen": "Open",
+    "mockOrderTitle": "Order ready for pickup",
+    "mockOrderBody": "Show order #128 at the pharmacy"
   }
-
-
 }

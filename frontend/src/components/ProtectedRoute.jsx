@@ -1,7 +1,11 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import { useIdleLogout } from '../utils/useIdleLogout';
 
 const ProtectedRoute = ({ allowedRoles, requireApprovedPharmacy = false }) => {
+  // Sign out after 5 minutes without activity on any signed-in page.
+  useIdleLogout();
+
   // Get user data from localStorage
   const token = localStorage.getItem('token');
   const userString = localStorage.getItem('user');

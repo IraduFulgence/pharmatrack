@@ -256,7 +256,9 @@ export class InventoryService {
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
       conditions.push(
-        `(medicine_name ILIKE $${paramIdx} OR generic_name ILIKE $${paramIdx} OR brand_name ILIKE $${paramIdx} OR strength ILIKE $${paramIdx})`,
+        `(medicine_name ILIKE $${paramIdx} OR generic_name ILIKE $${paramIdx} OR brand_name ILIKE $${paramIdx} OR strength ILIKE $${paramIdx}
+          OR EXISTS (SELECT 1 FROM unnest(indications) AS tag WHERE tag ILIKE $${paramIdx})
+          OR EXISTS (SELECT 1 FROM public.medicine_categories mc WHERE mc.category_id = medicines.category_id AND mc.category_name ILIKE $${paramIdx}))`,
       );
       params.push(term);
       paramIdx++;
@@ -283,7 +285,10 @@ export class InventoryService {
     const total = Number(countRes.rows[0].count);
 
     const listRes = await this.db.query(
-      `SELECT medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at
+      `SELECT medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription,
+              category_id, indications, min_age_years, max_age_years, dosage_notes,
+              (SELECT category_name FROM public.medicine_categories mc WHERE mc.category_id = medicines.category_id) AS category_name,
+              created_at
        FROM public.medicines
        ${whereClause}
        ORDER BY medicine_name ASC
@@ -307,6 +312,39 @@ export class InventoryService {
   }
 
   /**
+   * Category, tags (what it treats), age limits and dosage notes, checked and ready to store.
+   * Empty values become null (no category / no age limit). Missing ones stay undefined.
+   */
+  private async cleanClassification(input: {
+    categoryId?: number | string | null;
+    indications?: string[] | null;
+    minAgeYears?: number | string | null;
+    maxAgeYears?: number | string | null;
+    dosageNotes?: string | null;
+  }, current?: { min_age_years: number | null; max_age_years: number | null }) {
+    const num = (v: unknown) => (v === undefined ? undefined : v === null || v === '' ? null : Number(v));
+    const categoryId = num(input.categoryId);
+    const minAge = num(input.minAgeYears);
+    const maxAge = num(input.maxAgeYears);
+    const effMin = minAge !== undefined ? minAge : current?.min_age_years ?? null;
+    const effMax = maxAge !== undefined ? maxAge : current?.max_age_years ?? null;
+    if (effMin !== null && effMax !== null && Number(effMin) > Number(effMax)) {
+      throw new BadRequestException('Minimum age cannot be above the maximum age.');
+    }
+    if (categoryId !== undefined && categoryId !== null) {
+      const res = await this.db.query('SELECT 1 FROM public.medicine_categories WHERE category_id = $1', [categoryId]);
+      if (res.rows.length === 0) throw new BadRequestException('Choose a category from the list.');
+    }
+    return {
+      categoryId,
+      indications: input.indications === undefined ? undefined : input.indications || [],
+      minAge,
+      maxAge,
+      dosageNotes: input.dosageNotes === undefined ? undefined : input.dosageNotes?.trim() || null,
+    };
+  }
+
+  /**
    * Register a new medicine scoped to a specific pharmacy or globally (for admin)
    */
   async createMedicine(dto: CreateMedicineDto, pharmacyId?: number): Promise<ApiResponse> {
@@ -326,6 +364,16 @@ export class InventoryService {
     const cleanStrength = strength?.trim() || null;
     const cleanDosage = dosageForm?.trim() || null;
     const cleanDesc = description?.trim() || null;
+    const cls = await this.cleanClassification(dto);
+    const clsValues = [
+      cls.categoryId ?? null,
+      cls.indications ?? [],
+      cls.minAge ?? null,
+      cls.maxAge ?? null,
+      cls.dosageNotes ?? null,
+    ];
+    const RETURNING_MEDICINE = `RETURNING medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description,
+         requires_prescription, category_id, indications, min_age_years, max_age_years, dosage_notes, created_at`;
 
     if (pharmacyId) {
       // Check if this pharmacy already registered this exact medicine
@@ -345,9 +393,10 @@ export class InventoryService {
 
       const res = await this.db.query(
         `INSERT INTO public.medicines
-          (pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at`,
+          (pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription,
+           category_id, indications, min_age_years, max_age_years, dosage_notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ${RETURNING_MEDICINE}`,
         [
           pharmacyId,
           cleanName,
@@ -357,6 +406,7 @@ export class InventoryService {
           cleanDosage,
           cleanDesc,
           Boolean(requiresPrescription),
+          ...clsValues,
         ],
       );
 
@@ -383,10 +433,11 @@ export class InventoryService {
     }
 
     const res = await this.db.query(
-      `INSERT INTO public.medicines 
-        (pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription)
-       VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)
-       RETURNING medicine_id, pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription, created_at`,
+      `INSERT INTO public.medicines
+        (pharmacy_id, medicine_name, generic_name, brand_name, strength, dosage_form, description, requires_prescription,
+         category_id, indications, min_age_years, max_age_years, dosage_notes)
+       VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       ${RETURNING_MEDICINE}`,
       [
         cleanName,
         cleanGeneric,
@@ -395,6 +446,7 @@ export class InventoryService {
         cleanDosage,
         cleanDesc,
         Boolean(requiresPrescription),
+        ...clsValues,
       ],
     );
 
@@ -415,7 +467,7 @@ export class InventoryService {
     userRole?: string,
   ): Promise<ApiResponse> {
     const check = await this.db.query(
-      'SELECT medicine_id, pharmacy_id FROM public.medicines WHERE medicine_id = $1',
+      'SELECT medicine_id, pharmacy_id, min_age_years, max_age_years FROM public.medicines WHERE medicine_id = $1',
       [medicineId],
     );
     if (check.rows.length === 0) {
@@ -464,6 +516,30 @@ export class InventoryService {
       params.push(Boolean(dto.requires_prescription));
     }
 
+    // Category, tags (what it treats), age limits and dosage notes.
+    const cls = await this.cleanClassification(
+      {
+        categoryId: dto.category_id,
+        indications: dto.indications,
+        minAgeYears: dto.min_age_years,
+        maxAgeYears: dto.max_age_years,
+        dosageNotes: dto.dosage_notes,
+      },
+      med,
+    );
+    const clsColumns: Array<[string, unknown]> = [
+      ['category_id', cls.categoryId],
+      ['indications', cls.indications],
+      ['min_age_years', cls.minAge],
+      ['max_age_years', cls.maxAge],
+      ['dosage_notes', cls.dosageNotes],
+    ];
+    for (const [column, value] of clsColumns) {
+      if (value === undefined) continue;
+      updates.push(`${column} = $${paramIdx++}`);
+      params.push(value);
+    }
+
     if (updates.length === 0) {
       throw new BadRequestException('No fields provided to update.');
     }
@@ -498,7 +574,9 @@ export class InventoryService {
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
       conditions.push(
-        `(m.medicine_name ILIKE $${paramIdx} OR m.generic_name ILIKE $${paramIdx} OR m.brand_name ILIKE $${paramIdx} OR m.strength ILIKE $${paramIdx})`,
+        `(m.medicine_name ILIKE $${paramIdx} OR m.generic_name ILIKE $${paramIdx} OR m.brand_name ILIKE $${paramIdx} OR m.strength ILIKE $${paramIdx}
+          OR EXISTS (SELECT 1 FROM unnest(m.indications) AS tag WHERE tag ILIKE $${paramIdx})
+          OR EXISTS (SELECT 1 FROM public.medicine_categories mc WHERE mc.category_id = m.category_id AND mc.category_name ILIKE $${paramIdx}))`,
       );
       params.push(term);
       paramIdx++;
@@ -558,6 +636,13 @@ export class InventoryService {
         m.strength,
         m.dosage_form,
         m.requires_prescription,
+        m.description,
+        m.category_id,
+        (SELECT category_name FROM public.medicine_categories mc WHERE mc.category_id = m.category_id) AS category_name,
+        m.indications,
+        m.min_age_years,
+        m.max_age_years,
+        m.dosage_notes,
         COUNT(ib.inventory_id) AS batch_count,
         COALESCE(SUM(ib.quantity), 0)::INTEGER AS total_quantity,
         MIN(ib.reorder_level) AS min_reorder_level,
@@ -600,7 +685,10 @@ export class InventoryService {
    */
   async getMedicineDetails(pharmacyId: number, medicineId: number): Promise<ApiResponse> {
     const medRes = await this.db.query(
-      'SELECT * FROM public.medicines WHERE medicine_id = $1 AND (pharmacy_id IS NULL OR pharmacy_id = $2)',
+      `SELECT m.*, mc.category_name
+       FROM public.medicines m
+       LEFT JOIN public.medicine_categories mc ON mc.category_id = m.category_id
+       WHERE m.medicine_id = $1 AND (m.pharmacy_id IS NULL OR m.pharmacy_id = $2)`,
       [medicineId, pharmacyId],
     );
     if (medRes.rows.length === 0) {

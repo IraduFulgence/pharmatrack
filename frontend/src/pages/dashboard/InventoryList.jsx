@@ -5,6 +5,16 @@ import {
   Loader2, Calendar, FileText, ArrowLeft, Edit, Save, ShieldAlert
 } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import MedicineClassificationFields, { MedicineClassificationBadges, agesAreValid, classificationPayload } from '../../components/inventory/MedicineClassificationFields';
+
+/** Form values for the category/tags/ages fields, from a medicine as the API returns it. */
+const classificationFromMedicine = (m) => ({
+  categoryId: m?.category_id != null ? String(m.category_id) : '',
+  indications: m?.indications || [],
+  minAgeYears: m?.min_age_years ?? '',
+  maxAgeYears: m?.max_age_years ?? '',
+  dosageNotes: m?.dosage_notes || '',
+});
 
 const InventoryList = () => {
   const navigate = useNavigate();
@@ -20,6 +30,8 @@ const InventoryList = () => {
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+  // Category, tags, age limits and dosage notes (edited together, sent as snake_case).
+  const [editClassification, setEditClassification] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState(null);
 
@@ -79,6 +91,7 @@ const InventoryList = () => {
       description: medicine.description || '',
       requires_prescription: medicine.requires_prescription ?? medicine.requiresPrescription ?? false,
     });
+    setEditClassification(classificationFromMedicine(medicine));
 
     try {
       const medicineId = medicine.id || medicine.medicineId || medicine.medicine_id;
@@ -91,6 +104,12 @@ const InventoryList = () => {
       else if (Array.isArray(response?.data)) batchList = response.data;
 
       setBatches(batchList);
+      // The details include the latest category, tags and ages.
+      const details = response?.data?.medicine;
+      if (details && !Array.isArray(details)) {
+        setSelectedMedicine((prev) => ({ ...prev, ...details }));
+        setEditClassification(classificationFromMedicine(details));
+      }
     } catch (err) {
       console.error("Failed to load batches:", err);
     } finally {
@@ -108,21 +127,31 @@ const InventoryList = () => {
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
+    if (!agesAreValid(editClassification)) {
+      setEditError('Minimum age cannot be above the maximum age.');
+      return;
+    }
     setIsSaving(true);
     setEditError(null);
 
     try {
       const medicineId = selectedMedicine.id || selectedMedicine.medicineId || selectedMedicine.medicine_id;
-      await inventoryService.updateMedicine(medicineId, editFormData);
-      
-      setMedicines(medicines.map(m => 
-        (m.id === medicineId || m.medicineId === medicineId) 
-          ? { ...m, ...editFormData } 
-          : m
-      ));
-      
-      setSelectedMedicine({ ...selectedMedicine, ...editFormData });
+      const cls = classificationPayload(editClassification);
+      const changes = {
+        ...editFormData,
+        category_id: cls.categoryId,
+        indications: cls.indications,
+        min_age_years: cls.minAgeYears,
+        max_age_years: cls.maxAgeYears,
+        dosage_notes: cls.dosageNotes,
+      };
+      const res = await inventoryService.updateMedicine(medicineId, changes);
+      const saved = res?.data && !Array.isArray(res.data) ? res.data : changes;
+
+      setSelectedMedicine({ ...selectedMedicine, ...editFormData, ...saved });
       setIsEditing(false);
+      // Reload so the list shows the new category name, tags and ages.
+      fetchMedicines();
     } catch (err) {
       setEditError(err.message || "Failed to update medicine.");
     } finally {
@@ -184,9 +213,15 @@ const InventoryList = () => {
     }
   };
 
+  // Search by name, category or tag.
   const filteredMedicines = Array.isArray(medicines) ? medicines.filter(med => {
-    const name = med.name || med.medicineName || med.medicine_name || '';
-    return name.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const haystack = [
+      med.name || med.medicineName || med.medicine_name || '',
+      med.category_name || '',
+      ...(med.indications || []),
+    ].join(' ').toLowerCase();
+    return haystack.includes(term);
   }) : [];
 
   return (
@@ -260,7 +295,10 @@ const InventoryList = () => {
                         <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-lg">
                           <Package size={18} />
                         </div>
-                        {med.name || med.medicineName || med.medicine_name}
+                        <div>
+                          {med.name || med.medicineName || med.medicine_name}
+                          <MedicineClassificationBadges medicine={med} />
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -350,6 +388,11 @@ const InventoryList = () => {
                       <label className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Requires Prescription</label>
                     </div>
                   </div>
+                  <MedicineClassificationFields
+                    idPrefix="edit-med"
+                    value={editClassification}
+                    onChange={(patch) => setEditClassification((prev) => ({ ...prev, ...patch }))}
+                  />
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                     <textarea name="description" rows="3" value={editFormData.description || ''} onChange={handleEditChange} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white resize-none" />
@@ -364,6 +407,12 @@ const InventoryList = () => {
                 </form>
               ) : (
                 <>
+                  <div className="mb-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
+                    <MedicineClassificationBadges medicine={selectedMedicine} maxTags={20} />
+                    {selectedMedicine.dosage_notes && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2"><span className="font-semibold">Dosage:</span> {selectedMedicine.dosage_notes}</p>
+                    )}
+                  </div>
                   {isBatchesLoading ? (
                     <div className="flex justify-center py-8">
                       <Loader2 className="animate-spin text-[#007a55]" size={32} />

@@ -264,10 +264,6 @@ export default function PharmacyDetailScreen() {
           )}
         </MapView>
 
-        {/* Back Button */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#0F2926" />
-        </TouchableOpacity>
       </View>
 
       {/* Bottom Info Sheet */}
@@ -301,20 +297,20 @@ export default function PharmacyDetailScreen() {
         {/* Route Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Distance</Text>
+            <Text style={styles.statLabel}>{t('pharmacy.distance', 'Distance')}</Text>
             <Text style={styles.statValue}>
               {routeInfo ? routeInfo.distance : '-- km'}
             </Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Drive Time</Text>
+            <Text style={styles.statLabel}>{t('pharmacy.driveTime', 'Drive time')}</Text>
             <Text style={styles.statValue}>
               {routeInfo ? routeInfo.duration : '-- min'}
             </Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Status</Text>
-            <Text style={[styles.statValue, { color: '#007a55' }]}>Open</Text>
+            <Text style={styles.statLabel}>{t('pharmacy.status', 'Status')}</Text>
+            <Text style={[styles.statValue, { color: '#007a55' }]}>{t('pharmacy.open', 'Open')}</Text>
           </View>
         </View>
 
@@ -341,7 +337,7 @@ export default function PharmacyDetailScreen() {
             }}
           >
             <Feather name="navigation" size={20} color="white" />
-            <Text style={styles.primaryButtonText}>Show Route</Text>
+            <Text style={styles.primaryButtonText}>{t('pharmacy.showRoute', 'Show route')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

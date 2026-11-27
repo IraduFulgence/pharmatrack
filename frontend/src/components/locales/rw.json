@@ -112,5 +112,28 @@
   "loading":"Uri kwinjira...",
   "Buttonsignin":"Injira",
   "orContinueWith":"cyangwa ukomeze na"
+  },
+  "patientApp": {
+    "eyebrow": "Ku barwayi",
+    "title": "Farumasi yawe, mu mufuka wawe",
+    "subtitle": "Kuramo porogaramu ya PharmaTrack ku buntu, ushake imiti, uyitumize mbere kandi ukurikirane ordonnance z'umuryango wawe wose.",
+    "b1Title": "Shaka imiti hafi yawe",
+    "b1Text": "Reba farumasi ziri hafi yawe ziyifite, ibiciro n'inzira ijyayo.",
+    "b2Title": "Tumiza, hanyuma ufate",
+    "b2Text": "Tumiza imiti yawe, uyifate igihe farumasi imaze kuyitegura.",
+    "b3Title": "Koresha ordonnance yawe",
+    "b3Text": "Shyiramo nimero ya ordonnance ubone neza imiti muganga yakwandikiye.",
+    "b4Title": "Ita ku muryango wawe",
+    "b4Text": "Ongeraho abana bawe kandi utumirize uwo ari we wese wo mu muryango ukoresheje konti imwe.",
+    "googleSmall": "Iboneka kuri",
+    "appleSmall": "Kuramo kuri",
+    "comingSoon": "Iraza vuba",
+    "register": "Fungura konti ku buntu",
+    "sameAccount": "Iyandikishe hano, hanyuma winjire muri porogaramu ukoresheje iyo konti.",
+    "mockSearch": "Shaka umuti",
+    "mockNearby": "Farumasi ziri hafi yawe",
+    "mockOpen": "Irakora",
+    "mockOrderTitle": "Itumiza riteguye gufatwa",
+    "mockOrderBody": "Erekana itumiza #128 kuri farumasi"
   }
 }

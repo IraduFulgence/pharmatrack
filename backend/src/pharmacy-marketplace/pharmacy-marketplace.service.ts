@@ -17,6 +17,62 @@ type PharmacyOrderStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
+/** Age in whole years from a patient row (date of birth first, else the stored age). */
+const ageSql = (alias: string) =>
+  `CASE WHEN ${alias}.date_of_birth IS NOT NULL
+     THEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, ${alias}.date_of_birth))::INTEGER
+     ELSE ${alias}.age END`;
+
+/**
+ * Who an order is for, for the pharmacy: the buyer, the family member they bought for
+ * (with age and relationship), the head of their family, and the family manager who
+ * placed it while acting for the patient (placed_by_*).
+ */
+const ORDER_PEOPLE_COLUMNS = `
+          ${ageSql('pt')} AS patient_age,
+          o.ordered_for_patient_id,
+          fp.full_name AS ordered_for_name,
+          fp.gender AS ordered_for_gender,
+          ${ageSql('fp')} AS ordered_for_age,
+          ffm.relationship AS ordered_for_relationship,
+          COALESCE(o.ordered_for_patient_id, o.patient_id) AS recipient_patient_id,
+          COALESCE(fp.full_name, pt.full_name) AS recipient_name,
+          COALESCE(fp.phone_number, pt.phone_number) AS recipient_phone,
+          bfm.relationship AS patient_relationship,
+          fh.patient_id AS family_head_patient_id,
+          fh.full_name AS family_head_name,
+          o.placed_by_patient_id,
+          pb.full_name AS placed_by_name,
+          pb.phone_number AS placed_by_phone,
+          pbfm.relationship AS placed_by_relationship`;
+
+const ORDER_PEOPLE_JOINS = `
+        LEFT JOIN public.patients fp
+          ON fp.patient_id = o.ordered_for_patient_id
+        LEFT JOIN public.family_members bfm
+          ON bfm.patient_id = o.patient_id
+        LEFT JOIN public.family_members ffm
+          ON ffm.patient_id = o.ordered_for_patient_id
+        LEFT JOIN public.patients pb
+          ON pb.patient_id = o.placed_by_patient_id
+        LEFT JOIN public.family_members pbfm
+          ON pbfm.patient_id = o.placed_by_patient_id
+        LEFT JOIN LATERAL (
+          SELECT hp.patient_id, hp.full_name
+          FROM public.family_members hm
+          JOIN public.patients hp ON hp.patient_id = hm.patient_id
+          WHERE hm.family_id = bfm.family_id
+            AND hm.relationship = 'HEAD'
+          LIMIT 1
+        ) fh ON TRUE`;
+
+const ORDER_PEOPLE_GROUP_BY = `
+          pt.date_of_birth, pt.age,
+          fp.full_name, fp.gender, fp.phone_number, fp.date_of_birth, fp.age,
+          ffm.relationship, bfm.relationship,
+          fh.patient_id, fh.full_name,
+          pb.full_name, pb.phone_number, pbfm.relationship`;
+
 @Injectable()
 export class PharmacyMarketplaceService {
   constructor(
@@ -214,17 +270,20 @@ export class PharmacyMarketplaceService {
           o.created_at,
           o.updated_at,
           COUNT(oi.order_item_id)::INTEGER AS item_count,
-          COALESCE(BOOL_OR(m.requires_prescription), FALSE) AS requires_prescription
+          COALESCE(BOOL_OR(m.requires_prescription), FALSE) AS requires_prescription,
+          ${ORDER_PEOPLE_COLUMNS}
         FROM public.marketplace_orders o
         LEFT JOIN public.patients pt
           ON pt.patient_id = o.patient_id
+        ${ORDER_PEOPLE_JOINS}
         LEFT JOIN public.marketplace_order_items oi
           ON oi.order_id = o.order_id
         LEFT JOIN public.medicines m
           ON m.medicine_id = oi.medicine_id
         WHERE o.pharmacy_id = $1
           ${statusCondition}
-        GROUP BY o.order_id, pt.full_name, pt.phone_number
+        GROUP BY o.order_id, pt.full_name, pt.phone_number,
+          ${ORDER_PEOPLE_GROUP_BY}
         ORDER BY
           CASE
             WHEN o.status = 'PENDING' THEN 0
@@ -289,10 +348,12 @@ export class PharmacyMarketplaceService {
           o.prescription_reference,
           (o.prescription_image_path IS NOT NULL) AS has_prescription_image,
           o.created_at,
-          o.updated_at
+          o.updated_at,
+          ${ORDER_PEOPLE_COLUMNS}
         FROM public.marketplace_orders o
         LEFT JOIN public.patients pt
           ON pt.patient_id = o.patient_id
+        ${ORDER_PEOPLE_JOINS}
         WHERE o.order_id = $1
           AND o.pharmacy_id = $2
         LIMIT 1

@@ -112,6 +112,28 @@
   "loading":"Connexion en cours...",
   "Buttonsignin":"Se connecter",
   "orContinueWith":"ou poursuivre avec"
+  },
+  "patientApp": {
+    "eyebrow": "Pour les patients",
+    "title": "Votre pharmacie dans votre poche",
+    "subtitle": "Téléchargez l'application gratuite PharmaTrack pour trouver vos médicaments, commander à l'avance et gérer les ordonnances de toute votre famille.",
+    "b1Title": "Trouvez vos médicaments à proximité",
+    "b1Text": "Voyez quelles pharmacies proches les ont en stock, avec les prix et l'itinéraire.",
+    "b2Title": "Commandez, puis récupérez",
+    "b2Text": "Réservez vos médicaments et récupérez-les quand la pharmacie les a préparés.",
+    "b3Title": "Utilisez votre ordonnance",
+    "b3Text": "Saisissez le numéro de votre ordonnance pour trouver exactement ce que votre médecin a prescrit.",
+    "b4Title": "Prenez soin de votre famille",
+    "b4Text": "Ajoutez vos enfants et commandez pour n'importe quel membre de la famille depuis un seul compte.",
+    "googleSmall": "Disponible sur",
+    "appleSmall": "Télécharger dans l'",
+    "comingSoon": "Bientôt disponible",
+    "register": "Créer un compte gratuit",
+    "sameAccount": "Inscrivez-vous ici, puis connectez-vous à l'application avec le même compte.",
+    "mockSearch": "Rechercher un médicament",
+    "mockNearby": "Pharmacies proches",
+    "mockOpen": "Ouvert",
+    "mockOrderTitle": "Commande prête à récupérer",
+    "mockOrderBody": "Présentez la commande n°128 à la pharmacie"
   }
-
 }

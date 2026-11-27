@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,9 @@ const Login = () => {
   const { t } = useTranslation();
 
   const navigate = useNavigate();
+  const location = useLocation();
+  // Sent here after 5 minutes without activity (see utils/useIdleLogout).
+  const signedOutForIdle = location.state?.reason === 'idle';
 
     const handleSubmit = async (e) => {
     // Prevent default form submission behavior 
@@ -33,6 +36,8 @@ const Login = () => {
         // Save token and user data
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
+        // Start the inactivity timer fresh for this session.
+        localStorage.setItem('lastActivityAt', String(Date.now()));
         
         // Navigate to the correct dashboard
         navigate(response.data.redirectTo);
@@ -77,7 +82,16 @@ const Login = () => {
           </p>
         </div>
 
-        
+
+        {signedOutForIdle && !error && (
+          <div role="status" className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-md flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              {t('auth.idleSignedOut', 'You were signed out after 5 minutes without activity. Log in again to continue.')}
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
             <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />

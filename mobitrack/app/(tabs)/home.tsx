@@ -78,7 +78,6 @@ export default function HomeScreen() {
   const [userInitials, setUserInitials] = useState("U");
 
   // Modals State
-  const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isCodeModalVisible, setIsCodeModalVisible] = useState(false);
   const [prescriptionCode, setPrescriptionCode] = useState("");
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
@@ -155,7 +154,7 @@ export default function HomeScreen() {
         setOtherPharmacies(outsideRadius);
       } catch (error: any) {
         console.error("Fetch Error:", error);
-        Alert.alert("Connection Error", "Could not load nearby pharmacies.");
+        Alert.alert(t('homescreen.connectionErrorTitle', 'Connection error'), t('homescreen.connectionErrorBody', 'Could not load nearby pharmacies.'));
       } finally {
         setIsLoading(false);
         fetchingRef.current = false;
@@ -179,7 +178,7 @@ export default function HomeScreen() {
   // Handle Code Redemption
   const handleRedeemCode = async () => {
     if (!prescriptionCode.trim()) {
-      Alert.alert("Error", "Please enter the code from your SMS.");
+      Alert.alert(t('common.error', 'Error'), t('homescreen.enterSmsCode', 'Please enter the code from your SMS.'));
       return;
     }
 
@@ -198,17 +197,10 @@ export default function HomeScreen() {
         params: { initialQuery: firstMedicine },
       });
     } catch (error: any) {
-      Alert.alert("Invalid Code", error.message);
+      Alert.alert(t('homescreen.invalidCode', 'Invalid code'), error.message);
     } finally {
       setIsVerifyingCode(false);
     }
-  };
-
-  const handleLogout = async () => {
-    setIsMenuVisible(false);
-    await SecureStore.deleteItemAsync("token");
-    await SecureStore.deleteItemAsync("user");
-    router.replace("/auth/login");
   };
 
   const PharmacyCard = ({
@@ -293,18 +285,6 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Image source={logo} style={styles.headerLogo} resizeMode="contain" />
-          <TouchableOpacity
-            onPress={() => setIsMenuVisible(true)}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>{userInitials}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* Body */}
       <ScrollView
@@ -553,61 +533,6 @@ export default function HomeScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal
-        visible={isMenuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsMenuVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.profileModalOverlay}
-          activeOpacity={1}
-          onPress={() => setIsMenuVisible(false)}
-        >
-          <View style={styles.dropdownContainer}>
-            <View style={styles.dropdownHeader}>
-              <View style={styles.dropdownAvatar}>
-                <Text style={styles.dropdownAvatarText}>{userInitials}</Text>
-              </View>
-              <View>
-                <Text style={styles.dropdownName}>{userName}</Text>
-              </View>
-            </View>
-            <View style={styles.dropdownDivider} />
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setIsMenuVisible(false);
-                router.push("/(tabs)/profile");
-              }}
-            >
-              <Ionicons name="person-outline" size={20} color="#344054" />
-              <Text style={styles.menuItemText}>
-                {t("dropdown.Myprofile")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setIsMenuVisible(false);
-                router.push("/(tabs)/orders");
-              }}
-            >
-              <Ionicons name="receipt-outline" size={20} color="#344054" />
-              <Text style={styles.menuItemText}>
-                {t("dropdown.MyOrders")}
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.dropdownDivider} />
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-              <Text style={[styles.menuItemText, { color: "#EF4444" }]}>
-                {t("dropdown.Signout")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }

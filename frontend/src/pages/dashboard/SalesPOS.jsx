@@ -10,6 +10,7 @@ import { salesService } from '../../services/salesService';
 import { marketplaceService, PAYMENT_LABELS } from '../../services/marketplaceService';
 import PatientSelectorModal from '../../components/sales/PatientSelectorModal';
 import SalesHistory from './SalesHistory';
+import { MedicineClassificationBadges } from '../../components/inventory/MedicineClassificationFields';
 
 // MOCK DATA
 const MOCK_HISTORY = [
@@ -107,16 +108,19 @@ const SalesPOS = () => {
               batchNumber: batch.batch_number,
               unitPrice: Number(batch.unit_price),
               availableQuantity: Number(batch.quantity),
-              requires_prescription: med.requires_prescription || false, 
+              requires_prescription: med.requires_prescription || false,
+              // Shown in the results; the sale itself is still checked against the patient's age.
+              category_name: med.category_name || null,
+              indications: med.indications || [],
+              min_age_years: med.min_age_years ?? null,
+              max_age_years: med.max_age_years ?? null,
             });
           });
         }
       });
 
-      const lowerQuery = searchQuery.toLowerCase();
-      setSearchResults(flattened.filter(item => 
-        item.medicineName.toLowerCase().includes(lowerQuery)
-      ));
+      // The server already matched name, category or tag.
+      setSearchResults(flattened);
     } catch (err) {
       console.error(err);
     } finally {
@@ -230,7 +234,14 @@ const SalesPOS = () => {
         if (it.short_by > 0) short.push(`${it.medicine_name} (short by ${it.short_by})`);
       });
       setCart(lines);
-      setPatient({ id: order.patient_id, patient_id: order.patient_id, full_name: order.patient_name, phone_number: order.patient_phone });
+      // The sale is for whoever the medicine is for: a family member the buyer ordered for, or the buyer.
+      const recipientId = order.recipient_patient_id ?? order.patient_id;
+      setPatient({
+        id: recipientId,
+        patient_id: recipientId,
+        full_name: order.recipient_name || order.patient_name,
+        phone_number: order.recipient_phone || order.patient_phone,
+      });
       setSelectedInsurance(null);
       setPaymentMethod(order.payment_method === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH');
       setMarketplaceOrderId(order.order_id);
@@ -455,6 +466,7 @@ const SalesPOS = () => {
                           <div>
                             <p className="font-bold">{batch.medicineName} {batch.strength}</p>
                             <p className="text-xs text-gray-500">Batch: {batch.batchNumber} • {batch.availableQuantity} left</p>
+                            <MedicineClassificationBadges medicine={batch} />
                           </div>
                           <p className="font-bold text-[#007a55]">{batch.unitPrice} RWF</p>
                         </div>
@@ -648,6 +660,19 @@ const SalesPOS = () => {
                     {order.requires_prescription && <span className="text-xs ml-2 text-red-600">Rx</span>}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{order.patient_name || `Patient #${order.patient_id}`}{order.patient_phone ? ` (${order.patient_phone})` : ''}</p>
+                  {order.ordered_for_patient_id != null && Number(order.ordered_for_patient_id) !== Number(order.patient_id) && (
+                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
+                      For {order.ordered_for_name}{order.ordered_for_age != null ? ` · ${order.ordered_for_age} yrs` : ''}
+                    </p>
+                  )}
+                  {order.placed_by_patient_id != null && Number(order.placed_by_patient_id) !== Number(order.patient_id) && (
+                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
+                      Placed by {order.placed_by_name}{order.patient_age != null ? ` · patient is ${order.patient_age} yrs` : ''}
+                    </p>
+                  )}
+                  {order.family_head_name && Number(order.family_head_patient_id) !== Number(order.patient_id) && (
+                    <p className="text-xs text-gray-500">Family head: {order.family_head_name}</p>
+                  )}
                   <p className="text-sm mt-1"><span className="font-bold">{Number(order.total).toLocaleString()} RWF</span> · {order.item_count} item{order.item_count === 1 ? '' : 's'} · {PAYMENT_LABELS[order.payment_method] || order.payment_method}</p>
                 </div>
                 <button

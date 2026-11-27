@@ -30,7 +30,7 @@ export default function CTA() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               {/* Primary Button */}
               <Link
-                to="/auth/register"
+                to="/register"
                 className="w-full sm:w-auto px-8 py-4 bg-white text-[#3b9568] font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200 flex items-center justify-center gap-2"
               >
                 {t('cta.primaryBtn', 'Get Started Now')}
@@ -40,12 +40,12 @@ export default function CTA() {
               </Link>
 
               {/* Secondary Button */}
-              <Link
-                to="/contact"
+              <a
+                href="#contact"
                 className="w-full sm:w-auto px-8 py-4 bg-transparent border-2 border-white text-white font-semibold rounded-xl hover:bg-white/10 transition-colors duration-200 flex items-center justify-center"
               >
                 {t('cta.secondaryBtn', 'Contact Support')}
-              </Link>
+              </a>
             </div>
             
             

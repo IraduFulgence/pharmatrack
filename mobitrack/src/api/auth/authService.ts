@@ -47,6 +47,8 @@ export const AuthService = {
     if (response.data?.token) {
       await SecureStore.setItemAsync('token', response.data.token);
       await SecureStore.setItemAsync('user', JSON.stringify(response.data.user));
+      // Start the 5-minute inactivity timer fresh for this session.
+      await SecureStore.setItemAsync('lastActivityAt', String(Date.now()));
     }
 
     return response;

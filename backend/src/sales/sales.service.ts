@@ -227,13 +227,20 @@ export class SalesService {
         m.brand_name,
         m.strength,
         m.dosage_form,
-        m.requires_prescription
+        m.requires_prescription,
+        mc.category_name,
+        m.indications,
+        m.min_age_years,
+        m.max_age_years
        FROM public.medicines m
        JOIN public.inventory_batches ib ON ib.medicine_id = m.medicine_id
-       WHERE ib.pharmacy_id = $1 
-         AND ib.quantity > 0 
+       LEFT JOIN public.medicine_categories mc ON mc.category_id = m.category_id
+       WHERE ib.pharmacy_id = $1
+         AND ib.quantity > 0
          AND (ib.expiry_date IS NULL OR ib.expiry_date >= CURRENT_DATE)
-         AND (m.medicine_name ILIKE $2 OR m.generic_name ILIKE $2 OR m.brand_name ILIKE $2 OR m.strength ILIKE $2)
+         AND (m.medicine_name ILIKE $2 OR m.generic_name ILIKE $2 OR m.brand_name ILIKE $2 OR m.strength ILIKE $2
+              OR mc.category_name ILIKE $2
+              OR EXISTS (SELECT 1 FROM unnest(m.indications) AS tag WHERE tag ILIKE $2))
        ORDER BY m.medicine_name ASC
        LIMIT 25`,
       [pharmacyId, term],
@@ -879,7 +886,7 @@ export class SalesService {
     // An online order being collected: it must be this pharmacy's, accepted, and for this patient.
     if (marketplaceOrderId) {
       const orderRes = await this.db.query(
-        `SELECT order_id, patient_id, status FROM public.marketplace_orders WHERE order_id = $1 AND pharmacy_id = $2`,
+        `SELECT order_id, patient_id, ordered_for_patient_id, status FROM public.marketplace_orders WHERE order_id = $1 AND pharmacy_id = $2`,
         [marketplaceOrderId, pharmacyId],
       );
       if (orderRes.rows.length === 0) {
@@ -889,7 +896,9 @@ export class SalesService {
       if (order.status !== 'ACCEPTED' && order.status !== 'READY_FOR_COLLECTION') {
         throw new BadRequestException(`This online order is ${String(order.status).toLowerCase().replace(/_/g, ' ')} and can't be completed.`);
       }
-      if (patientId && Number(patientId) !== Number(order.patient_id)) {
+      // The sale goes to whoever the medicine is for: the buyer, or the family member they ordered for.
+      const orderPatients = [order.patient_id, order.ordered_for_patient_id].filter((id) => id != null).map(Number);
+      if (patientId && !orderPatients.includes(Number(patientId))) {
         throw new BadRequestException('This online order belongs to a different patient.');
       }
     }
