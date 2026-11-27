@@ -107,6 +107,17 @@ export default function RegisterScreen() {
     }
   };
 
+  // Date of birth comes first: every other field stays locked until it shows the patient is 18+.
+  const dobOk = Boolean(dateOfBirth) && !validateField('dateOfBirth', dateOfBirth);
+  const formLocked = !dobOk;
+
+  // Check the date of birth the moment it's picked.
+  const applyDateOfBirth = (date: Date) => {
+    const dateStr = toIso(date);
+    setDateOfBirth(dateStr);
+    setErrors(prev => ({ ...prev, dateOfBirth: validateField('dateOfBirth', dateStr) }));
+  };
+
   // Update Field and Clear Error
   const handleFieldChange = (field: string, setter: (val: string) => void, value: string) => {
     setter(value);
@@ -121,25 +132,22 @@ export default function RegisterScreen() {
     
     if (event.type === 'set' && selectedDate) {
       setTempDate(selectedDate);
-      const year = selectedDate.getFullYear();
-      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(selectedDate.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      handleFieldChange('dateOfBirth', setDateOfBirth, dateStr);
+      // Android applies the date when the dialog closes; iOS waits for "Done".
+      if (Platform.OS === 'android') applyDateOfBirth(selectedDate);
     }
   };
 
   const confirmIOSDate = () => {
-    const year = tempDate.getFullYear();
-    const month = String(tempDate.getMonth() + 1).padStart(2, '0');
-    const day = String(tempDate.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
-    handleFieldChange('dateOfBirth', setDateOfBirth, dateStr);
+    applyDateOfBirth(tempDate);
     setShowDatePicker(false);
   };
 
   // Submit Handler
   const handleSubmit = async () => {
+    if (formLocked) {
+      setErrors(prev => ({ ...prev, dateOfBirth: validateField('dateOfBirth', dateOfBirth) }));
+      return;
+    }
     const newErrors: {[key: string]: string} = {};
     
     newErrors.fullName = validateField('fullName', fullName);
@@ -191,6 +199,7 @@ export default function RegisterScreen() {
       <TouchableOpacity 
         style={[styles.radioOption, isSelected && styles.radioOptionSelected]} 
         onPress={() => setGender(value)}
+        disabled={formLocked}
         activeOpacity={0.7}
       >
         <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
@@ -246,27 +255,11 @@ export default function RegisterScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* FULL NAME */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('auth.signup.Fullname')}</Text>
-              <View style={[styles.inputContainer, errors.fullName && styles.inputContainerError]}>
-                <Ionicons name="person-outline" size={20} color={errors.fullName ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="John Doe"
-                  placeholderTextColor="#98A2B3"
-                  value={fullName}
-                  onChangeText={(v) => handleFieldChange('fullName', setFullName, v)}
-                />
-              </View>
-              {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
-            </View>
-
-            {/* DOB */}
+            {/* DOB — asked first; the rest of the form unlocks only for adults */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('auth.signup.DOB')}</Text>
-              <TouchableOpacity 
-                style={[styles.inputContainer, errors.dateOfBirth && styles.inputContainerError]} 
+              <TouchableOpacity
+                style={[styles.inputContainer, !!errors.dateOfBirth && styles.inputContainerError]}
                 onPress={() => setShowDatePicker(true)}
                 activeOpacity={0.7}
               >
@@ -275,9 +268,21 @@ export default function RegisterScreen() {
                   {dateOfBirth || "YYYY-MM-DD"}
                 </Text>
               </TouchableOpacity>
-              {errors.dateOfBirth
-                ? <Text style={styles.errorText}>{errors.dateOfBirth}</Text>
-                : <Text style={styles.hintText}>{t('auth.signup.ageHint', { defaultValue: 'You must be {{age}} or older.', age: MIN_PATIENT_AGE })}</Text>}
+              {errors.dateOfBirth ? (
+                <View style={styles.ageAlert} accessibilityRole="alert">
+                  <Ionicons name="alert-circle" size={18} color="#B42318" style={{ marginRight: 8, marginTop: 1 }} />
+                  <Text style={styles.ageAlertText}>{errors.dateOfBirth}</Text>
+                </View>
+              ) : (
+                <Text style={styles.hintText}>
+                  {dobOk
+                    ? t('auth.signup.ageOk', 'Thanks, you can continue.')
+                    : t('auth.signup.ageFirstHint', {
+                        defaultValue: 'Start with your date of birth. You must be {{age}} or older to register.',
+                        age: MIN_PATIENT_AGE,
+                      })}
+                </Text>
+              )}
             </View>
 
             {showDatePicker && (
@@ -287,7 +292,7 @@ export default function RegisterScreen() {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleDateChange}
-                  maximumDate={latestAdultDob()} 
+                  maximumDate={new Date()}
                   themeVariant="light"
                 />
                 {Platform.OS === 'ios' && (
@@ -297,6 +302,32 @@ export default function RegisterScreen() {
                 )}
               </View>
             )}
+
+            {/* Everything below stays locked until the date of birth shows the patient is 18+ */}
+            <View
+              pointerEvents={formLocked ? 'none' : 'auto'}
+              accessibilityState={{ disabled: formLocked }}
+              importantForAccessibility={formLocked ? 'no-hide-descendants' : 'auto'}
+              accessibilityElementsHidden={formLocked}
+              style={formLocked && styles.lockedSection}
+            >
+
+            {/* FULL NAME */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('auth.signup.Fullname')}</Text>
+              <View style={[styles.inputContainer, !!errors.fullName && styles.inputContainerError]}>
+                <Ionicons name="person-outline" size={20} color={errors.fullName ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="John Doe"
+                  placeholderTextColor="#98A2B3"
+                  value={fullName}
+                  editable={!formLocked}
+                  onChangeText={(v) => handleFieldChange('fullName', setFullName, v)}
+                />
+              </View>
+              {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+            </View>
 
             {/* Gender */}
             <View style={styles.inputGroup}>
@@ -317,6 +348,7 @@ export default function RegisterScreen() {
                     <TouchableOpacity
                       key={r.value}
                       style={[styles.radioOption, styles.roleOption, selected && styles.radioOptionSelected]}
+                      disabled={formLocked}
                       onPress={() => {
                         setHouseholdRole(r.value);
                         if (errors.householdRole) setErrors((prev) => ({ ...prev, householdRole: '' }));
@@ -342,7 +374,7 @@ export default function RegisterScreen() {
             {/* Email */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('auth.signup.Email')} <Text style={{color:'#98A2B3'}}>(Optional)</Text></Text>
-              <View style={[styles.inputContainer, errors.email && styles.inputContainerError]}>
+              <View style={[styles.inputContainer, !!errors.email && styles.inputContainerError]}>
                 <Ionicons name="mail-outline" size={20} color={errors.email ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
@@ -350,7 +382,8 @@ export default function RegisterScreen() {
                   placeholderTextColor="#98A2B3"
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  value={email} 
+                  value={email}
+                  editable={!formLocked}
                   onChangeText={(v) => handleFieldChange('email', setEmail, v)}
                 />
               </View>
@@ -360,14 +393,15 @@ export default function RegisterScreen() {
             {/* Phone number */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('auth.signup.Phone')}</Text>
-              <View style={[styles.inputContainer, errors.phone && styles.inputContainerError]}>
+              <View style={[styles.inputContainer, !!errors.phone && styles.inputContainerError]}>
                 <Ionicons name="call-outline" size={20} color={errors.phone ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="+250788000003"
                   placeholderTextColor="#98A2B3"
                   keyboardType="phone-pad"
-                  value={phone} 
+                  value={phone}
+                  editable={!formLocked}
                   onChangeText={(v) => handleFieldChange('phone', setPhone, v)}
                 />
               </View>
@@ -377,7 +411,7 @@ export default function RegisterScreen() {
             {/* Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('auth.login.password')}</Text>
-              <View style={[styles.inputContainer, errors.password && styles.inputContainerError]}>
+              <View style={[styles.inputContainer, !!errors.password && styles.inputContainerError]}>
                 <Ionicons name="lock-closed-outline" size={20} color={errors.password ? "#EF4444" : "#98A2B3"} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
@@ -385,9 +419,10 @@ export default function RegisterScreen() {
                   placeholderTextColor="#98A2B3"
                   secureTextEntry={!showPassword}
                   value={password}
+                  editable={!formLocked}
                   onChangeText={(v) => handleFieldChange('password', setPassword, v)}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={formLocked}>
                   <Ionicons 
                     name={showPassword ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
@@ -408,11 +443,14 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
+            </View>
+
             {/* Submit Button */}
-            <TouchableOpacity 
-              style={[styles.submitButton, isLoading && { opacity: 0.7 }]} 
+            <TouchableOpacity
+              style={[styles.submitButton, (isLoading || formLocked) && { opacity: 0.5 }]}
               onPress={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || formLocked}
+              accessibilityState={{ disabled: isLoading || formLocked }}
             >
               {isLoading ? (
                 <ActivityIndicator color="white" />
@@ -543,6 +581,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#667085',
     marginTop: 4,
+  },
+  ageAlert: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECDCA',
+    backgroundColor: '#FEF3F2',
+  },
+  ageAlertText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#B42318',
+    fontWeight: '500',
+  },
+  lockedSection: {
+    opacity: 0.45,
   },
   // Full-width, stacked radio cards (radioOption is laid out for a row).
   roleOption: {

@@ -11,6 +11,15 @@ const latestAdultDob = () => {
   if (d.getMonth() !== t.getMonth()) d.setDate(0);
   return isoDate(d);
 };
+// Why this date of birth can't register, or null if it's fine (or not entered yet).
+const dobProblem = (dob) => {
+  if (!dob) return null;
+  if (dob > isoDate(new Date())) return 'Date of birth cannot be in the future.';
+  if (dob > latestAdultDob()) {
+    return `You must be at least ${MIN_PATIENT_AGE} years old to create an account. A parent or guardian can add you to their family instead.`;
+  }
+  return null;
+};
 
 const HOUSEHOLD_ROLES = [
   { value: 'FAMILY_HEAD', label: 'Head of the family', hint: 'You can add your spouse and children later.' },
@@ -75,6 +84,14 @@ const Register = () => {
 
   const maxStep = formData.accountType === 'pharmacy' ? 6 : 3;
   const isPharmacy = formData.accountType === 'pharmacy';
+  // Patients enter their date of birth first; everything else stays locked until it shows they're 18+.
+  const dobOk = Boolean(formData.dateOfBirth) && !dobProblem(formData.dateOfBirth);
+  const patientLocked = !isPharmacy && !dobOk;
+
+  const handleDobChange = (value) => {
+    setFormData((prev) => ({ ...prev, dateOfBirth: value }));
+    setErrors((prev) => ({ ...prev, dateOfBirth: dobProblem(value) }));
+  };
 
   const handleNext = () => setStep((prev) => prev + 1);
   const handlePrev = () => setStep((prev) => prev - 1);
@@ -140,10 +157,7 @@ const Register = () => {
       } else {
         if (!formData.fullName.trim()) newErrors.fullName = "Full Name is required";
         if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
-        else if (formData.dateOfBirth > isoDate(new Date())) newErrors.dateOfBirth = "Date of birth cannot be in the future";
-        else if (formData.dateOfBirth > latestAdultDob()) {
-          newErrors.dateOfBirth = `You must be at least ${MIN_PATIENT_AGE} to create an account. A parent or guardian can add you to their family instead.`;
-        }
+        else if (dobProblem(formData.dateOfBirth)) newErrors.dateOfBirth = dobProblem(formData.dateOfBirth);
         if (!formData.householdRole) newErrors.householdRole = "Choose your role in your household";
       }
       if (!/^\+[1-9]\d{1,14}$/.test(formData.phone)) {
@@ -312,6 +326,33 @@ const Register = () => {
 
             {step === 2 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                {!isPharmacy && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      max={isoDate(new Date())}
+                      onChange={(e) => handleDobChange(e.target.value)}
+                      className={`block w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#007a55] dark:bg-gray-900 dark:text-white ${errors.dateOfBirth ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
+                    />
+                    {errors.dateOfBirth ? (
+                      <div role="alert" className="mt-2 p-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+                        {errors.dateOfBirth}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-xs mt-1">
+                        {dobOk ? 'Thanks, you can continue.' : `Start with your date of birth. You must be ${MIN_PATIENT_AGE} or older to register.`}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <fieldset
+                  disabled={patientLocked}
+                  aria-disabled={patientLocked}
+                  className={`space-y-4 border-0 p-0 m-0 min-w-0 transition-opacity ${patientLocked ? 'opacity-50 pointer-events-none select-none' : ''}`}
+                >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {isPharmacy ? 'Pharmacy Name' : 'Full Name'}
@@ -327,32 +368,17 @@ const Register = () => {
                 </div>
 
                 {!isPharmacy && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth</label>
-                      <input
-                        type="date"
-                        value={formData.dateOfBirth}
-                        max={latestAdultDob()}
-                        onChange={(e) => updateData('dateOfBirth', e.target.value)}
-                        className={`block w-full px-4 py-2.5 border rounded-lg dark:bg-gray-900 dark:text-white ${errors.dateOfBirth ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
-                      />
-                      {errors.dateOfBirth
-                        ? <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>
-                        : <p className="text-gray-500 text-xs mt-1">You must be {MIN_PATIENT_AGE} or older.</p>}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
-                      <select
-                        value={formData.gender}
-                        onChange={(e) => updateData('gender', e.target.value)}
-                        className="block w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white"
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => updateData('gender', e.target.value)}
+                      className="block w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 )}
 
@@ -389,6 +415,7 @@ const Register = () => {
                   />
                   {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                 </div>
+                </fieldset>
               </div>
             )}
 
@@ -603,7 +630,7 @@ const Register = () => {
               
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || (step === 2 && patientLocked)}
                 className={`flex justify-center items-center gap-2 py-3 px-4 rounded-lg text-sm font-bold text-white bg-[#007a55] hover:bg-[#006645] transition-colors disabled:opacity-70 ${step > 1 ? 'w-2/3' : 'w-full'}`}
               >
                 {isLoading ? <Loader2 className="animate-spin" size={18} /> : null}
